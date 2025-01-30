@@ -4,9 +4,39 @@
   <title>Piotr Zatek</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter&display=swap">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Add these styles or move them into your styles.css */
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    /* Container to constrain text width */
+    .container {
+      max-width: 650px; /* Adjust as desired (e.g., 500px, 800px, etc.) */
+      width: 100%;
+      margin: 0 auto;
+      text-align: center; /* Center the text inside the container if you like */
+      padding: 0 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <h1>Hi! I'm Piotr Zatek. If you're seeing this, then my website is under construction. It will be back up soon!</h1>
-  <a href="https://www.linkedin.com/in/piotrzatek" target="_blank"><button>LinkedIn</button></a>
+  <div class="container">
+    <h1>Hi! I'm Piotr Zatek. If you're seeing this, my website is under construction. It will be back up soon!</h1>
+    <a href="https://www.linkedin.com/in/piotrzatek" target="_blank">
+      <button>LinkedIn</button>
+    </a>
+  </div>
 </body>
 </html>
