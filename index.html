@@ -1,42 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Piotr Zatek</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter&display=swap">
   <link rel="stylesheet" href="styles.css">
-  <style>
-    /* Add these styles or move them into your styles.css */
-    html, body {
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: 'Inter', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    /* Container to constrain text width */
-    .container {
-      max-width: 650px; /* Adjust as desired (e.g., 500px, 800px, etc.) */
-      width: 100%;
-      margin: 0 auto;
-      text-align: center; /* Center the text inside the container if you like */
-      padding: 0 1rem;
-      box-sizing: border-box;
-    }
-    button {
-      cursor: pointer;
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Hi! I'm Piotr Zatek. If you're seeing this, my website is under construction. It will be back up soon!</h1>
-    <a href="https://www.linkedin.com/in/piotrzatek" target="_blank">
-      <button>LinkedIn</button>
-    </a>
+  <div class="grid-container">
+    <div class="text-box">Hi! I'm Piotr Zatek.</div>
+    <div class="text-box-below">
+      I'm currently studying CS at UIUC.<br>
+      Feel free to reach out below!
+    </div>
+    <div class="icon-buttons">
+      <a href="mailto:example@example.com" class="icon-button">
+        <i class="fas fa-envelope"></i>
+      </a>
+      <a href="tel:+1234567890" class="icon-button">
+        <i class="fas fa-phone"></i>
+      </a>
+      <a href="https://www.linkedin.com/in/piotr-zatek" class="icon-button">
+        <i class="fab fa-linkedin"></i>
+      </a>
+    </div>
   </div>
+
 </body>
 </html>

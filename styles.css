@@ -1,28 +1,73 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 html, body {
-    margin: 0; 
-    padding: 0;
-  }
-  
-  body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center;
-    min-height: 100vh;
-  }
-  
-  h1 {
-    font-family: 'Inter', sans-serif;
-  }
-  
-  a {
-    display: inline-block;
-    text-decoration: none;
-    margin: 0 10px;
-  }
-  
-  button {
-    cursor: pointer;
-  }
-  
+  width: 100%;
+  height: 100%;
+  font-family: 'Inter', sans-serif;
+  color: white;
+  position: relative;
+}
+
+body {
+  background: url('PiotrZatek.webp') no-repeat center center fixed;
+  background-size: cover;
+}
+
+.text-box,
+.text-box-below,
+.icon-buttons {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  text-align: center;
+  background: none;
+  border: none;
+  white-space: nowrap;
+}
+
+.text-box {
+  top: 33.33%;
+  left: 33.33%;
+  transform: translate(-50%, -50%);
+  width: 30%;
+  font-size: clamp(20px, 5vw, 45px);
+  font-weight: 600;
+}
+
+.text-box-below {
+  top: 41.5%;
+  left: 33.33%;
+  transform: translate(-50%, -50%);
+  width: 30%;
+  font-size: clamp(12px, 3vw, 24.55px);
+}
+
+.icon-buttons {
+  top: 50%;
+  left: 33.33%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 35%;
+}
+
+.icon-button {
+  color: white;
+  text-decoration: none;
+  font-size: clamp(24px, 4vw, 36px);
+  margin: 0 10px;
+  padding: 0.2em;
+  transition: text-shadow 0.3s ease, color 0.3s ease;
+}
+
+.icon-button:hover {
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+}
