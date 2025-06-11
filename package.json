@@ -1,0 +1,25 @@
+{
+  "name": "pazatek.github.io",
+  "version": "1.0.0",
+  "description": "HTML/CSS for my personal website, piotrzatek.com",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx tailwindcss -i ./src/input.css -o ./styles.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pazatek/pazatek.github.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pazatek/pazatek.github.io/issues"
+  },
+  "homepage": "https://github.com/pazatek/pazatek.github.io#readme",
+  "devDependencies": {
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1"
+  }
+}
