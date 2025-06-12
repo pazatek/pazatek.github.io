@@ -13,12 +13,15 @@
       transition: background-color 0.7s ease, color 0.7s ease, border-color 0.7s ease, fill 0.7s ease, stroke 0.7s ease;
     }
 
-    /* Slower transition for markdown magic links */
-    .markdown-magic-link {
-      transition: background-color 0.6s ease, color 0.6s ease !important;
+    /* Slower transition for tag links */
+    .tag-link {
+      transition: background-color 0.6s ease, color 0.6s ease;
     }
-    .markdown-magic-link-image svg {
-      transition: fill 0.6s ease !important;
+    .tag-link-image svg {
+      transition: fill 0.6s ease;
+      background: transparent;
+      border: none;
+      box-shadow: none;
     }
 
     /* Dark mode toggle styles */
@@ -61,26 +64,23 @@
 
     /* Dark mode styles */
     .dark {
-      background-color: #18181b !important;
+      background-color: #18181b;
     }
     .dark .text-gray-600, .dark .text-gray-700 {
-      color: #e5e7eb !important;
+      color: #e5e7eb;
     }
     .dark .text-4xl, .dark .font-semibold {
-      color: #fff !important;
+      color: #fff;
     }
     .dark .bg-white {
-      background-color: #18181b !important;
+      background-color: #18181b;
     }
-    body {
-      background-color: #fff !important;
-    }
-    .markdown-magic-link {
+    .tag-link {
       display: inline-flex;
       align-items: center;
       background: #f3f3f3;
       border-radius: 6px;
-      padding: 0.05em 0.25em;
+      padding: 0.01em 0.25em;
       font-size: 1em;
       font-family: inherit;
       text-decoration: none;
@@ -89,43 +89,36 @@
       transition: background 0.7s, color 0.7s;
       box-shadow: 0 1px 4px rgba(0,0,0,0.04);
       margin: 0 0.1em;
-      border: none !important;
+      border: none;
       vertical-align: middle;
       position: relative;
-      top: -0.05em;
+      top: -0.1em;
     }
-    .markdown-magic-link:hover {
+    .tag-link:hover {
       background: #eaeaea;
       color: #222;
     }
-    .markdown-magic-link-image {
+    .tag-link-image {
       width: 1.15em;
       height: 1.15em;
-      border-radius: 0 !important;
-      background: transparent !important;
+      border-radius: 0;
+      background: transparent;
       background-size: cover;
       background-position: center;
       margin-right: 0.05em;
-      box-shadow: none !important;
+      box-shadow: none;
       display: inline-block;
       padding: 0;
-      border: none !important;
+      border: none;
       overflow: hidden;
     }
-    .dark .markdown-magic-link {
+    .dark .tag-link {
       background: #2a2a2a;
       color: #e5e7eb;
     }
-    .dark .markdown-magic-link:hover {
+    .dark .tag-link:hover {
       background: #333;
       color: #fff;
-    }
-    /* Ensure SVG within pill image container is transparent */
-    .markdown-magic-link-image svg {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        transition: fill 0.6s ease !important;
     }
     /* Copy Icon Styles */
     .copy-icon-svg {
@@ -164,7 +157,6 @@
     /* LinkedIn Icon Styles */
     .linkedin-icon-svg {
       fill: #222; /* Black in light mode */
-      transition: fill 0.3s ease-in-out;
     }
     .dark .linkedin-icon-svg {
       fill: #fff; /* White in dark mode */
@@ -172,7 +164,6 @@
     /* Email Icon Styles */
     .email-icon-svg {
       fill: #222; /* Black in light mode */
-      transition: fill 0.3s ease-in-out;
     }
     .dark .email-icon-svg {
       fill: #fff; /* White in dark mode */
@@ -184,65 +175,85 @@
     .dark .phone-icon-svg {
       color: #fff; /* White in dark mode */
     }
-    .inline-no-wrap {
-      white-space: nowrap;
+    /* Adjust transition for associated text */
+    #linkedin-text, #email-text, #phone-text {
+    }
+
+    /* Animation styles */
+    @keyframes fade-in-from-top {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in-element {
+      opacity: 0;
+      transform: translateY(-20px);
+      animation: fade-in-from-top 0.8s ease-out forwards;
     }
   </style>
 </head>
-<body class="bg-white min-h-screen flex items-center justify-center transition-colors duration-500">
+<body class="bg-white min-h-screen flex flex-col">
   <button class="theme-toggle" onclick="document.body.classList.toggle('dark')">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
     </svg>
   </button>
-  <div class="max-w-3xl mx-auto p-4 text-left md:p-8">
-    <div class="text-4xl font-semibold mb-4">Hi! I'm Piotr Zatek.</div>
-    <p class="text-xl text-gray-600 mb-8">
-      I'm currently a Software Engineer Intern <span class="inline-no-wrap">at <a href="https://synchrony.com" class="markdown-magic-link markdown-magic-link-link" target="_blank" rel="noopener">
-        <span class="markdown-magic-link-image" style="background:none;display:flex;align-items:center;justify-content:center;padding:0;">
-          <svg id="logosandtypes_com" data-name="logosandtypes com" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150" style="width:1.15em;height:1.15em;display:block;"><defs></defs><path fill="none" d="M0,0H150V150H0Z"/><polygon fill="#fbc600" points="86.33 135.61 62.72 135.61 62.72 13.25 86.33 13.25 86.33 135.61 86.33 135.61"/><rect fill="#fbc600" x="27.95" y="74.43" width="23.62" height="61.18"/><rect fill="#fbc600" x="97.49" y="13.25" width="23.61" height="61.18"/></svg>
-        </span>
-        Synchrony
-      </a></span> and a Computer Science student at <a href="https://illinois.edu" class="markdown-magic-link markdown-magic-link-link" target="_blank" rel="noopener">
-        <span class="markdown-magic-link-image" style="background:none;display:flex;align-items:center;justify-content:center;padding:0;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 172 247.56" style="width:0.98em;height:0.98em;display:block;"><g transform="matrix(2.5834 0 0 2.5834 1.2987 -1.1477)"><path d="m65.805 26.539v-25.592h-65.805v25.592h14.624v43.87h-14.624v25.591h65.805v-25.592h-14.622v-43.87h14.622z" fill="#13294b"/><path d="m51.183 22.882h10.967v-18.279h-58.495v18.279h10.969a3.657 3.657 0 0 1 3.655 3.656v43.87a3.658 3.658 0 0 1-3.655 3.657h-10.969v18.279h58.496v-18.28h-10.968a3.657 3.657 0 0 1-3.657-3.656v-43.87a3.656 3.656 0 0 1 3.657-3.656z" clip-rule="evenodd" fill="#ff5f05"/></g></svg>
-        </span>
-        UIUC
-      </a>. Feel free to reach out below!
-    </p>
-    <div class="flex flex-col items-start space-y-6 mt-8 w-fit">
-      <div class="flex items-center">
-        <svg id="fi_3128219_icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-linkedin linkedin-icon-svg" viewBox="0 0 16 16" style="width:1.25em; height:1.25em; display:block;">
-          <path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/>
-        </svg>
-        <a id="linkedin-text" href="https://www.linkedin.com/in/piotr-zatek" class="text-lg text-gray-700 hover:underline ml-4" target="_blank" rel="noopener">linkedin.com/piotrzatek</a>
-      </div>
-      <div class="flex items-center">
-        <svg version="1.1" id="fi_712040" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 433.664 433.664" style="width:1.25em; height:1.25em; display:block;" class="email-icon-svg" xml:space="preserve">
-          <g>
+  <div class="flex-grow flex items-center">
+    <div class="max-w-3xl mx-auto p-2 text-left md:p-6 w-full">
+      <div class="text-4xl font-semibold mb-3 fade-in-element">Hi! I'm Piotr Zatek.</div>
+      <p class="text-xl text-gray-700 mb-3 fade-in-element">
+        I'm currently a Software Engineer Intern <span>at <a href="https://synchrony.com" class="tag-link tag-link-link" target="_blank" rel="noopener">
+          <span class="tag-link-image" style="background:none;display:flex;align-items:center;justify-content:center;padding:0;">
+            <svg id="logosandtypes_com" data-name="logosandtypes com" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150" style="width:1.15em;height:1.15em;display:block;"><defs></defs><path fill="none" d="M0,0H150V150H0Z"/><polygon fill="#fbc600" points="86.33 135.61 62.72 135.61 62.72 13.25 86.33 13.25 86.33 135.61 86.33 135.61"/><rect fill="#fbc600" x="27.95" y="74.43" width="23.62" height="61.18"/><rect fill="#fbc600" x="97.49" y="13.25" width="23.61" height="61.18"/></svg>
+          </span>
+          Synchrony
+        </a></span> and a Computer Science student at <a href="https://illinois.edu" class="tag-link tag-link-link" target="_blank" rel="noopener">
+          <span class="tag-link-image" style="background:none;display:flex;align-items:center;justify-content:center;padding:0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 172 247.56" style="width:0.98em;height:0.98em;display:block;"><g transform="matrix(2.5834 0 0 2.5834 1.2987 -1.1477)"><path d="m65.805 26.539v-25.592h-65.805v25.592h14.624v43.87h-14.624v25.591h65.805v-25.592h-14.622v-43.87h14.622z" fill="#13294b"/><path d="m51.183 22.882h10.967v-18.279h-58.495v18.279h10.969a3.657 3.657 0 0 1 3.655 3.656v43.87a3.658 3.658 0 0 1-3.655 3.657h-10.969v18.279h58.496v-18.28h-10.968a3.657 3.657 0 0 1-3.657-3.656v-43.87a3.656 3.656 0 0 1 3.657-3.656z" clip-rule="evenodd" fill="#ff5f05"/></g></svg>
+          </span>
+          UIUC
+        </a>. Feel free to reach out below!
+      </p>
+      <div class="flex flex-col items-start space-y-4 mt-5 w-fit fade-in-element">
+        <div class="flex items-center">
+          <svg id="fi_3128219_icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-linkedin linkedin-icon-svg" viewBox="0 0 16 16" style="width:1.25em; height:1.25em; display:block;">
+            <path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/>
+          </svg>
+          <a id="linkedin-text" href="https://www.linkedin.com/in/piotr-zatek" class="text-lg text-gray-700 hover:underline ml-4" target="_blank" rel="noopener">linkedin.com/piotrzatek</a>
+        </div>
+        <div class="flex items-center">
+          <svg version="1.1" id="fi_712040" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 433.664 433.664" style="width:1.25em; height:1.25em; display:block;" class="email-icon-svg" xml:space="preserve">
             <g>
-              <path d="M229.376,271.616c-4.096,2.56-8.704,3.584-12.8,3.584s-8.704-1.024-12.8-3.584L0,147.2v165.376c0,35.328,28.672,64,64,64
-                h305.664c35.328,0,64-28.672,64-64V147.2L229.376,271.616z"></path>
+              <g>
+                <path d="M229.376,271.616c-4.096,2.56-8.704,3.584-12.8,3.584s-8.704-1.024-12.8-3.584L0,147.2v165.376c0,35.328,28.672,64,64,64
+                  h305.664c35.328,0,64-28.672,64-64V147.2L229.376,271.616z"></path>
+              </g>
             </g>
-          </g>
-          <g>
             <g>
-              <path d="M369.664,57.088H64c-30.208,0-55.808,21.504-61.952,50.176l215.04,131.072l214.528-131.072
-                C425.472,78.592,399.872,57.088,369.664,57.088z"></path>
+              <g>
+                <path d="M369.664,57.088H64c-30.208,0-55.808,21.504-61.952,50.176l215.04,131.072l214.528-131.072
+                  C425.472,78.592,399.872,57.088,369.664,57.088z"></path>
+              </g>
             </g>
-          </g>
-        </svg>
-        <a id="email-text" href="mailto:pzatek2@illinois.edu" class="text-lg text-gray-700 hover:underline ml-4">pzatek2@illinois.edu</a>
-        <svg id="copy-email-icon" class="copy-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        <span id="copied-email-msg" class="copied-message">Copied!</span>
-      </div>
-      <div class="flex items-center">
-        <svg id="fi_3059446" height="512" viewBox="0 0 32 32" width="512" xmlns="http://www.w3.org/2000/svg" style="width:1.25em; height:1.25em; display:block;" class="phone-icon-svg" data-name="Layer 3">
-          <path d="m30.035 22.6c-.082-.065-6.035-4.356-7.669-4.048-.78.138-1.226.67-2.121 1.735-.144.172-.49.584-.759.877a12.517 12.517 0 0 1 -1.651-.672 13.7 13.7 0 0 1 -6.321-6.321 12.458 12.458 0 0 1 -.672-1.651c.294-.27.706-.616.882-.764 1.06-.89 1.593-1.336 1.731-2.118.283-1.62-4.005-7.614-4.05-7.668a2.289 2.289 0 0 0 -1.705-.97c-1.738 0-6.7 6.437-6.7 7.521 0 .063.091 6.467 7.988 14.5 8.025 7.888 14.428 7.979 14.491 7.979 1.085 0 7.521-4.962 7.521-6.7a2.283 2.283 0 0 0 -.965-1.7z" fill="currentColor"></path>
-        </svg>
-        <span id="phone-text" class="text-lg text-gray-700 select-all ml-4">847-387-0701</span>
-        <svg id="copy-phone-icon" class="copy-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        <span id="copied-phone-msg" class="copied-message">Copied!</span>
+          </svg>
+          <a id="email-text" href="mailto:pzatek2@illinois.edu" class="text-lg text-gray-700 hover:underline ml-4">pzatek2@illinois.edu</a>
+          <svg id="copy-email-icon" class="copy-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span id="copied-email-msg" class="copied-message">Copied!</span>
+        </div>
+        <div class="flex items-center">
+          <svg id="fi_3059446" height="512" viewBox="0 0 32 32" width="512" xmlns="http://www.w3.org/2000/svg" style="width:1.25em; height:1.25em; display:block;" class="phone-icon-svg" data-name="Layer 3">
+            <path d="m30.035 22.6c-.082-.065-6.035-4.356-7.669-4.048-.78.138-1.226.67-2.121 1.735-.144.172-.49.584-.759.877a12.517 12.517 0 0 1 -1.651-.672 13.7 13.7 0 0 1 -6.321-6.321 12.458 12.458 0 0 1 -.672-1.651c.294-.27.706-.616.882-.764 1.06-.89 1.593-1.336 1.731-2.118.283-1.62-4.005-7.614-4.05-7.668a2.289 2.289 0 0 0 -1.705-.97c-1.738 0-6.7 6.437-6.7 7.521 0 .063.091 6.467 7.988 14.5 8.025 7.888 14.428 7.979 14.491 7.979 1.085 0 7.521-4.962 7.521-6.7a2.283 2.283 0 0 0 -.965-1.7z" fill="currentColor"></path>
+          </svg>
+          <span id="phone-text" class="text-lg text-gray-700 select-all ml-4">847-387-0701</span>
+          <svg id="copy-phone-icon" class="copy-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span id="copied-phone-msg" class="copied-message">Copied!</span>
+        </div>
       </div>
     </div>
   </div>
@@ -260,6 +271,14 @@
     themeToggle.addEventListener('click', () => {
       const isDark = document.body.classList.contains('dark');
       themeToggle.innerHTML = isDark ? sunIcon : moonIcon;
+    });
+
+    // Staggered fade-in animation
+    document.addEventListener('DOMContentLoaded', () => {
+      const animatedElements = document.querySelectorAll('.fade-in-element');
+      animatedElements.forEach((element, index) => {
+        element.style.animationDelay = `${index * 0.1}s`;
+      });
     });
 
     // Copy Feature Setup
