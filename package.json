@@ -4,7 +4,8 @@
   "description": "HTML/CSS for my personal website, piotrzatek.com",
   "main": "index.js",
   "scripts": {
-    "build": "npx tailwindcss -i ./src/input.css -o ./styles.css --watch"
+    "build": "npx tailwindcss -i ./src/input.css -o ./styles.css --minify",
+    "dev": "npx tailwindcss -i ./src/input.css -o ./styles.css --watch"
   },
   "repository": {
     "type": "git",
