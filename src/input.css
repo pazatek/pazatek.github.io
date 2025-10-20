@@ -30,13 +30,19 @@
 @layer components {
   /* Hero Image Section */
   .hero-image-container {
-    max-width: 420px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    width: 100%;
     position: relative;
     margin-bottom: 0;
+  }
+
+  @media (min-width: 768px) {
+    .hero-image-container {
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
   }
 
   .hero-image {
@@ -52,11 +58,19 @@
   .hero-caption {
     position: absolute;
     bottom: -1.25rem;
-    right: 1.5rem;
+    right: 0;
     font-style: italic;
     font-size: 0.8rem;
     color: #888;
     font-weight: 400;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .hero-caption {
+      right: 1.5rem;
+      padding-right: 0;
+    }
   }
 
   .dark .hero-caption {
@@ -211,11 +225,11 @@
   }
 
   .contact-link:hover {
-    color: #8b9dc3 !important;
+    color: #4a90e2 !important;
   }
 
   .dark .contact-link:hover {
-    color: #8b9dc3 !important;
+    color: #4a90e2 !important;
   }
 
   /* Content Wrapper */
@@ -570,7 +584,7 @@
   }
 
   .project-header-clickable:hover .project-collapse-btn {
-    color: #8b9dc3;
+    color: #4a90e2;
   }
 
   .project-card.collapsed .project-collapse-btn {
@@ -582,7 +596,7 @@
   }
 
   .dark .project-header-clickable:hover .project-collapse-btn {
-    color: #8b9dc3;
+    color: #4a90e2;
   }
 
   .project-collapse-btn svg {
@@ -655,7 +669,7 @@
 
   .project-link {
     @apply flex items-center;
-    color: #8b9dc3;
+    color: #4a90e2;
     font-size: 0.9375rem;
     font-weight: 400;
     text-decoration: none;
@@ -674,7 +688,7 @@
   }
 
   .project-link:hover {
-    color: #6b7d9d;
+    color: #357abd;
   }
 
   .project-link:hover svg {
@@ -682,11 +696,11 @@
   }
 
   .dark .project-link {
-    color: #8b9dc3;
+    color: #4a90e2;
   }
 
   .dark .project-link:hover {
-    color: #6b7d9d;
+    color: #357abd;
   }
 
   /* Project descriptions - Apple-style */
@@ -851,7 +865,7 @@
 /* Dark mode */
 .dark,
 .dark-init body {
-  background: #000000;
+  background: #0a0a0a;
   transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -871,5 +885,5 @@
 
 .dark .bg-white,
 .dark-init .bg-white {
-  background: #000000;
+  background: #0a0a0a;
 }

@@ -1,9 +1,9 @@
-// Theme toggle functionality with system preference detection
+// Theme toggle functionality - always follows system preference
 const themeToggle = document.querySelector('.theme-toggle');
 const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
 const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
-// Initialize theme based on user preference or system setting
+// Initialize theme based on system setting only
 const initializeTheme = () => {
   // Check if dark mode was pre-initialized
   if (document.documentElement.classList.contains('dark-init')) {
@@ -18,29 +18,23 @@ const initializeTheme = () => {
 // Initialize theme immediately
 initializeTheme();
 
-// Listen for system theme changes (if no manual preference is set)
+// Listen for system theme changes and always follow them
 if (window.matchMedia) {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    // Only auto-switch if user hasn't manually set a preference
-    if (!localStorage.getItem('theme')) {
-      if (e.matches) {
-        document.body.classList.add('dark');
-        themeToggle.innerHTML = moonIcon;
-      } else {
-        document.body.classList.remove('dark');
-        themeToggle.innerHTML = sunIcon;
-      }
+    if (e.matches) {
+      document.body.classList.add('dark');
+      themeToggle.innerHTML = moonIcon;
+    } else {
+      document.body.classList.remove('dark');
+      themeToggle.innerHTML = sunIcon;
     }
   });
 }
 
-// Toggle theme on click and save preference
+// Toggle theme on click (temporary, will reset to system preference on reload)
 themeToggle.addEventListener('click', () => {
   const isDark = document.body.classList.toggle('dark');
   themeToggle.innerHTML = isDark ? moonIcon : sunIcon;
-  
-  // Save user's manual preference
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
 });
 
 // Copy to clipboard functionality
