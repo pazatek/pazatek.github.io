@@ -373,6 +373,12 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /* Start collapsed by default to prevent flash */
+  .project-card .project-content {
+    max-height: 0;
+    opacity: 0;
+  }
+
   .project-card:last-child {
     padding-bottom: 0;
   }
@@ -575,7 +581,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: transparent;
+    color: #6e6e73;
     background: none;
     border: none;
     cursor: pointer;
@@ -587,11 +593,15 @@
     color: #4a90e2;
   }
 
-  .project-card.collapsed .project-collapse-btn {
-    color: #6e6e73;
+  .project-card.expanded .project-collapse-btn {
+    color: transparent;
   }
 
-  .dark .project-card.collapsed .project-collapse-btn {
+  .project-card.expanded:hover .project-collapse-btn {
+    color: #4a90e2;
+  }
+
+  .dark .project-collapse-btn {
     color: #98989d;
   }
 
@@ -599,14 +609,23 @@
     color: #4a90e2;
   }
 
+  .dark .project-card.expanded .project-collapse-btn {
+    color: transparent;
+  }
+
+  .dark .project-card.expanded:hover .project-collapse-btn {
+    color: #4a90e2;
+  }
+
   .project-collapse-btn svg {
     width: 1rem;
     height: 1rem;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: rotate(-90deg);
   }
 
-  .project-card.collapsed .project-collapse-btn svg {
-    transform: rotate(-90deg);
+  .project-card.expanded .project-collapse-btn svg {
+    transform: rotate(0deg);
   }
 
   .project-content {

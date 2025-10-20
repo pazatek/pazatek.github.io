@@ -120,10 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const projectHeaders = document.querySelectorAll('.project-header-clickable');
   const projectCards = document.querySelectorAll('.project-card');
   
-  // Collapse all projects on load
-  projectCards.forEach(card => {
-    card.classList.add('collapsed');
-  });
+  // Projects start collapsed by default (via CSS), no need to add class
   
   projectHeaders.forEach(header => {
     header.addEventListener('click', (e) => {
@@ -133,7 +130,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const projectCard = header.closest('.project-card');
-      projectCard.classList.toggle('collapsed');
+      
+      // Toggle between collapsed and expanded states
+      if (projectCard.classList.contains('expanded')) {
+        projectCard.classList.remove('expanded');
+        projectCard.classList.add('collapsed');
+      } else {
+        projectCard.classList.remove('collapsed');
+        projectCard.classList.add('expanded');
+      }
     });
   });
 });
