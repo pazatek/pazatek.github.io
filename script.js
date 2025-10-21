@@ -72,10 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Project collapse functionality
   document.querySelectorAll('.project-header-clickable').forEach(header => {
-    header.addEventListener('click', (e) => {
-      // Don't trigger on links
-      if (e.target.tagName === 'A' || e.target.closest('a')) return;
-
+    const toggleProject = () => {
       const projectCard = header.closest('.project-card');
       const isExpanded = projectCard.classList.contains('expanded');
 
@@ -83,13 +80,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // Collapse
         projectCard.classList.remove('expanded');
         projectCard.classList.add('collapsed');
+        header.setAttribute('aria-expanded', 'false');
       } else {
         // Expand
         projectCard.classList.add('expanded');
         projectCard.classList.remove('collapsed');
+        header.setAttribute('aria-expanded', 'true');
       }
+    };
 
+    header.addEventListener('click', (e) => {
+      // Don't trigger on links
+      if (e.target.tagName === 'A' || e.target.closest('a')) return;
+      toggleProject();
       e.stopPropagation();
+    });
+
+    // Keyboard navigation
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleProject();
+      }
     });
   });
 

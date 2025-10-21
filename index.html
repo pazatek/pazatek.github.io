@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Piotr Zatek</title>
+  <title>Piotr Zatek - Software Engineer</title>
+  <meta name="description" content="Software Engineer Intern at Synchrony and Computer Science student at UIUC. Building projects that solve real problems.">
+  
+  <!-- Open Graph tags -->
+  <meta property="og:title" content="Piotr Zatek - Software Engineer">
+  <meta property="og:description" content="Software Engineer Intern at Synchrony and Computer Science student at UIUC.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pazatek.github.io">
+  <meta property="og:image" content="https://pazatek.github.io/mountains.webp">
   
   <!-- Preconnect to font provider for faster font loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,31 +34,46 @@
   </script>
 </head>
 <body class="bg-white">
+  <!-- Sticky Navigation -->
+  <nav class="top-nav" id="top-nav">
+    <div class="nav-content">
+      <a href="#about" class="nav-link">About</a>
+      <span class="nav-separator">·</span>
+      <a href="#projects" class="nav-link">Projects</a>
+      <span class="nav-separator">·</span>
+      <a href="#contact" class="nav-link">Contact</a>
+    </div>
+  </nav>
+
+  <button class="theme-toggle" aria-label="Toggle dark mode"></button>
+  
   <!-- Hero Image Section -->
   <div class="hero-image-container">
-    <div class="hero-image" id="hero-image"></div>
+    <div class="hero-image" id="hero-image" role="img" aria-label="Hero image"></div>
     <div class="hero-caption">taken by me on 09-23-2023</div>
   </div>
-
-  <button class="theme-toggle"></button>
   
   <div class="content-wrapper">
-    <div class="intro-section">
+    <section class="intro-section scroll-section" id="about">
       <div class="text-4xl font-semibold mb-3">Hi! I'm Piotr Zatek.</div>
       
       <p class="text-xl text-gray-700 mb-3">
         I'm currently a Software Engineer Intern at <a href="https://synchrony.com" target="_blank" rel="noopener" class="company-link">Synchrony</a> and a Computer Science student at <a href="https://siebelschool.illinois.edu/" target="_blank" rel="noopener" class="company-link">UIUC</a>. Feel free to reach out!
       </p>
-      
-      <div class="flex flex-col items-start space-y-4 mt-5 w-fit">
-        <div class="flex items-center">
-          <a id="linkedin-text" href="https://www.linkedin.com/in/piotr-zatek" class="text-lg text-gray-700 contact-link">linkedin.com/piotrzatek</a>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section scroll-section" id="contact">
+      <h2 class="section-title">Contact</h2>
+      <div class="contact-grid">
+        <div class="contact-item">
+          <a id="linkedin-text" href="https://www.linkedin.com/in/piotr-zatek" class="contact-link" target="_blank" rel="noopener">linkedin.com/piotrzatek</a>
         </div>
 
-        <div class="flex items-center">
-          <a id="email-text" href="mailto:pzatek2@illinois.edu" class="text-lg text-gray-700 contact-link">pzatek2@illinois.edu</a>
+        <div class="contact-item">
+          <a id="email-text" href="mailto:pzatek2@illinois.edu" class="contact-link">pzatek2@illinois.edu</a>
           <button id="copy-email-btn" class="copy-btn" aria-label="Copy email">
-            <svg viewBox="0 0 16 16" fill="currentColor">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
               <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
             </svg>
@@ -58,10 +81,10 @@
           <span id="copied-email-msg" class="copied-message">Copied!</span>
         </div>
 
-        <div class="flex items-center">
-          <span id="phone-text" class="text-lg text-gray-700 select-all">847-387-0701</span>
+        <div class="contact-item">
+          <span id="phone-text" class="contact-text select-all">847-387-0701</span>
           <button id="copy-phone-btn" class="copy-btn" aria-label="Copy phone number">
-            <svg viewBox="0 0 16 16" fill="currentColor">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
               <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
             </svg>
@@ -69,20 +92,20 @@
           <span id="copied-phone-msg" class="copied-message">Copied!</span>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- Projects Section -->
-    <div class="projects-section" id="projects-section">
+    <section class="projects-section scroll-section" id="projects">
         <h2 class="project-section-title">Projects</h2>
         
         <div class="projects-grid">
         <!-- Project 1: UIUC Research Park Job Board -->
         <div class="project-card">
           <!-- Project Header -->
-          <div class="project-header project-header-clickable">
+          <div class="project-header project-header-clickable" role="button" tabindex="0" aria-expanded="false">
             <h3 class="project-title">UIUC Research Park Job Board</h3>
-            <button class="project-collapse-btn" aria-label="Toggle project details">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button class="project-collapse-btn" aria-label="Toggle project details" tabindex="-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
@@ -141,10 +164,10 @@
         <!-- Project 2: Synchrony Shield -->
         <div class="project-card">
           <!-- Project Header -->
-          <div class="project-header project-header-clickable">
+          <div class="project-header project-header-clickable" role="button" tabindex="0" aria-expanded="false">
             <h3 class="project-title">Synchrony Shield</h3>
-            <button class="project-collapse-btn" aria-label="Toggle project details">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button class="project-collapse-btn" aria-label="Toggle project details" tabindex="-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
@@ -188,10 +211,10 @@
         <!-- Project 3: Personal Website -->
         <div class="project-card">
           <!-- Project Header -->
-          <div class="project-header project-header-clickable">
+          <div class="project-header project-header-clickable" role="button" tabindex="0" aria-expanded="false">
             <h3 class="project-title">Personal Website</h3>
-            <button class="project-collapse-btn" aria-label="Toggle project details">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button class="project-collapse-btn" aria-label="Toggle project details" tabindex="-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
@@ -215,7 +238,7 @@
           </div>
         </div>
         </div>
-      </div>
+      </section>
   </div>
   
   <script src="script.js"></script>
