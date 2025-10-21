@@ -1,5 +1,5 @@
 // Theme toggle functionality - follows system preference
-const themeToggle = document.querySelector('.theme-toggle');
+const themeToggle = document.querySelector('.theme-toggle-nav');
 const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
 const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
@@ -9,7 +9,9 @@ const initTheme = () => {
     document.body.classList.add('dark');
     document.documentElement.classList.remove('dark-init');
   }
-  themeToggle.innerHTML = document.body.classList.contains('dark') ? moonIcon : sunIcon;
+  if (themeToggle) {
+    themeToggle.innerHTML = document.body.classList.contains('dark') ? moonIcon : sunIcon;
+  }
 };
 
 initTheme();
@@ -17,14 +19,18 @@ initTheme();
 if (window.matchMedia) {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     document.body.classList[e.matches ? 'add' : 'remove']('dark');
-    themeToggle.innerHTML = e.matches ? moonIcon : sunIcon;
+    if (themeToggle) {
+      themeToggle.innerHTML = e.matches ? moonIcon : sunIcon;
+    }
   });
 }
 
-themeToggle.addEventListener('click', () => {
-  const isDark = document.body.classList.toggle('dark');
-  themeToggle.innerHTML = isDark ? moonIcon : sunIcon;
-});
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const isDark = document.body.classList.toggle('dark');
+    themeToggle.innerHTML = isDark ? moonIcon : sunIcon;
+  });
+}
 
 // Copy to clipboard functionality
 const setupCopyButtons = () => {
