@@ -535,10 +535,10 @@ body {
 }
 
 .company-link-uiuc {
-  color: #ea580c;
+  color: #13294b;
 }
 .company-link-uiuc:hover {
-  color: #c2410c;
+  color: #1e3a5f;
 }
 .copy-btn {
   margin-left: 0.25rem;
@@ -1135,10 +1135,10 @@ body {
 }
 
 .dark .company-link-uiuc {
-  color: #fb923c;
+  color: #5b8dc9;
 }
 .dark .company-link-uiuc:hover {
-  color: #fdba74;
+  color: #7ba5d6;
 }
 .dark .copy-btn {
   color: #6e6e73;
