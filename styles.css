@@ -132,7 +132,7 @@ html {
 body {
   margin: 0;
   line-height: 1.7;
-  font-size: 18px;
+  font-size: 17px;
   min-height: 100vh;
 }
 hr {
@@ -328,7 +328,7 @@ body {
   overflow-y: auto;
   font-family: Hanken Grotesk, sans-serif;
   font-weight: 400;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.7;
   transition: background-color 0.3s ease, color 0.3s ease;
   background: #fafafa;
@@ -364,7 +364,7 @@ body {
 .nav-name {
   color: #1a1a1a;
   text-decoration: none;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   transition: color 0.2s ease;
   letter-spacing: -0.01em;
@@ -389,7 +389,7 @@ body {
 .nav-link {
   color: #1a1a1a;
   text-decoration: none;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   transition: color 0.2s ease;
   position: relative;
@@ -465,7 +465,7 @@ body {
   bottom: -1.25rem;
   right: 0;
   font-style: italic;
-  font-size: 0.8rem;
+  font-size: 15px;
   color: #888;
   font-weight: 400;
   padding-right: 1rem;
@@ -609,7 +609,7 @@ body {
 }
 
 .section-title {
-  font-size: 36px;
+  font-size: 50px;
   font-weight: 600;
   line-height: 1.2;
   color: #1a1a1a;
@@ -629,7 +629,7 @@ body {
    TYPOGRAPHY
    ============================================ */
 .intro-section .text-4xl {
-  font-size: 54px;
+  font-size: 50px;
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-weight: 600;
@@ -638,7 +638,7 @@ body {
 }
 
 .intro-section .text-xl {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.7;
   color: #52525b;
   font-weight: 400;
@@ -705,7 +705,7 @@ body {
 
 .contact-link,
 .contact-text {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.7;
   color: #1a1a1a;
   text-decoration: none;
@@ -733,7 +733,7 @@ body {
 }
 
 .project-section-title {
-  font-size: 36px;
+  font-size: 50px;
   font-weight: 600;
   line-height: 1.2;
   color: #1a1a1a;
@@ -843,7 +843,7 @@ body {
   gap: 0.875rem;
 }
 .project-title {
-  font-size: 1.0625rem;
+  font-size: 17px;
   line-height: 1.25;
   font-weight: 500;
   color: #1d1d1f;
@@ -855,7 +855,7 @@ body {
   display: flex;
   align-items: center;
   color: #3b82f6;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   text-decoration: none;
   transition: all 0.3s ease;
@@ -885,7 +885,7 @@ body {
 .project-description {
   color: #666;
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 17px;
   line-height: 1.5;
   font-weight: 400;
   transition: color 0.3s ease;
