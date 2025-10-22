@@ -364,7 +364,7 @@ body {
 .nav-name {
   color: #1a1a1a;
   text-decoration: none;
-  font-size: 17px;
+  font-size: 30px;
   font-weight: 600;
   transition: color 0.2s ease;
   letter-spacing: -0.01em;
@@ -609,7 +609,7 @@ body {
 }
 
 .section-title {
-  font-size: 50px;
+  font-size: 30px;
   font-weight: 600;
   line-height: 1.2;
   color: #1a1a1a;
@@ -629,7 +629,7 @@ body {
    TYPOGRAPHY
    ============================================ */
 .intro-section .text-4xl {
-  font-size: 50px;
+  font-size: 30px;
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-weight: 600;
@@ -696,11 +696,6 @@ body {
   height: 20px;
   flex-shrink: 0;
   color: #6b7280;
-  transition: color 0.2s ease;
-}
-
-.contact-item:hover .contact-icon {
-  color: #3b82f6;
 }
 
 .contact-link,
@@ -733,7 +728,7 @@ body {
 }
 
 .project-section-title {
-  font-size: 50px;
+  font-size: 30px;
   font-weight: 600;
   line-height: 1.2;
   color: #1a1a1a;
@@ -1381,10 +1376,6 @@ body {
 /* Dark mode contact */
 .dark .contact-icon {
   color: #9ca3af;
-}
-
-.dark .contact-item:hover .contact-icon {
-  color: #60a5fa;
 }
 
 .dark .contact-link,
