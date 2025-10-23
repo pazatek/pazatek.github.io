@@ -57,9 +57,9 @@ const setupCopyButtons = () => {
 document.addEventListener('DOMContentLoaded', () => {
   // Hero image gallery - randomly select one image per page load
   const heroImages = [
-    { src: 'mountains.webp', date: '08-01-2024' },
-    { src: 'persianshields.webp', date: '09-08-2024' },
-    { src: 'garden.webp', date: '09-08-2024' }
+    { src: 'images/zakopane.webp', date: '08-01-2024' },
+    { src: 'images/persianshields.webp', date: '09-08-2024' },
+    { src: 'images/garden.webp', date: '09-08-2024' }
   ];
   
   const randomImage = heroImages[Math.floor(Math.random() * heroImages.length)];
