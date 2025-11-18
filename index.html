@@ -19,11 +19,11 @@
   
   <!-- Preload critical resources -->
   <link rel="preload" href="styles.css" as="style">
-  <link rel="preload" href="script.js" as="script">
   
   <!-- Load fonts with display=swap for better performance -->
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
   <script>
     // Initialize theme based on system preference (no localStorage)
     (function() {
@@ -33,14 +33,14 @@
     })();
   </script>
 </head>
-<body class="bg-white">
+<body>
   <!-- Sticky Navigation -->
   <nav class="top-nav" id="top-nav">
     <div class="nav-content">
       <a href="#about" class="nav-name">Piotr Zatek</a>
       <div class="nav-right">
         <a href="#contact" class="nav-link">Contact</a>
-        <span class="nav-separator">·</span>
+        <span class="nav-separator" aria-hidden="true">·</span>
         <a href="#projects" class="nav-link">Projects</a>
         <button class="theme-toggle-nav" aria-label="Toggle dark mode"></button>
       </div>
@@ -55,9 +55,9 @@
   
   <div class="content-wrapper">
     <section class="intro-section scroll-section" id="about">
-      <div class="text-4xl font-semibold mb-3">Hi! I'm Piotr Zatek.</div>
+      <div class="intro-heading">Hi! I'm Piotr Zatek.</div>
       
-      <p class="text-xl text-gray-700 mb-3">
+      <p class="intro-text">
         I'm currently a Software Engineer Intern at <a href="https://synchrony.com" target="_blank" rel="noopener" class="company-link company-link-synchrony">Synchrony</a> and a Computer Science student at <a href="https://siebelschool.illinois.edu/" target="_blank" rel="noopener" class="company-link company-link-uiuc">UIUC</a>. Feel free to reach out!
       </p>
     </section>
@@ -70,7 +70,7 @@
           <svg class="contact-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/>
           </svg>
-          <a id="linkedin-text" href="https://www.linkedin.com/in/piotr-zatek" class="contact-link" target="_blank" rel="noopener">linkedin.com/piotrzatek</a>
+          <a href="https://www.linkedin.com/in/piotr-zatek" class="contact-link" target="_blank" rel="noopener">linkedin.com/piotrzatek</a>
         </div>
 
         <div class="contact-item">
@@ -249,7 +249,5 @@
         </div>
       </section>
   </div>
-  
-  <script src="script.js"></script>
 </body>
 </html>

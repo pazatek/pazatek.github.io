@@ -3,32 +3,34 @@ const themeToggle = document.querySelector('.theme-toggle-nav');
 const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
 const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
+const updateThemeUI = (isDark) => {
+  if (themeToggle) {
+    themeToggle.innerHTML = isDark ? moonIcon : sunIcon;
+  }
+};
+
 // Initialize theme based on system preference
 const initTheme = () => {
   if (document.documentElement.classList.contains('dark-init')) {
     document.body.classList.add('dark');
     document.documentElement.classList.remove('dark-init');
   }
-  if (themeToggle) {
-    themeToggle.innerHTML = document.body.classList.contains('dark') ? moonIcon : sunIcon;
-  }
+  updateThemeUI(document.body.classList.contains('dark'));
 };
 
 initTheme();
 
 if (window.matchMedia) {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    document.body.classList[e.matches ? 'add' : 'remove']('dark');
-    if (themeToggle) {
-      themeToggle.innerHTML = e.matches ? moonIcon : sunIcon;
-    }
+    document.body.classList.toggle('dark', e.matches);
+    updateThemeUI(e.matches);
   });
 }
 
 if (themeToggle) {
   themeToggle.addEventListener('click', () => {
     const isDark = document.body.classList.toggle('dark');
-    themeToggle.innerHTML = isDark ? moonIcon : sunIcon;
+    updateThemeUI(isDark);
   });
 }
 
@@ -135,17 +137,4 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
-
-  // Entrance animations
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => entry.isIntersecting && entry.target.classList.add('fade-in-visible'));
-  }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
-
-  ['.intro-section', '.projects-section'].forEach(selector => {
-    const element = document.querySelector(selector);
-    if (element) {
-      element.classList.add('fade-in-element');
-      observer.observe(element);
-    }
-  });
 });
