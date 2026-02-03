@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — highlight2calendar</title>
+  <meta name="description" content="Privacy policy for the highlight2calendar Chrome extension.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .privacy-wrapper {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 80px 24px 96px;
+    }
+    .privacy-wrapper h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--fg);
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .privacy-updated {
+      font-size: 13px;
+      color: var(--fg-faint);
+      margin-bottom: 48px;
+    }
+    .privacy-wrapper h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--fg-faint);
+      margin: 40px 0 16px;
+    }
+    .privacy-wrapper p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--fg-muted);
+      margin-bottom: 12px;
+    }
+    .privacy-wrapper ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 12px;
+    }
+    .privacy-wrapper li {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--fg-muted);
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .privacy-wrapper li::before {
+      content: "\2022";
+      position: absolute;
+      left: 0;
+      color: var(--fg-faint);
+    }
+    .privacy-wrapper strong {
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .privacy-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--link);
+      transition: color 0.2s ease;
+      margin-bottom: 32px;
+    }
+    .privacy-back:hover {
+      color: var(--link-hover);
+    }
+    .privacy-back svg {
+      width: 14px;
+      height: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="privacy-wrapper">
+    <a href="/" class="privacy-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back
+    </a>
+
+    <h1>highlight2calendar Privacy Policy</h1>
+    <p class="privacy-updated">Last updated: January 29, 2026</p>
+
+    <h2>Overview</h2>
+    <p>highlight2calendar is a Chrome extension that extracts event details from text you highlight on web pages and helps you add them to Google Calendar or Google Tasks.</p>
+
+    <h2>Data We Collect</h2>
+    <ul>
+      <li><strong>Highlighted text:</strong> When you use the extension, the text you select is sent to our server for event extraction. This text is processed in real time and is not stored.</li>
+      <li><strong>Google account access:</strong> The extension uses Google OAuth to authenticate you. We request access to create events on your Google Calendar and tasks on your Google Tasks. We do not access, read, or store any existing calendar or task data.</li>
+      <li><strong>Browser locale and timezone:</strong> Your browser locale (e.g. "en-US") and timezone are sent with extraction requests to correctly interpret dates and times. These are not stored.</li>
+    </ul>
+
+    <h2>Data We Do Not Collect</h2>
+    <ul>
+      <li>We do not collect personal information.</li>
+      <li>We do not track your website activity.</li>
+      <li>We do not use cookies or analytics in the extension.</li>
+      <li>We do not share data with third parties.</li>
+    </ul>
+
+    <h2>Third-Party Services</h2>
+    <ul>
+      <li><strong>Anthropic API:</strong> Selected text is sent to Anthropic's Claude API for event extraction. Anthropic does not use API inputs for model training.</li>
+      <li><strong>Google APIs:</strong> Calendar and Tasks APIs are used solely to create events and tasks you explicitly request.</li>
+      <li><strong>Vercel:</strong> Backend infrastructure logging may apply per Vercel's standards.</li>
+    </ul>
+
+    <h2>Data Retention</h2>
+    <p>We do not store any user data. Text sent for extraction is processed in memory and discarded immediately after the response is returned.</p>
+
+    <h2>Your Rights</h2>
+    <p>You can revoke Google account access at any time through your Google Account permissions settings.</p>
+
+    <h2>Policy Updates</h2>
+    <p>Modifications to this policy will be posted at this URL.</p>
+
+    <h2>Contact</h2>
+    <p>Questions can be directed to the project's GitHub repository.</p>
+  </div>
+</body>
+</html>
