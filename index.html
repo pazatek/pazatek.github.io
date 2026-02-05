@@ -42,31 +42,31 @@
     </div>
   </div>
 
-  <div class="image-credit">(original image taken by me on 07-30-2024)</div>
+  <div class="image-credit">original image taken by me in Poland on 07-30-2024</div>
 
   <div class="content-wrapper">
     <!-- Contact -->
     <section class="section-divider scroll-section" id="contact">
       <h2 class="section-title">Contact</h2>
       <div class="contact-grid">
-        <div class="contact-item">
+        <a href="https://www.linkedin.com/in/piotr-zatek" class="contact-item" target="_blank" rel="noopener">
           <svg class="contact-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/>
           </svg>
-          <a href="https://www.linkedin.com/in/piotr-zatek" class="contact-link" target="_blank" rel="noopener">linkedin.com/piotrzatek</a>
-        </div>
-        <div class="contact-item">
+          <span>LinkedIn</span>
+        </a>
+        <a href="https://github.com/pazatek" class="contact-item" target="_blank" rel="noopener">
+          <svg class="contact-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <button class="contact-item" id="copy-email" data-copy="pzatek2@illinois.edu">
           <svg class="contact-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
           </svg>
-          <span class="contact-copyable" data-copy="pzatek2@illinois.edu">pzatek2@illinois.edu<span class="copied-tooltip">Copied!</span></span>
-        </div>
-        <div class="contact-item">
-          <svg class="contact-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-          </svg>
-          <span class="contact-copyable" data-copy="847-387-0701">847-387-0701<span class="copied-tooltip">Copied!</span></span>
-        </div>
+          <span id="email-label">Email</span>
+        </button>
       </div>
     </section>
   </div>
@@ -78,7 +78,15 @@
 
       <!-- optimize.ai -->
       <div class="project-card">
-        <h3 class="project-title">optimize.ai</h3>
+        <div class="project-header">
+          <h3 class="project-title">optimize.ai</h3>
+          <div class="award-badge">
+            <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
+            </svg>
+            Best Agentic Trace &mdash; Keywords AI (YC W24)
+          </div>
+        </div>
         <div class="project-demo">
           <table class="project-table">
             <thead>
@@ -106,12 +114,6 @@
               </tr>
             </tbody>
           </table>
-          <div class="award-badge">
-            <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
-            </svg>
-            Best Agentic Trace &mdash; Keywords AI (YC W24) Hackathon
-          </div>
         </div>
         <div class="project-info">
           <p class="project-description">Benchmarks prompts across LLM providers and rewrites them to run on cheaper models without losing quality.</p>
@@ -129,7 +131,10 @@
 
       <!-- UIUC Research Park Job Board -->
       <div class="project-card">
-        <h3 class="project-title">UIUC Research Park Job Board</h3>
+        <div class="project-header">
+          <h3 class="project-title">UIUC Research Park Job Board</h3>
+          <div class="stat-badge">50+ new jobs tracked this school year</div>
+        </div>
         <div class="project-demo">
           <table class="project-table">
             <thead>
@@ -174,7 +179,10 @@
 
       <!-- highlight2calendar -->
       <div class="project-card">
-        <h3 class="project-title">highlight2calendar</h3>
+        <div class="project-header">
+          <h3 class="project-title">highlight2calendar</h3>
+          <div class="stat-badge">pending Chrome approval</div>
+        </div>
         <div class="project-demo">
           <p class="h2c-source">We have a <mark>2hr meeting Tuesday at 10am</mark>. Also, <mark class="h2c-mark-task">get that report in on Thursday</mark>.</p>
           <div class="h2c-week">
@@ -207,7 +215,15 @@
 
       <!-- Synchrony Shield -->
       <div class="project-card">
-        <h3 class="project-title">Synchrony Shield</h3>
+        <div class="project-header">
+          <h3 class="project-title">Synchrony Shield</h3>
+          <div class="award-badge">
+            <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
+            </svg>
+            Runner-up &mdash; Synchrony AI Hackathon
+          </div>
+        </div>
         <div class="project-demo">
           <div class="pii-demo-bar">
             <span class="pii-demo-label">Email Draft</span>
@@ -220,12 +236,6 @@
             <p class="pii-demo-line">Hi team, contact me at <span class="pii-redactable" data-original="555-123-4567" data-redacted="[REDACTED]">555-123-4567</span>.</p>
             <p class="pii-demo-line">Payment card: <span class="pii-redactable" data-original="1234-5678-9012-3456" data-redacted="[REDACTED]">1234-5678-9012-3456</span>.</p>
             <p class="pii-demo-line">SSO ID: <span class="pii-redactable" data-original="3847562019" data-redacted="[REDACTED]">3847562019</span>.</p>
-          </div>
-          <div class="award-badge">
-            <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
-            </svg>
-            Runner-up &mdash; Synchrony Corporate AI Hackathon
           </div>
         </div>
         <div class="project-info">
@@ -244,7 +254,9 @@
 
       <!-- Personal Website -->
       <div class="project-card">
-        <h3 class="project-title">Personal Website</h3>
+        <div class="project-header">
+          <h3 class="project-title">Personal Website</h3>
+        </div>
         <div class="project-info">
           <p class="project-description">you're already here :)</p>
           <p class="project-description">more coming soon.</p>

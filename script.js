@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const subtext = document.querySelector('.hero-subtext');
 
   function matchWidth() {
-    if (heading && subtext) subtext.style.maxWidth = (heading.offsetWidth + 13) + 'px';
+    if (heading && subtext) subtext.style.maxWidth = (heading.offsetWidth + 80) + 'px';
   }
   matchWidth();
   window.addEventListener('resize', matchWidth);
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (dayEl) dayEl.style.backgroundImage = `url("${pick.day}")`;
   if (nightEl) nightEl.style.backgroundImage = `url("${pick.night}")`;
-  if (creditEl) creditEl.textContent = `(original image taken by me on ${pick.date})`;
+  if (creditEl) creditEl.textContent = `original image taken by me in Poland on ${pick.date}`;
 
   // Day/night hero toggle
   const heroContainer = document.getElementById('hero-section');
@@ -36,18 +36,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Click to copy
-  document.querySelectorAll('.contact-copyable').forEach(el => {
-    el.addEventListener('click', async () => {
+  // Copy email
+  const copyBtn = document.getElementById('copy-email');
+  const emailLabel = document.getElementById('email-label');
+  if (copyBtn && emailLabel) {
+    copyBtn.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(el.dataset.copy);
-        el.classList.add('copied');
-        setTimeout(() => el.classList.remove('copied'), 1200);
+        await navigator.clipboard.writeText(copyBtn.dataset.copy);
+        emailLabel.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          emailLabel.textContent = 'Email';
+          copyBtn.classList.remove('copied');
+        }, 1200);
       } catch (err) {
         console.error('Failed to copy:', err);
       }
     });
-  });
+  }
 
   // PII redaction demo
   const shieldBtn = document.getElementById('shield-toggle');
