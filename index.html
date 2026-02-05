@@ -11,13 +11,18 @@
   <meta property="og:description" content="I'm currently a Software Engineer Intern at Synchrony and a Computer Science student at UIUC. Feel free to reach out!">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://piotrzatek.com">
-  <meta property="og:image" content="https://piotrzatek.com/images/zakopane.webp">
+  <meta property="og:image" content="https://piotrzatek.com/images/og-thumbnail.webp">
+
+  <meta name="theme-color" content="#fafafa">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="styles.css" as="style">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="images/valley.avif" as="image" type="image/avif" fetchpriority="high">
+  <link rel="preload" href="images/valley.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -76,16 +81,53 @@
     <h2 class="section-title">Projects</h2>
     <div class="projects-grid">
 
+      <!-- highlight2calendar -->
+      <div class="project-card">
+        <div class="project-header">
+          <h3 class="project-title">highlight2calendar</h3>
+        </div>
+        <div class="project-demo">
+          <p class="h2c-source">Reminder: we have a <mark data-text="2hr meeting next Tuesday at 10am">2hr meeting next Tuesday at 10am</mark> to review the roadmap. Also, <mark class="h2c-mark-task" data-text="submit the expense report next Thursday">submit the expense report next Thursday</mark>.</p>
+          <div class="h2c-week">
+            <div class="h2c-col"><span class="h2c-day-num" id="h2c-mon-num"></span><span class="h2c-day-label">Mon</span></div>
+            <div class="h2c-col h2c-active">
+              <span class="h2c-day-num" id="h2c-tue-num"></span><span class="h2c-day-label">Tue</span>
+              <span class="h2c-event">Meeting · 10 AM</span>
+            </div>
+            <div class="h2c-col"><span class="h2c-day-num" id="h2c-wed-num"></span><span class="h2c-day-label">Wed</span></div>
+            <div class="h2c-col h2c-active-task">
+              <span class="h2c-day-num" id="h2c-thu-num"></span><span class="h2c-day-label">Thu</span>
+              <span class="h2c-task-pill"><svg class="h2c-check" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2"/></svg> Expense report</span>
+            </div>
+            <div class="h2c-col"><span class="h2c-day-num" id="h2c-fri-num"></span><span class="h2c-day-label">Fri</span></div>
+          </div>
+        </div>
+        <div class="project-info">
+          <p class="project-description">Chrome extension that turns highlighted text into Google Calendar events or Google Tasks. Right-click any selection with event details, and AI extracts the date, time, and title. Review and add to your calendar with one click.</p>
+          <p class="project-description">Built with React and TypeScript. Uses Claude Haiku to parse and interpret highlighted text into structured JSON, then creates events via the Google Calendar and Google Tasks APIs.</p>
+        </div>
+        <div class="project-footer">
+          <a href="/privacy" class="project-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Privacy Policy
+          </a>
+        </div>
+      </div>
+
       <!-- optimize.ai -->
       <div class="project-card">
         <div class="project-header">
           <h3 class="project-title">optimize.ai</h3>
-          <div class="award-badge">
+          <span class="award-badge">
             <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
             </svg>
-            Best Agentic Trace &mdash; Keywords AI (YC W24)
-          </div>
+            Best Agentic AI Trace &mdash; Keywords AI (YC W24) Hackathon
+          </span>
         </div>
         <div class="project-demo">
           <table class="project-table">
@@ -116,24 +158,72 @@
           </table>
         </div>
         <div class="project-info">
-          <p class="project-description">Benchmarks prompts across LLM providers and rewrites them to run on cheaper models without losing quality.</p>
+          <p class="project-description">Benchmarks prompts across LLM providers and rewrites them to run on cheaper models without losing quality. Helps teams cut API costs while maintaining output accuracy.</p>
           <p class="project-description">Built with Next.js, Supabase, and Keywords AI.</p>
         </div>
-        <a href="https://devpost.com/software/optimize-ai" class="project-link" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          Devpost
-        </a>
+        <div class="project-footer">
+          <a href="https://devpost.com/software/optimize-ai" class="project-link" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Devpost
+          </a>
+        </div>
+      </div>
+
+      <!-- Synchrony Shield -->
+      <div class="project-card">
+        <div class="project-header">
+          <h3 class="project-title">Synchrony Shield</h3>
+          <span class="award-badge">
+            <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
+            </svg>
+            Runner-up &mdash; Synchrony Corporate AI Hackathon
+          </span>
+        </div>
+        <div class="project-demo">
+          <div class="pii-demo-bar">
+            <span class="pii-demo-label">Email Draft</span>
+            <button class="pii-toggle" id="shield-toggle" aria-pressed="false">
+              <span class="pii-toggle-label" id="shield-status">Off</span>
+              <span class="pii-toggle-track"><span class="pii-toggle-thumb"></span></span>
+            </button>
+          </div>
+          <div class="pii-demo-body">
+            <p class="pii-demo-line">Hi team, contact me at <span class="pii-redactable" data-original="555-123-4567" data-redacted="[REDACTED]">555-123-4567</span>.</p>
+            <p class="pii-demo-line">Payment card: <span class="pii-redactable" data-original="1234-5678-9012-3456" data-redacted="[REDACTED]">1234-5678-9012-3456</span>.</p>
+            <p class="pii-demo-line">SSO ID: <span class="pii-redactable" data-original="3847562019" data-redacted="[REDACTED]">3847562019</span>.</p>
+          </div>
+        </div>
+        <div class="project-info">
+          <p class="project-description">Chrome extension that scans text fields for sensitive data like phone numbers, credit cards, SSNs, and addresses, then redacts them in real-time before anything leaves your browser.</p>
+          <p class="project-description">Runs entirely client-side using regex pattern matching. Built with JavaScript and the Chrome Extensions API.</p>
+        </div>
+        <div class="project-footer">
+          <a href="https://github.com/RobHand27/Synchrony-Shield" class="project-link" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            GitHub
+          </a>
+        </div>
       </div>
 
       <!-- UIUC Research Park Job Board -->
       <div class="project-card">
         <div class="project-header">
           <h3 class="project-title">UIUC Research Park Job Board</h3>
-          <div class="stat-badge">50+ new jobs tracked this school year</div>
+          <span class="stat-badge">
+            <svg class="stat-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
+            </svg>
+            50+ new jobs tracked this school year
+          </span>
         </div>
         <div class="project-demo">
           <table class="project-table">
@@ -157,99 +247,26 @@
               </tr>
               <tr>
                 <td>Synchrony</td>
-                <td>ETC Intern</td>
+                <td>Emerging Technology Intern</td>
                 <td><span class="table-link-static">Apply</span></td>
               </tr>
             </tbody>
           </table>
         </div>
         <div class="project-info">
-          <p class="project-description">Tracks new internship postings at UIUC's Research Park since the site no longer sends its own notifications.</p>
-          <p class="project-description">Python + GitHub Actions, checks hourly.</p>
+          <p class="project-description">Monitors UIUC Research Park for new internship postings and sends alerts, since the site no longer provides its own notifications.</p>
+          <p class="project-description">Built with Python and GitHub Actions. Scrapes listings hourly and notifies via email when new roles appear.</p>
         </div>
-        <a href="https://github.com/pazatek/rp-internships" class="project-link" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          GitHub
-        </a>
-      </div>
-
-      <!-- highlight2calendar -->
-      <div class="project-card">
-        <div class="project-header">
-          <h3 class="project-title">highlight2calendar</h3>
-          <div class="stat-badge">pending Chrome approval</div>
-        </div>
-        <div class="project-demo">
-          <p class="h2c-source">We have a <mark>2hr meeting Tuesday at 10am</mark>. Also, <mark class="h2c-mark-task">get that report in on Thursday</mark>.</p>
-          <div class="h2c-week">
-            <div class="h2c-col"><span class="h2c-day-label">Mon</span></div>
-            <div class="h2c-col h2c-active">
-              <span class="h2c-day-label">Tue</span>
-              <span class="h2c-event">Meeting<br>10 AM</span>
-            </div>
-            <div class="h2c-col"><span class="h2c-day-label">Wed</span></div>
-            <div class="h2c-col h2c-active-task">
-              <span class="h2c-day-label">Thu</span>
-              <span class="h2c-task-pill"><svg class="h2c-check" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2"/></svg>Submit<br>report</span>
-            </div>
-            <div class="h2c-col"><span class="h2c-day-label">Fri</span></div>
-          </div>
-        </div>
-        <div class="project-info">
-          <p class="project-description">Chrome extension that turns highlighted text into Google Calendar events or Google Tasks. Right-click any text with event details and AI extracts the key info. Review and add with one click.</p>
-          <p class="project-description">Built with React, TypeScript, and the Chrome Extensions API.</p>
-        </div>
-        <a href="/privacy" class="project-link">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          Privacy Policy
-        </a>
-      </div>
-
-      <!-- Synchrony Shield -->
-      <div class="project-card">
-        <div class="project-header">
-          <h3 class="project-title">Synchrony Shield</h3>
-          <div class="award-badge">
-            <svg class="award-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/>
+        <div class="project-footer">
+          <a href="https://github.com/pazatek/rp-internships" class="project-link" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
-            Runner-up &mdash; Synchrony AI Hackathon
-          </div>
+            GitHub
+          </a>
         </div>
-        <div class="project-demo">
-          <div class="pii-demo-bar">
-            <span class="pii-demo-label">Email Draft</span>
-            <button class="pii-toggle" id="shield-toggle" aria-pressed="false">
-              <span class="pii-toggle-label" id="shield-status">Off</span>
-              <span class="pii-toggle-track"><span class="pii-toggle-thumb"></span></span>
-            </button>
-          </div>
-          <div class="pii-demo-body">
-            <p class="pii-demo-line">Hi team, contact me at <span class="pii-redactable" data-original="555-123-4567" data-redacted="[REDACTED]">555-123-4567</span>.</p>
-            <p class="pii-demo-line">Payment card: <span class="pii-redactable" data-original="1234-5678-9012-3456" data-redacted="[REDACTED]">1234-5678-9012-3456</span>.</p>
-            <p class="pii-demo-line">SSO ID: <span class="pii-redactable" data-original="3847562019" data-redacted="[REDACTED]">3847562019</span>.</p>
-          </div>
-        </div>
-        <div class="project-info">
-          <p class="project-description">Chrome extension that detects and redacts PII like phone numbers, credit cards, SSOs, and addresses in real-time.</p>
-          <p class="project-description">Runs entirely client-side using pattern-based detection. Built with JavaScript and the Chrome Extensions API.</p>
-        </div>
-        <a href="https://github.com/RobHand27/Synchrony-Shield" class="project-link" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          GitHub
-        </a>
       </div>
 
       <!-- Personal Website -->
@@ -261,14 +278,16 @@
           <p class="project-description">you're already here :)</p>
           <p class="project-description">more coming soon.</p>
         </div>
-        <a href="https://github.com/pazatek/pazatek.github.io" class="project-link" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          GitHub
-        </a>
+        <div class="project-footer">
+          <a href="https://github.com/pazatek/pazatek.github.io" class="project-link" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            GitHub
+          </a>
+        </div>
       </div>
 
     </div>
