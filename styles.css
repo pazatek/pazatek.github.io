@@ -121,7 +121,7 @@ button {
    ============================================ */
 html {
   line-height: 1.7;
-  font-family: "Hanken Grotesk", sans-serif;
+  font-family: "Inter", sans-serif;
   scroll-behavior: smooth;
   scrollbar-width: none;
   -webkit-text-size-adjust: 100%;
