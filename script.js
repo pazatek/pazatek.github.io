@@ -49,18 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Font toggle
-  const fontToggle = document.getElementById('font-toggle');
-  if (fontToggle) {
-    fontToggle.querySelectorAll('.font-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        fontToggle.querySelector('.font-toggle-btn.active')?.classList.remove('active');
-        btn.classList.add('active');
-        document.documentElement.style.fontFamily = btn.dataset.font;
-      });
-    });
-  }
-
   // PII redaction demo
   const shieldBtn = document.getElementById('shield-toggle');
   const statusLabel = document.getElementById('shield-status');
