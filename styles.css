@@ -333,6 +333,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 24px;
 }
 
@@ -385,6 +386,10 @@ body {
 @media (max-width: 600px) {
   .projects-grid {
     grid-template-columns: 1fr;
+  }
+
+  .project-table td {
+    white-space: normal;
   }
 }
 
@@ -469,7 +474,6 @@ body {
   line-height: 1;
   font-weight: 600;
   color: #fff;
-  white-space: nowrap;
   background: linear-gradient(135deg, #d4a017, #b8860b 40%, #daa520 60%, #b8860b);
   padding: 4px 10px;
   border-radius: 999px;
@@ -509,7 +513,6 @@ body {
   line-height: 1;
   font-weight: 600;
   color: #fff;
-  white-space: nowrap;
   background: linear-gradient(135deg, #6b9bd2, #4a7fb5 40%, #7daad6 60%, #4a7fb5);
   padding: 4px 10px;
   border-radius: 999px;
