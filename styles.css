@@ -180,15 +180,28 @@ body {
 .hero-image-night {
   position: absolute;
   inset: 0;
-  background: #8b9dc3;
+  background-color: #8b9dc3;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   transition: opacity 0.8s ease;
 }
 
+.hero-image-day {
+  background-image: url("images/valley.webp");
+  background-image: image-set(
+    url("images/valley.avif") type("image/avif"),
+    url("images/valley.webp") type("image/webp")
+  );
+}
+
 .hero-image-night {
   opacity: 0;
+  background-image: url("images/valley-night.webp");
+  background-image: image-set(
+    url("images/valley-night.avif") type("image/avif"),
+    url("images/valley-night.webp") type("image/webp")
+  );
 }
 
 .hero-image-container.night .hero-image-night { opacity: 1; }

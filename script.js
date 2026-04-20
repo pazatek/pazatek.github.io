@@ -14,33 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeTimer = setTimeout(matchWidth, 150);
   });
 
-  // AVIF support detection
-  function supportsAvif() {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = 'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKBzgABpAgEAwgMgyfRAAAAAAAUAAABXQ=';
-    });
-  }
-
-  // Hero images — set day image immediately, defer night image
-  const dayEl = document.querySelector('.hero-image-day');
-  const nightEl = document.querySelector('.hero-image-night');
-  let nightImageLoaded = false;
-
-  async function setHeroImages() {
-    const avif = await supportsAvif();
-    const ext = avif ? 'avif' : 'webp';
-
-    if (dayEl) dayEl.style.backgroundImage = `url("images/valley.${ext}")`;
-
-    // Store night image path for lazy loading on toggle
-    if (nightEl) nightEl.dataset.bg = `url("images/valley-night.${ext}")`;
-  }
-
-  setHeroImages();
-
   // Day/night hero toggle
   const heroContainer = document.getElementById('hero-section');
   const heroToggle = document.getElementById('hero-toggle');
@@ -48,12 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (heroToggle && heroContainer) {
     heroToggle.addEventListener('click', () => {
-      // Lazy-load night image on first toggle
-      if (!nightImageLoaded && nightEl && nightEl.dataset.bg) {
-        nightEl.style.backgroundImage = nightEl.dataset.bg;
-        nightImageLoaded = true;
-      }
-
       document.body.classList.add('theme-transition');
       heroContainer.classList.toggle('night');
       document.documentElement.classList.toggle('dark');
