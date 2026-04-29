@@ -200,7 +200,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-top: calc(63.3vh - 96px);
+  padding-top: calc(63.3vh - 118px);
   color: #fff;
   font-size: clamp(28px, 5vw, 52px);
   font-weight: 600;
@@ -215,8 +215,8 @@ body {
 }
 
 .hero-avatar {
-  width: 88px;
-  height: 88px;
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -270,7 +270,7 @@ body {
   border-radius: 14px;
   flex-shrink: 0;
   transition: background-color 0.8s ease;
-  animation: hero-pill-glisten 1.4s ease-in-out 1.6s 3;
+  animation: hero-pill-glisten 2.4s ease-in-out 1.6s 2;
 }
 
 .hero-pill:hover .hero-pill-track {
