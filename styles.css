@@ -376,9 +376,12 @@ body {
   gap: 28px;
 }
 
-@media (max-width: 900px) {
-  .projects-grid {
-    grid-template-columns: repeat(2, 1fr);
+/* When the last card is alone in its row (odd total), center it in a 2-column layout */
+@media (min-width: 601px) {
+  .projects-grid > .project-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 14px);
   }
 }
 
