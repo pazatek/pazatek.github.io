@@ -214,6 +214,15 @@ body {
   gap: 8px;
 }
 
+.hero-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  margin-bottom: 4px;
+}
+
 .hero-heading {
   font-size: inherit;
   font-weight: inherit;
