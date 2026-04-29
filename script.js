@@ -14,19 +14,17 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeTimer = setTimeout(matchWidth, 150);
   });
 
-  // Day/night hero toggle
-  const heroContainer = document.getElementById('hero-section');
+  // Day/night theme toggle (persists override to localStorage; default is system pref)
   const heroToggle = document.getElementById('hero-toggle');
   const themeColor = document.querySelector('meta[name="theme-color"]');
 
-  if (heroToggle && heroContainer) {
+  if (heroToggle) {
     heroToggle.addEventListener('click', () => {
       document.body.classList.add('theme-transition');
-      heroContainer.classList.toggle('night');
-      document.documentElement.classList.toggle('dark');
+      const isDark = document.documentElement.classList.toggle('dark');
 
-      const isDark = document.documentElement.classList.contains('dark');
       if (themeColor) themeColor.content = isDark ? '#18181b' : '#fafafa';
+      try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
 
       setTimeout(() => document.body.classList.remove('theme-transition'), 900);
     });
