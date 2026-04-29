@@ -17,7 +17,6 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="styles.css" as="style">
   <link rel="preload" href="images/valley.avif" as="image" type="image/avif" fetchpriority="high">
   <link rel="preload" href="images/valley-night.avif" as="image" type="image/avif" fetchpriority="low">
   <link rel="stylesheet" href="styles.css">
@@ -26,6 +25,14 @@
   <script src="script.js" defer></script>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="icon-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+      <polyline points="15 3 21 3 21 9"/>
+      <line x1="10" y1="14" x2="21" y2="3"/>
+    </symbol>
+  </svg>
+
   <!-- Hero -->
   <div class="hero-image-container" id="hero-section">
     <div class="hero-image-day"></div>
@@ -47,7 +54,7 @@
     </div>
   </div>
 
-  <div class="image-credit">original image taken by me in Poland on 07-30-2024</div>
+  <div class="image-credit">original image taken by me in Poland 🇵🇱 on 07-30-2024</div>
 
   <div class="content-wrapper">
     <!-- Contact -->
@@ -108,11 +115,7 @@
         </div>
         <div class="project-footer">
           <a href="https://chromewebstore.google.com/detail/highlight2calendar/jojnhibihefchdcaakncdfniklgpihdj" class="project-link" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
+            <svg aria-hidden="true"><use href="#icon-external"/></svg>
             Install
           </a>
           <a href="/privacy" class="project-link">
@@ -161,11 +164,7 @@
         </div>
         <div class="project-footer">
           <a href="https://devpost.com/software/optimize-ai" class="project-link" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
+            <svg aria-hidden="true"><use href="#icon-external"/></svg>
             Devpost
           </a>
         </div>
@@ -197,11 +196,7 @@
         </div>
         <div class="project-footer">
           <a href="https://github.com/RobHand27/Synchrony-Shield" class="project-link" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
+            <svg aria-hidden="true"><use href="#icon-external"/></svg>
             GitHub
           </a>
         </div>
@@ -247,11 +242,7 @@
         </div>
         <div class="project-footer">
           <a href="https://rp-jobs.vercel.app" class="project-link" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
+            <svg aria-hidden="true"><use href="#icon-external"/></svg>
             Check it out
           </a>
         </div>
@@ -269,11 +260,7 @@
         </div>
         <div class="project-footer">
           <a href="https://github.com/pazatek/pazatek.github.io" class="project-link" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
+            <svg aria-hidden="true"><use href="#icon-external"/></svg>
             GitHub
           </a>
         </div>

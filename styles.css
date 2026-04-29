@@ -105,18 +105,6 @@ button {
   --project-title: #f9fafb;
 }
 
-.dark .award-badge,
-.dark .stat-badge {
-  color: #fff;
-  background: linear-gradient(135deg, #c9952a, #a67c1a 40%, #c9952a 60%, #a67c1a);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.dark .award-icon,
-.dark .stat-icon {
-  color: #fff;
-}
-
 /* ============================================
    BASE
    ============================================ */
@@ -156,8 +144,6 @@ body {
 .theme-transition .project-link,
 .theme-transition .contact-item,
 .theme-transition .image-credit,
-.theme-transition .award-badge,
-.theme-transition .stat-badge,
 .theme-transition .pii-demo-bar,
 .theme-transition .pii-demo-line,
 .theme-transition .pii-toggle-track,
@@ -477,35 +463,6 @@ body {
   border-radius: 4px;
 }
 
-/* Award / stat badge — shiny gold pill */
-.award-badge,
-.stat-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  line-height: 1;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, #d4a017, #b8860b 40%, #daa520 60%, #b8860b);
-  padding: 4px 10px;
-  border-radius: 999px;
-  box-shadow: 0 1px 3px rgba(184, 134, 11, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-
-.award-icon,
-.stat-icon {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-  color: #fff;
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
-}
-
 /* Shiny text shine effect — gold gradient with a brighter highlight sweeping across */
 .shiny-text {
   display: inline-block;
@@ -542,46 +499,6 @@ body {
     animation: none;
     background-position: 50% center;
   }
-}
-
-/* Silver badge variant */
-.stat-badge-silver {
-  background: linear-gradient(135deg, #b0b8c4, #8a939f 40%, #c0c7d0 60%, #8a939f);
-  box-shadow: 0 1px 3px rgba(120, 120, 140, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-.dark .stat-badge-silver {
-  background: linear-gradient(135deg, #8a939f, #6b7280 40%, #9ca3af 60%, #6b7280);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* Status badge (pending) */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  line-height: 1;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, #6b9bd2, #4a7fb5 40%, #7daad6 60%, #4a7fb5);
-  padding: 4px 10px;
-  border-radius: 999px;
-  box-shadow: 0 1px 3px rgba(74, 127, 181, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-
-.status-icon {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-  color: #fff;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
-}
-
-.dark .status-badge {
-  background: linear-gradient(135deg, #5a8abf, #3d6d9e 40%, #6b9bd2 60%, #3d6d9e);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 
