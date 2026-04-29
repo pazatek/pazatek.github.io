@@ -200,7 +200,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 63.3vh;
+  padding-top: calc(63.3vh - 96px);
   color: #fff;
   font-size: clamp(28px, 5vw, 52px);
   font-weight: 600;
@@ -220,7 +220,6 @@ body {
   border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  margin-bottom: 4px;
 }
 
 .hero-heading {
