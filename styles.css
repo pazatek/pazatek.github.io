@@ -219,7 +219,6 @@ body {
   height: 88px;
   border-radius: 50%;
   object-fit: cover;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
 .hero-heading {
