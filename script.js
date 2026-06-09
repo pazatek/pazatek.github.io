@@ -1,28 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Match subtext width to heading
-  const heading = document.querySelector('.hero-heading');
-  const subtext = document.querySelector('.hero-subtext');
-
-  function matchWidth() {
-    if (heading && subtext) subtext.style.maxWidth = (heading.offsetWidth + 80) + 'px';
-  }
-  matchWidth();
-
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(matchWidth, 150);
-  });
-
   // Day/night theme toggle (persists override to localStorage; default is system pref)
   const heroToggle = document.getElementById('hero-toggle');
   const themeColor = document.querySelector('meta[name="theme-color"]');
 
   if (heroToggle) {
+    heroToggle.setAttribute('aria-pressed', document.documentElement.classList.contains('dark'));
+
     heroToggle.addEventListener('click', () => {
       document.body.classList.add('theme-transition');
       const isDark = document.documentElement.classList.toggle('dark');
 
+      heroToggle.setAttribute('aria-pressed', isDark);
       if (themeColor) themeColor.content = isDark ? '#18181b' : '#fafafa';
       try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
 

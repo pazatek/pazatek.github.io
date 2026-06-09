@@ -11,7 +11,10 @@
   <meta property="og:description" content="I'm currently a Software Engineer Intern at Synchrony and a Computer Science student at UIUC. Feel free to reach out!">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://piotrzatek.com">
-  <meta property="og:image" content="https://piotrzatek.com/images/og-thumbnail.webp">
+  <meta property="og:image" content="https://piotrzatek.com/images/og-thumbnail.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   <meta name="theme-color" content="#fafafa">
 
@@ -29,13 +32,9 @@
     })();
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preload" href="images/valley.avif" as="image" type="image/avif" fetchpriority="high">
-  <link rel="preload" href="images/valley-night.avif" as="image" type="image/avif" fetchpriority="low">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -52,7 +51,6 @@
     <div class="hero-image-day"></div>
     <div class="hero-image-night"></div>
     <div class="hero-text">
-      <img class="hero-avatar" src="images/avatar.png" width="88" height="88" alt="Piotr Zatek portrait">
       <h1 class="hero-heading">Hi, I'm Piotr Zatek.</h1>
       <p class="hero-subtext">I'm currently a Software Engineer Intern at Synchrony and a Computer Science student at UIUC. Check out my projects and contact info below.</p>
       <button class="hero-pill" id="hero-toggle" aria-label="Toggle day/night">
@@ -73,7 +71,7 @@
 
   <div class="content-wrapper">
     <!-- Contact -->
-    <section class="section-divider scroll-section" id="contact">
+    <section class="section-divider" id="contact">
       <h2 class="section-title">Contact</h2>
       <div class="contact-grid">
         <a href="https://www.linkedin.com/in/piotr-zatek" class="contact-item" target="_blank" rel="noopener">
@@ -99,7 +97,7 @@
   </div>
 
   <!-- Projects (wider container for grid) -->
-  <section class="projects-section scroll-section" id="projects">
+  <section class="projects-section" id="projects">
     <h2 class="section-title">Projects</h2>
     <div class="projects-grid">
 
