@@ -14,8 +14,10 @@ img, svg, video {
   max-width: 100%;
 }
 
-button, [role="button"] {
+button {
   cursor: pointer;
+  background: none;
+  border: none;
 }
 
 a {
@@ -37,72 +39,35 @@ button, input, select, textarea {
   color: inherit;
 }
 
-button {
-  background: none;
-  border: none;
-}
-
 /* ============================================
    THEME VARIABLES
    ============================================ */
 :root {
   --bg: #fafafa;
   --fg: #1a1a1a;
-  --fg-muted: #52525b;
-  --fg-subtle: #6b7280;
+  --fg-muted: #6e6e73;
   --fg-faint: #86868b;
-  --fg-dim: #6e6e73;
-  --fg-description: #666;
   --border: rgba(0, 0, 0, 0.08);
   --link: #3b82f6;
   --link-hover: #059669;
-  --company-synchrony: #d97706;
-  --company-synchrony-hover: #b45309;
-  --company-uiuc: #13294b;
-  --company-uiuc-hover: #1e3a5f;
-  --copy-btn: #888;
-  --copy-btn-hover-bg: rgba(16, 185, 129, 0.1);
-  --copy-btn-hover-fg: #3b82f6;
-  --copied: #34c759;
-  --card-bg: #fff;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --card-border: rgba(0, 0, 0, 0.04);
-  --pii-off: #ff3b30;
-  --pii-on: #34c759;
+  --success: #34c759;
+  --danger: #ff3b30;
   --toggle-track: #d2d2d7;
   --row-hover: rgba(0, 0, 0, 0.025);
-  --section-title: #1a1a1a;
-  --project-title: #1d1d1f;
 }
 
 :root.dark {
   --bg: #18181b;
   --fg: #e4e4e7;
   --fg-muted: #d4d4d8;
-  --fg-subtle: #9ca3af;
   --fg-faint: #9ca3af;
-  --fg-dim: #d4d4d8;
-  --fg-description: #d4d4d8;
   --border: rgba(255, 255, 255, 0.1);
   --link: #60a5fa;
   --link-hover: #93c5fd;
-  --company-synchrony: #fbbf24;
-  --company-synchrony-hover: #fcd34d;
-  --company-uiuc: #5b8dc9;
-  --company-uiuc-hover: #7ba5d6;
-  --copy-btn: #6e6e73;
-  --copy-btn-hover-bg: rgba(59, 130, 246, 0.15);
-  --copy-btn-hover-fg: #60a5fa;
-  --copied: #30d158;
-  --card-bg: #27272a;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --pii-off: #ff453a;
-  --pii-on: #30d158;
+  --success: #30d158;
+  --danger: #ff453a;
   --toggle-track: #3f3f46;
   --row-hover: rgba(255, 255, 255, 0.05);
-  --section-title: #f9fafb;
-  --project-title: #f9fafb;
 }
 
 /* ============================================
@@ -129,7 +94,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-
 /* Theme transition (applied temporarily during toggle — scoped to elements that change) */
 .theme-transition {
   transition: background-color 0.8s ease, color 0.8s ease !important;
@@ -151,6 +115,15 @@ body {
   transition: background-color 0.8s ease, color 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease !important;
 }
 
+/* Shared focus ring */
+.project-link:focus-visible,
+.pii-toggle:focus-visible,
+.contact-item:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 /* ============================================
    HERO
    ============================================ */
@@ -161,6 +134,35 @@ body {
   overflow: hidden;
 }
 
+/* Hero image sources. Only the active theme's layer gets a background at load,
+   so the other image isn't fetched until script.js adds .hero-both (on idle or
+   on first toggle). Phones get the 1280px encodes. */
+:root {
+  --hero-day: url("images/valley.webp");
+  --hero-night: url("images/valley-night.webp");
+}
+
+@supports (background-image: image-set(url("a.avif") type("image/avif"))) {
+  :root {
+    --hero-day: image-set(url("images/valley.avif") type("image/avif"), url("images/valley.webp") type("image/webp"));
+    --hero-night: image-set(url("images/valley-night.avif") type("image/avif"), url("images/valley-night.webp") type("image/webp"));
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --hero-day: url("images/valley-1280.webp");
+    --hero-night: url("images/valley-night-1280.webp");
+  }
+
+  @supports (background-image: image-set(url("a.avif") type("image/avif"))) {
+    :root {
+      --hero-day: image-set(url("images/valley-1280.avif") type("image/avif"), url("images/valley-1280.webp") type("image/webp"));
+      --hero-night: image-set(url("images/valley-night-1280.avif") type("image/avif"), url("images/valley-night-1280.webp") type("image/webp"));
+    }
+  }
+}
+
 .hero-image-day,
 .hero-image-night {
   position: absolute;
@@ -168,38 +170,32 @@ body {
   background-color: #8b9dc3;
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
   transition: opacity 0.8s ease;
 }
 
-.hero-image-day {
-  background-image: url("images/valley.webp");
-  background-image: image-set(
-    url("images/valley.avif") type("image/avif"),
-    url("images/valley.webp") type("image/webp")
-  );
+:root:not(.dark) .hero-image-day,
+.hero-both .hero-image-day {
+  background-image: var(--hero-day);
 }
 
-.hero-image-night {
-  opacity: 0;
-  background-image: url("images/valley-night.webp");
-  background-image: image-set(
-    url("images/valley-night.avif") type("image/avif"),
-    url("images/valley-night.webp") type("image/webp")
-  );
+.dark .hero-image-night,
+.hero-both .hero-image-night {
+  background-image: var(--hero-night);
 }
 
+.hero-image-night { opacity: 0; }
 .dark .hero-image-night { opacity: 1; }
-
 
 .hero-text {
   position: absolute;
   inset: 0;
   z-index: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 63.3vh;
+  gap: 8px;
+  padding: 63.3vh 24px 0;
   color: #fff;
   font-size: clamp(28px, 5vw, 52px);
   font-weight: 600;
@@ -207,17 +203,6 @@ body {
   letter-spacing: -0.02em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   text-align: center;
-  padding-left: 24px;
-  padding-right: 24px;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.hero-heading {
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  letter-spacing: inherit;
 }
 
 .hero-subtext {
@@ -225,7 +210,6 @@ body {
   font-weight: 400;
   line-height: 1.6;
   max-width: 36em;
-  color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
@@ -236,7 +220,6 @@ body {
   padding: 20px 24px 0;
   letter-spacing: 0.02em;
 }
-
 
 /* Day/night pill toggle */
 .hero-pill {
@@ -273,12 +256,6 @@ body {
 @keyframes hero-pill-glisten {
   from { background-position: 150% center; }
   to { background-position: -50% center; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-pill-track {
-    animation: none;
-  }
 }
 
 .hero-pill-sun,
@@ -330,7 +307,6 @@ body {
 }
 
 .section-divider {
-  margin-bottom: 0;
   padding-bottom: 72px;
 }
 
@@ -340,7 +316,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--fg-faint);
-  margin: 0 0 36px;
+  margin-bottom: 36px;
   text-align: center;
 }
 
@@ -361,7 +337,6 @@ body {
   gap: 8px;
   font-size: 16px;
   color: var(--fg);
-  cursor: pointer;
   transition: color 0.2s ease;
 }
 
@@ -376,7 +351,7 @@ body {
 }
 
 .contact-item.copied {
-  color: var(--copied);
+  color: var(--success);
 }
 
 /* ============================================
@@ -424,6 +399,12 @@ body {
   padding: 1.25rem;
 }
 
+/* Pause every looping demo animation while its card is scrolled out of view */
+.project-card.is-offscreen *,
+.project-card.is-offscreen *::before,
+.project-card.is-offscreen *::after {
+  animation-play-state: paused;
+}
 
 .project-header {
   display: flex;
@@ -436,7 +417,7 @@ body {
   font-size: 22px;
   line-height: 1.25;
   font-weight: 600;
-  color: var(--project-title);
+  color: var(--fg);
   letter-spacing: -0.015em;
 }
 
@@ -478,12 +459,6 @@ body {
   transform: translateX(2px) translateY(-2px);
 }
 
-.project-link:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 4px;
-  border-radius: 4px;
-}
-
 /* Shiny text shine effect — gold gradient with a brighter highlight sweeping across */
 .shiny-text {
   display: inline-block;
@@ -507,27 +482,14 @@ body {
 }
 
 @keyframes shiny-text-shine {
-  0% {
-    background-position: 150% center;
-  }
-  100% {
-    background-position: -50% center;
-  }
+  from { background-position: 150% center; }
+  to { background-position: -50% center; }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .shiny-text {
-    animation: none;
-    background-position: 50% center;
-  }
-}
-
 
 /* Demo & info */
 .project-demo {
   overflow-x: auto;
   min-width: 0;
-  background: transparent;
   border-radius: 8px;
   padding: 0.25rem 0.75rem;
 }
@@ -539,7 +501,7 @@ body {
 }
 
 .project-description {
-  color: var(--fg-description);
+  color: var(--fg-muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -549,7 +511,6 @@ body {
    ============================================ */
 .project-table {
   width: 100%;
-  border-collapse: collapse;
   font-size: 12px;
   table-layout: fixed;
 }
@@ -566,7 +527,7 @@ body {
 }
 
 .project-table td {
-  color: var(--fg-dim);
+  color: var(--fg-muted);
   padding: 0.625rem 1rem 0.625rem 0;
   border-bottom: 1px solid var(--border);
   line-height: 1.5;
@@ -591,7 +552,6 @@ body {
 .table-link-static {
   font-weight: 500;
   color: var(--fg-faint);
-  cursor: default;
 }
 
 /* ============================================
@@ -599,7 +559,7 @@ body {
    ============================================ */
 .h2c-source {
   font-size: 12px;
-  color: var(--fg-dim);
+  color: var(--fg-muted);
   line-height: 1.7;
   margin-bottom: 14px;
 }
@@ -608,41 +568,38 @@ body {
   display: inline-block;
   position: relative;
   isolation: isolate;
-  color: var(--fg-dim);
-  padding: 2px 2px;
+  color: var(--fg-muted);
+  padding: 2px;
   border-radius: 3px;
   background: transparent;
 }
 
+/* Selection highlight — revealed left-to-right with clip-path (no layout work) */
 .h2c-source mark::before {
   content: attr(data-text);
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 100%;
+  inset: 0;
   padding: 2px;
   color: #fff;
-  background: #3b82f6;
+  background: var(--link);
   border-radius: 3px;
   overflow: hidden;
   white-space: nowrap;
   z-index: 1;
+  clip-path: inset(0 100% 0 0);
   animation: h2c-highlight 10s ease-in-out infinite;
 }
 
-.dark .h2c-source mark::before {
-  background: #60a5fa;
-}
-
+/* Cursor — a full-width strip with the icon at its left edge, so translateX(100%)
+   lands the icon at the end of the text (compositor-only) */
 .h2c-source mark::after {
   content: '';
   position: absolute;
   top: 1px;
   left: -2px;
-  width: 12px;
+  width: 100%;
   height: 16px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 20'%3E%3Cpath d='M2 1L2 15L5.5 11.5L8 16.5L10 15.5L7.5 10.5L12 10.5L2 1Z' fill='%23888' stroke='%23fff' stroke-width='0.8'/%3E%3C/svg%3E") no-repeat center / contain;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 20'%3E%3Cpath d='M2 1L2 15L5.5 11.5L8 16.5L10 15.5L7.5 10.5L12 10.5L2 1Z' fill='%23888' stroke='%23fff' stroke-width='0.8'/%3E%3C/svg%3E") no-repeat left / 12px 16px;
   pointer-events: none;
   opacity: 0;
   z-index: 2;
@@ -651,46 +608,44 @@ body {
 
 /* First highlight + cursor */
 @keyframes h2c-highlight {
-  0%, 6% { right: 100%; opacity: 0; }
-  7% { right: 100%; opacity: 1; }
-  30% { right: 0; opacity: 1; }
-  88% { right: 0; opacity: 1; }
-  94% { right: 0; opacity: 0; }
-  95%, 100% { right: 100%; opacity: 0; }
+  0%, 6% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  7% { clip-path: inset(0 100% 0 0); opacity: 1; }
+  30%, 88% { clip-path: inset(0); opacity: 1; }
+  94% { clip-path: inset(0); opacity: 0; }
+  95%, 100% { clip-path: inset(0 100% 0 0); opacity: 0; }
 }
 
 @keyframes h2c-cursor {
-  0%, 1% { left: -2px; opacity: 0; }
-  2%, 7% { left: -2px; opacity: 1; }
-  30% { left: calc(100% - 2px); opacity: 1; }
-  34% { left: calc(100% - 2px); opacity: 0; }
-  100% { left: -2px; opacity: 0; }
+  0%, 1% { transform: translateX(0); opacity: 0; }
+  2%, 7% { transform: translateX(0); opacity: 1; }
+  30% { transform: translateX(100%); opacity: 1; }
+  34% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 0; }
 }
 
 /* Second highlight (task) — staggered */
 .h2c-source mark.h2c-mark-task::before {
-  animation: h2c-highlight-task 10s ease-in-out infinite;
+  animation-name: h2c-highlight-task;
 }
 
 .h2c-source mark.h2c-mark-task::after {
-  animation: h2c-cursor-task 10s ease-in-out infinite;
+  animation-name: h2c-cursor-task;
 }
 
 @keyframes h2c-highlight-task {
-  0%, 44% { right: 100%; opacity: 0; }
-  45% { right: 100%; opacity: 1; }
-  65% { right: 0; opacity: 1; }
-  88% { right: 0; opacity: 1; }
-  94% { right: 0; opacity: 0; }
-  95%, 100% { right: 100%; opacity: 0; }
+  0%, 44% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  45% { clip-path: inset(0 100% 0 0); opacity: 1; }
+  65%, 88% { clip-path: inset(0); opacity: 1; }
+  94% { clip-path: inset(0); opacity: 0; }
+  95%, 100% { clip-path: inset(0 100% 0 0); opacity: 0; }
 }
 
 @keyframes h2c-cursor-task {
-  0%, 39% { left: -2px; opacity: 0; }
-  40%, 45% { left: -2px; opacity: 1; }
-  65% { left: calc(100% - 2px); opacity: 1; }
-  69% { left: calc(100% - 2px); opacity: 0; }
-  100% { left: -2px; opacity: 0; }
+  0%, 39% { transform: translateX(0); opacity: 0; }
+  40%, 45% { transform: translateX(0); opacity: 1; }
+  65% { transform: translateX(100%); opacity: 1; }
+  69% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 0; }
 }
 
 /* Calendar week */
@@ -715,22 +670,13 @@ body {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.dark .h2c-col + .h2c-col::before {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
 }
 
 .h2c-day-num {
   font-size: 12px;
   font-weight: 500;
   color: var(--fg-faint);
-}
-
-.h2c-active .h2c-day-num,
-.h2c-active-task .h2c-day-num {
-  color: var(--link);
 }
 
 .h2c-day-label {
@@ -741,13 +687,14 @@ body {
   color: var(--fg-faint);
 }
 
-.h2c-active .h2c-day-label,
-.h2c-active-task .h2c-day-label {
+.h2c-active .h2c-day-num,
+.h2c-active .h2c-day-label {
   color: var(--link);
 }
 
-/* Calendar event on Thu */
-.h2c-event {
+/* Event chip (Tue) and task pill (Thu) */
+.h2c-event,
+.h2c-task-pill {
   background: var(--link);
   color: #fff;
   font-size: 10px;
@@ -761,36 +708,24 @@ body {
   animation: h2c-event-in 10s ease-in-out infinite;
 }
 
-@keyframes h2c-event-in {
-  0%, 30% { opacity: 0; transform: translateY(3px); }
-  37%, 90% { opacity: 1; transform: translateY(0); }
-  96%, 100% { opacity: 0; transform: translateY(3px); }
-}
-
-/* Task pill on Fri */
-.h2c-check {
-  width: 10px;
-  height: 10px;
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-
 .h2c-task-pill {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background: var(--link);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 500;
   padding: 4px 6px;
-  border-radius: 4px;
-  text-align: center;
-  line-height: 1.3;
-  white-space: nowrap;
-  opacity: 0;
-  animation: h2c-task-in 10s ease-in-out infinite;
+  animation-name: h2c-task-in;
+}
+
+.h2c-check {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+@keyframes h2c-event-in {
+  0%, 30% { opacity: 0; transform: translateY(3px); }
+  37%, 90% { opacity: 1; transform: translateY(0); }
+  96%, 100% { opacity: 0; transform: translateY(3px); }
 }
 
 @keyframes h2c-task-in {
@@ -826,25 +761,24 @@ body {
 }
 
 .pii-demo-line {
-  color: var(--fg-dim);
+  color: var(--fg-muted);
   font-size: 14px;
   line-height: 1.7;
 }
 
 .pii-redactable {
-  background: var(--pii-off);
+  background: var(--danger);
   color: #fff;
   padding: 0.125rem 0.5rem;
   border-radius: 6px;
   font-weight: 500;
-  display: inline;
   white-space: nowrap;
   font-size: 12px;
   transition: background-color 0.25s ease;
 }
 
 .pii-redactable.redacted {
-  background: var(--pii-on);
+  background: var(--success);
 }
 
 /* Toggle switch */
@@ -852,12 +786,6 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-}
-
-.pii-toggle:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 4px;
-  border-radius: 4px;
 }
 
 .pii-toggle-label {
@@ -877,7 +805,7 @@ body {
 }
 
 .pii-toggle.active .pii-toggle-track {
-  background: var(--pii-on);
+  background: var(--success);
 }
 
 .pii-toggle-thumb {
@@ -894,4 +822,31 @@ body {
 
 .pii-toggle.active .pii-toggle-thumb {
   transform: translateX(12px);
+}
+
+/* ============================================
+   REDUCED MOTION — stop every loop, show final states
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .hero-pill-track,
+  .shiny-text,
+  .h2c-source mark::before,
+  .h2c-source mark::after,
+  .h2c-event,
+  .h2c-task-pill {
+    animation: none;
+  }
+
+  .shiny-text {
+    background-position: 50% center;
+  }
+
+  .h2c-source mark::before {
+    clip-path: none;
+  }
+
+  .h2c-event,
+  .h2c-task-pill {
+    opacity: 1;
+  }
 }

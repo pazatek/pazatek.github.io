@@ -20,20 +20,29 @@
 
   <script>
     (function () {
+      var dark = false;
       try {
         var stored = localStorage.getItem('theme');
-        var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (dark) {
-          document.documentElement.classList.add('dark');
-          var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.content = '#18181b';
-        }
+        dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
       } catch (e) {}
+      if (dark) {
+        document.documentElement.classList.add('dark');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.content = '#18181b';
+      }
+      // Preload only the hero image this visitor will actually see (theme + viewport).
+      var small = window.matchMedia('(max-width: 640px)').matches;
+      var link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.type = 'image/avif';
+      link.setAttribute('fetchpriority', 'high');
+      link.href = 'images/valley' + (dark ? '-night' : '') + (small ? '-1280' : '') + '.avif';
+      document.head.appendChild(link);
     })();
   </script>
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="preload" href="images/valley.avif" as="image" type="image/avif" fetchpriority="high">
   <link rel="stylesheet" href="styles.css">
   <script src="script.js" defer></script>
 </head>
@@ -51,7 +60,7 @@
     <div class="hero-image-day"></div>
     <div class="hero-image-night"></div>
     <div class="hero-text">
-      <h1 class="hero-heading">Hi, I'm Piotr Zatek.</h1>
+      <h1>Hi, I'm Piotr Zatek.</h1>
       <p class="hero-subtext">I'm currently a Software Engineer Intern at Synchrony and a Computer Science student at UIUC. Check out my projects and contact info below.</p>
       <button class="hero-pill" id="hero-toggle" aria-label="Toggle day/night">
         <span class="hero-pill-track">
@@ -115,7 +124,7 @@
               <span class="h2c-event">Meeting · 10 AM</span>
             </div>
             <div class="h2c-col"><span class="h2c-day-num" id="h2c-wed-num"></span><span class="h2c-day-label">Wed</span></div>
-            <div class="h2c-col h2c-active-task">
+            <div class="h2c-col h2c-active">
               <span class="h2c-day-num" id="h2c-thu-num"></span><span class="h2c-day-label">Thu</span>
               <span class="h2c-task-pill"><svg class="h2c-check" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2"/></svg> Expense report</span>
             </div>

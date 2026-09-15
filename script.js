@@ -1,14 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const root = document.documentElement;
+
+  // Load the inactive theme's hero image once the page is idle, so the
+  // day/night crossfade has both layers ready without blocking first paint.
+  const loadBothHeroImages = () => root.classList.add('hero-both');
+  const scheduleHeroPrefetch = () => {
+    if ('requestIdleCallback' in window) requestIdleCallback(loadBothHeroImages, { timeout: 3000 });
+    else setTimeout(loadBothHeroImages, 1500);
+  };
+  if (document.readyState === 'complete') scheduleHeroPrefetch();
+  else window.addEventListener('load', scheduleHeroPrefetch, { once: true });
+
   // Day/night theme toggle (persists override to localStorage; default is system pref)
   const heroToggle = document.getElementById('hero-toggle');
   const themeColor = document.querySelector('meta[name="theme-color"]');
 
   if (heroToggle) {
-    heroToggle.setAttribute('aria-pressed', document.documentElement.classList.contains('dark'));
+    heroToggle.setAttribute('aria-pressed', root.classList.contains('dark'));
 
     heroToggle.addEventListener('click', () => {
+      loadBothHeroImages();
       document.body.classList.add('theme-transition');
-      const isDark = document.documentElement.classList.toggle('dark');
+      const isDark = root.classList.toggle('dark');
 
       heroToggle.setAttribute('aria-pressed', isDark);
       if (themeColor) themeColor.content = isDark ? '#18181b' : '#fafafa';
@@ -70,5 +83,13 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = active ? el.dataset.redacted : el.dataset.original;
       });
     });
+  }
+
+  // Pause looping demo animations in cards that are scrolled out of view
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
+    }, { rootMargin: '10% 0px' });
+    document.querySelectorAll('.project-card').forEach(card => observer.observe(card));
   }
 });
