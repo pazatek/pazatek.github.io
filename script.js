@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState === 'complete') scheduleHeroPrefetch();
   else window.addEventListener('load', scheduleHeroPrefetch, { once: true });
 
-  // Day/night theme toggle (persists override to localStorage; default is system pref)
   const heroToggle = document.getElementById('hero-toggle');
   const themeColor = document.querySelector('meta[name="theme-color"]');
 
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Copy email
   const copyBtn = document.getElementById('copy-email');
   const emailLabel = document.getElementById('email-label');
   if (copyBtn && emailLabel) {
@@ -44,13 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
           emailLabel.textContent = 'Email';
           copyBtn.classList.remove('copied');
         }, 1200);
-      } catch (err) {
-        console.error('Failed to copy:', err);
+      } catch {
+        location.href = 'mailto:' + copyBtn.dataset.copy;
       }
     });
   }
 
-  // h2c calendar — populate next week's dates
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
   const daysUntilNextMon = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
@@ -67,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // PII redaction demo
   const shieldBtn = document.getElementById('shield-toggle');
   const statusLabel = document.getElementById('shield-status');
   const redactables = document.querySelectorAll('.pii-redactable');
@@ -85,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Pause looping demo animations in cards that are scrolled out of view
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));

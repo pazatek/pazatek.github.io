@@ -94,7 +94,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Theme transition (applied temporarily during toggle — scoped to elements that change) */
+/* Added only for the duration of a theme toggle, and scoped to the elements whose colors change */
 .theme-transition {
   transition: background-color 0.8s ease, color 0.8s ease !important;
 }
@@ -115,7 +115,6 @@ body {
   transition: background-color 0.8s ease, color 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease !important;
 }
 
-/* Shared focus ring */
 .project-link:focus-visible,
 .pii-toggle:focus-visible,
 .contact-item:focus-visible {
@@ -136,7 +135,8 @@ body {
 
 /* Hero image sources. Only the active theme's layer gets a background at load,
    so the other image isn't fetched until script.js adds .hero-both (on idle or
-   on first toggle). Phones get the 1280px encodes. */
+   on first toggle). Phones get the 1280px encodes; the preload script in
+   index.html must choose the same file. */
 :root {
   --hero-day: url("images/valley.webp");
   --hero-night: url("images/valley-night.webp");
@@ -221,7 +221,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* Day/night pill toggle */
 .hero-pill {
   display: inline-flex;
   margin-top: 4px;
@@ -382,13 +381,8 @@ body {
   .projects-grid {
     grid-template-columns: 1fr;
   }
-
-  .project-table td {
-    white-space: normal;
-  }
 }
 
-/* Card */
 .project-card {
   display: grid;
   grid-template-rows: subgrid;
@@ -421,7 +415,6 @@ body {
   letter-spacing: -0.015em;
 }
 
-/* Project footer — pinned to card bottom */
 .project-footer {
   display: flex;
   align-items: center;
@@ -459,7 +452,6 @@ body {
   transform: translateX(2px) translateY(-2px);
 }
 
-/* Shiny text shine effect — gold gradient with a brighter highlight sweeping across */
 .shiny-text {
   display: inline-block;
   font-size: 12px;
@@ -486,7 +478,6 @@ body {
   to { background-position: -50% center; }
 }
 
-/* Demo & info */
 .project-demo {
   overflow-x: auto;
   min-width: 0;
@@ -507,7 +498,7 @@ body {
 }
 
 /* ============================================
-   JOB BOARD TABLE (flat, inside card)
+   PROJECT TABLES
    ============================================ */
 .project-table {
   width: 100%;
@@ -533,6 +524,12 @@ body {
   line-height: 1.5;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .project-table td {
+    white-space: normal;
+  }
 }
 
 .project-table tbody tr:last-child td {
@@ -577,6 +574,7 @@ body {
 /* Selection highlight — revealed left-to-right with clip-path (no layout work) */
 .h2c-source mark::before {
   content: attr(data-text);
+  content: attr(data-text) / "";
   position: absolute;
   inset: 0;
   padding: 2px;
@@ -606,7 +604,6 @@ body {
   animation: h2c-cursor 10s ease-in-out infinite;
 }
 
-/* First highlight + cursor */
 @keyframes h2c-highlight {
   0%, 6% { clip-path: inset(0 100% 0 0); opacity: 0; }
   7% { clip-path: inset(0 100% 0 0); opacity: 1; }
@@ -623,7 +620,6 @@ body {
   100% { transform: translateX(0); opacity: 0; }
 }
 
-/* Second highlight (task) — staggered */
 .h2c-source mark.h2c-mark-task::before {
   animation-name: h2c-highlight-task;
 }
@@ -648,7 +644,6 @@ body {
   100% { transform: translateX(0); opacity: 0; }
 }
 
-/* Calendar week */
 .h2c-week {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -692,7 +687,6 @@ body {
   color: var(--link);
 }
 
-/* Event chip (Tue) and task pill (Thu) */
 .h2c-event,
 .h2c-task-pill {
   background: var(--link);
@@ -735,7 +729,7 @@ body {
 }
 
 /* ============================================
-   PII REDACTION DEMO (flat, inside card)
+   PII REDACTION DEMO
    ============================================ */
 .pii-demo-bar {
   display: flex;
@@ -781,7 +775,6 @@ body {
   background: var(--success);
 }
 
-/* Toggle switch */
 .pii-toggle {
   display: inline-flex;
   align-items: center;
@@ -838,7 +831,9 @@ body {
   }
 
   .shiny-text {
-    background-position: 50% center;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+    color: #a67c1a;
   }
 
   .h2c-source mark::before {
