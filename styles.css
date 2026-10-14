@@ -46,12 +46,16 @@ button, input, select, textarea {
   --bg: #fafafa;
   --fg: #1a1a1a;
   --fg-muted: #6e6e73;
-  --fg-faint: #86868b;
+  --fg-faint: #707075;
   --border: rgba(0, 0, 0, 0.08);
-  --link: #3b82f6;
-  --link-hover: #059669;
-  --success: #34c759;
-  --danger: #ff3b30;
+  --link: #2563eb;
+  --link-hover: #1d4ed8;
+  --accent-fill: #2563eb;
+  --success: #15803d;
+  --success-fill: #15803d;
+  --danger: #d70015;
+  --gold: #8a6512;
+  --gold-shine: #c9972e;
   --toggle-track: #d2d2d7;
   --row-hover: rgba(0, 0, 0, 0.025);
 }
@@ -65,7 +69,8 @@ button, input, select, textarea {
   --link: #60a5fa;
   --link-hover: #93c5fd;
   --success: #30d158;
-  --danger: #ff453a;
+  --gold: #a67c1a;
+  --gold-shine: #ffe9a8;
   --toggle-track: #3f3f46;
   --row-hover: rgba(255, 255, 255, 0.05);
 }
@@ -76,12 +81,7 @@ button, input, select, textarea {
 html {
   line-height: 1.7;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  scrollbar-width: none;
   -webkit-text-size-adjust: 100%;
-}
-
-html::-webkit-scrollbar {
-  display: none;
 }
 
 body {
@@ -459,11 +459,11 @@ body {
   line-height: 1;
   background-image: linear-gradient(
     120deg,
-    #a67c1a 0%,
-    #a67c1a 35%,
-    #ffe9a8 50%,
-    #a67c1a 65%,
-    #a67c1a 100%
+    var(--gold) 0%,
+    var(--gold) 35%,
+    var(--gold-shine) 50%,
+    var(--gold) 65%,
+    var(--gold) 100%
   );
   background-size: 200% auto;
   background-position: 150% center;
@@ -579,7 +579,7 @@ body {
   inset: 0;
   padding: 2px;
   color: #fff;
-  background: var(--link);
+  background: var(--accent-fill);
   border-radius: 3px;
   overflow: hidden;
   white-space: nowrap;
@@ -646,7 +646,7 @@ body {
 
 .h2c-week {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -689,7 +689,7 @@ body {
 
 .h2c-event,
 .h2c-task-pill {
-  background: var(--link);
+  background: var(--accent-fill);
   color: #fff;
   font-size: 10px;
   font-weight: 500;
@@ -772,7 +772,7 @@ body {
 }
 
 .pii-redactable.redacted {
-  background: var(--success);
+  background: var(--success-fill);
 }
 
 .pii-toggle {
@@ -798,7 +798,7 @@ body {
 }
 
 .pii-toggle.active .pii-toggle-track {
-  background: var(--success);
+  background: var(--success-fill);
 }
 
 .pii-toggle-thumb {
@@ -833,7 +833,7 @@ body {
   .shiny-text {
     background-image: none;
     -webkit-text-fill-color: currentColor;
-    color: #a67c1a;
+    color: var(--gold);
   }
 
   .h2c-source mark::before {
