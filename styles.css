@@ -135,30 +135,46 @@ body {
 
 /* Hero image sources. Only the active theme's layer gets a background at load,
    so the other image isn't fetched until script.js adds .hero-both (on idle or
-   on first toggle). Phones get portrait center crops; the preload script in
-   index.html must choose the same file. */
+   on first toggle). Each screen gets the smallest AVIF that covers it without
+   upscaling: 1920 for 1x laptops, 2880 for big 1x or small retina screens,
+   3840 for retina laptops and 4K, and a 1440x2560 center crop for portrait
+   screens. The preload script in index.html must choose the same file. */
 :root {
-  --hero-day: url("images/valley.webp");
-  --hero-night: url("images/valley-night.webp");
+  --hero-day: url("images/valley-2560.webp");
+  --hero-night: url("images/valley-night-2560.webp");
 }
 
 @supports (background-image: image-set(url("a.avif") type("image/avif"))) {
   :root {
-    --hero-day: image-set(url("images/valley.avif") type("image/avif"), url("images/valley.webp") type("image/webp"));
-    --hero-night: image-set(url("images/valley-night.avif") type("image/avif"), url("images/valley-night.webp") type("image/webp"));
+    --hero-day: image-set(url("images/valley-1920.avif") type("image/avif"), url("images/valley-2560.webp") type("image/webp"));
+    --hero-night: image-set(url("images/valley-night-1920.avif") type("image/avif"), url("images/valley-night-2560.webp") type("image/webp"));
+  }
+
+  @media (min-width: 1441px), (min-resolution: 1.5dppx) {
+    :root {
+      --hero-day: image-set(url("images/valley-2880.avif") type("image/avif"), url("images/valley-2560.webp") type("image/webp"));
+      --hero-night: image-set(url("images/valley-night-2880.avif") type("image/avif"), url("images/valley-night-2560.webp") type("image/webp"));
+    }
+  }
+
+  @media (min-width: 2561px), (min-resolution: 1.5dppx) and (min-width: 1100px) {
+    :root {
+      --hero-day: image-set(url("images/valley-3840.avif") type("image/avif"), url("images/valley-2560.webp") type("image/webp"));
+      --hero-night: image-set(url("images/valley-night-3840.avif") type("image/avif"), url("images/valley-night-2560.webp") type("image/webp"));
+    }
   }
 }
 
-@media (max-width: 640px) {
+@media (max-aspect-ratio: 1/1) {
   :root {
-    --hero-day: url("images/valley-phone.webp");
-    --hero-night: url("images/valley-night-phone.webp");
+    --hero-day: url("images/valley-portrait.webp");
+    --hero-night: url("images/valley-night-portrait.webp");
   }
 
   @supports (background-image: image-set(url("a.avif") type("image/avif"))) {
     :root {
-      --hero-day: image-set(url("images/valley-phone.avif") type("image/avif"), url("images/valley-phone.webp") type("image/webp"));
-      --hero-night: image-set(url("images/valley-night-phone.avif") type("image/avif"), url("images/valley-night-phone.webp") type("image/webp"));
+      --hero-day: image-set(url("images/valley-portrait.avif") type("image/avif"), url("images/valley-portrait.webp") type("image/webp"));
+      --hero-night: image-set(url("images/valley-night-portrait.avif") type("image/avif"), url("images/valley-night-portrait.webp") type("image/webp"));
     }
   }
 }

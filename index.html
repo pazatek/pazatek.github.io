@@ -31,14 +31,18 @@
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.content = '#18181b';
       }
-      // Must pick the same file as the 640px hero media query in styles.css.
-      var small = window.matchMedia('(max-width: 640px)').matches;
+      // Must pick the same file as the hero media queries in styles.css.
+      var mq = function (q) { return window.matchMedia(q).matches; };
+      var size = mq('(max-aspect-ratio: 1/1)') ? 'portrait'
+        : mq('(min-width: 2561px), (min-resolution: 1.5dppx) and (min-width: 1100px)') ? '3840'
+        : mq('(min-width: 1441px), (min-resolution: 1.5dppx)') ? '2880'
+        : '1920';
       var link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';
       link.type = 'image/avif';
       link.setAttribute('fetchpriority', 'high');
-      link.href = 'images/valley' + (dark ? '-night' : '') + (small ? '-phone' : '') + '.avif';
+      link.href = 'images/valley' + (dark ? '-night' : '') + '-' + size + '.avif';
       document.head.appendChild(link);
     })();
   </script>
