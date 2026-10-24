@@ -135,7 +135,7 @@ body {
 
 /* Hero image sources. Only the active theme's layer gets a background at load,
    so the other image isn't fetched until script.js adds .hero-both (on idle or
-   on first toggle). Phones get the 1280px encodes; the preload script in
+   on first toggle). Phones get portrait center crops; the preload script in
    index.html must choose the same file. */
 :root {
   --hero-day: url("images/valley.webp");
@@ -151,14 +151,14 @@ body {
 
 @media (max-width: 640px) {
   :root {
-    --hero-day: url("images/valley-1280.webp");
-    --hero-night: url("images/valley-night-1280.webp");
+    --hero-day: url("images/valley-phone.webp");
+    --hero-night: url("images/valley-night-phone.webp");
   }
 
   @supports (background-image: image-set(url("a.avif") type("image/avif"))) {
     :root {
-      --hero-day: image-set(url("images/valley-1280.avif") type("image/avif"), url("images/valley-1280.webp") type("image/webp"));
-      --hero-night: image-set(url("images/valley-night-1280.avif") type("image/avif"), url("images/valley-night-1280.webp") type("image/webp"));
+      --hero-day: image-set(url("images/valley-phone.avif") type("image/avif"), url("images/valley-phone.webp") type("image/webp"));
+      --hero-night: image-set(url("images/valley-night-phone.avif") type("image/avif"), url("images/valley-night-phone.webp") type("image/webp"));
     }
   }
 }
