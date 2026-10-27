@@ -30,6 +30,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const heroTitle = document.querySelector('.hero-text h1');
+  if (heroTitle) {
+    Promise.all([
+      fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
+      import('./pen.js'),
+    ])
+      .then(([data, pen]) => playHandwriting(heroTitle, data, pen))
+      .catch(() => root.classList.remove('hw'));
+  }
+
   const copyBtn = document.getElementById('copy-email');
   const emailLabel = document.getElementById('email-label');
   if (copyBtn && emailLabel) {
@@ -79,6 +89,146 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = active ? el.dataset.redacted : el.dataset.original;
       });
     });
+  }
+
+  function playHandwriting(title, data, { prepareStroke, strokePath }) {
+    const START_DELAY = 400;
+    const MAX_PAUSE = 120;
+    const SPEED = 1.7;
+    const EYE_RANGE = 4.5;
+
+    const strokes = [];
+    let shift = 0;
+    let prevEnd = 0;
+    data.strokes.forEach((flat, n) => {
+      const raw = [];
+      for (let i = 0; i < flat.length; i += 4) raw.push([flat[i], flat[i + 1], flat[i + 3], flat[i + 2]]);
+      const points = prepareStroke(raw);
+      shift += Math.max(0, raw[0][3] - prevEnd - MAX_PAUSE);
+      prevEnd = raw[raw.length - 1][3];
+      strokes.push({ points, times: points.map(p => (p[3] - shift) / SPEED), weight: data.weight?.[n] ?? 1, path: null });
+    });
+    const duration = strokes[strokes.length - 1].times.slice(-1)[0];
+
+    const eyes = (data.eyes || []).filter(i => strokes[i]).map(i => {
+      const { points } = strokes[i];
+      const eye = {
+        x: points.reduce((sum, p) => sum + p[0], 0) / points.length,
+        y: points.reduce((sum, p) => sum + p[1], 0) / points.length,
+        dx: 0, dy: 0, tx: 0, ty: 0,
+      };
+      strokes[i].eye = eye;
+      return eye;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'hero-handwriting';
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.style.setProperty('--hw-aspect', data.width / data.height);
+    title.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    const ink = getComputedStyle(title.parentElement).color;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let penSize = 1;
+    let startedAt = null;
+    let elapsed = reduceMotion ? Infinity : 0;
+
+    function render() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scale = canvas.width / data.width;
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.fillStyle = ink;
+
+      for (const stroke of strokes) {
+        const { points, times, eye } = stroke;
+        const size = penSize * stroke.weight;
+        if (times[0] > elapsed) break;
+        if (eye) ctx.translate(eye.dx, eye.dy);
+        if (times[times.length - 1] <= elapsed) {
+          ctx.fill(stroke.path ||= strokePath(points, size));
+        } else {
+          let shown = 1;
+          while (times[shown] <= elapsed) shown++;
+          ctx.fill(strokePath(points.slice(0, shown), size, false));
+        }
+        if (eye) ctx.translate(-eye.dx, -eye.dy);
+      }
+    }
+
+    let pointer = null;
+    let gazing = false;
+
+    // Each pupil turns toward the cursor from its own position, so they converge a little when it's close.
+    function aim() {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.bottom < 0) return;
+      const k = rect.width / data.width;
+      for (const eye of eyes) {
+        eye.tx = eye.ty = 0;
+        if (!pointer) continue;
+        const vx = pointer.x - (rect.left + eye.x * k);
+        const vy = pointer.y - (rect.top + eye.y * k);
+        const dist = Math.hypot(vx, vy) || 1;
+        const reach = EYE_RANGE * (1 - Math.exp(-dist / 120));
+        eye.tx = vx / dist * reach;
+        eye.ty = vy / dist * reach;
+      }
+      if (!gazing) {
+        gazing = true;
+        requestAnimationFrame(glance);
+      }
+    }
+
+    function glance() {
+      let settling = false;
+      for (const eye of eyes) {
+        eye.dx += (eye.tx - eye.dx) * 0.18;
+        eye.dy += (eye.ty - eye.dy) * 0.18;
+        if (Math.abs(eye.tx - eye.dx) + Math.abs(eye.ty - eye.dy) > 0.02) settling = true;
+        else { eye.dx = eye.tx; eye.dy = eye.ty; }
+      }
+      if (elapsed >= duration) render();
+      if (settling) requestAnimationFrame(glance);
+      else gazing = false;
+    }
+
+    if (eyes.length && !reduceMotion) {
+      document.addEventListener('pointermove', e => {
+        if (e.pointerType === 'touch') return;
+        pointer = { x: e.clientX, y: e.clientY };
+        aim();
+      }, { passive: true });
+      document.addEventListener('mouseout', e => {
+        if (e.relatedTarget) return;
+        pointer = null;
+        aim();
+      });
+      addEventListener('scroll', aim, { passive: true });
+    }
+
+    function frame(now) {
+      if (startedAt === null) startedAt = now + START_DELAY;
+      elapsed = Math.max(0, now - startedAt);
+      render();
+      if (elapsed < duration) requestAnimationFrame(frame);
+    }
+
+    new ResizeObserver(([entry]) => {
+      const dpr = window.devicePixelRatio || 1;
+      const cssWidth = entry.contentRect.width;
+      // The exact device-pixel size keeps the ink as crisp as the type; Safari doesn't report it.
+      const device = entry.devicePixelContentBoxSize?.[0];
+      canvas.width = device ? device.inlineSize : Math.round(cssWidth * dpr);
+      canvas.height = device ? device.blockSize : Math.round(entry.contentRect.height * dpr);
+      // Ink weight follows the heading size, not the recording's scale, so it reads like the type it replaces.
+      penSize = parseFloat(getComputedStyle(title).fontSize) * 0.1 * data.width / cssWidth;
+      strokes.forEach(stroke => { stroke.path = null; });
+      render();
+    }).observe(canvas);
+
+    if (!reduceMotion) requestAnimationFrame(frame);
   }
 
   if ('IntersectionObserver' in window) {

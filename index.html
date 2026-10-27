@@ -21,6 +21,8 @@
 
   <script>
     (function () {
+      // script.js removes this if handwriting.json can't be loaded, so the typed title shows instead.
+      document.documentElement.classList.add('hw');
       var dark = false;
       try {
         var stored = localStorage.getItem('theme');
@@ -47,6 +49,8 @@
     })();
   </script>
 
+  <link rel="preload" href="handwriting.json" as="fetch" crossorigin>
+  <link rel="modulepreload" href="pen.js">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="styles.css">
   <script src="script.js" defer></script>
@@ -65,7 +69,7 @@
     <div class="hero-image-day"></div>
     <div class="hero-image-night"></div>
     <div class="hero-text">
-      <h1>Hi, I'm Piotr Zatek.</h1>
+      <h1>Hey! I'm Piotr Zatek.</h1>
       <p class="hero-subtext">I'm currently a Software Engineer Intern at Synchrony and a Computer Science student at UIUC. Check out my projects and contact info below.</p>
       <button class="hero-pill" id="hero-toggle" aria-label="Toggle day/night">
         <span class="hero-pill-track">
