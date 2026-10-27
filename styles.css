@@ -238,11 +238,11 @@ body {
 
 .hero-handwriting {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.05em;
+  left: calc(var(--hw-x, 0) * 1em);
+  right: calc(var(--hw-x, 0) * -1em);
+  bottom: calc(0.05em - var(--hw-y, 0) * 1em);
   margin-inline: auto;
-  width: min(11em, calc(100vw - 48px), calc(4.2em * var(--hw-aspect)));
+  width: min(calc(11em * var(--hw-size)), calc(100vw - 48px), calc(4.2em * var(--hw-aspect) * var(--hw-size)));
   aspect-ratio: var(--hw-aspect);
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
   pointer-events: none;
