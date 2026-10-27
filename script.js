@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function playHandwriting(title, data, { prepareStroke, strokePath }, { instant = false } = {}) {
     const START_DELAY = 400;
     const MAX_PAUSE = 120;
-    const SPEED = 1.7;
+    const SPEED = 3.4;
     const EYE_RANGE = 4.5;
 
     const strokes = [];
