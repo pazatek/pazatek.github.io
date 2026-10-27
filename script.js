@@ -32,12 +32,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const heroTitle = document.querySelector('.hero-text h1');
   if (heroTitle) {
+    let stop = null;
+    let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
       import('./pen.js'),
     ])
-      .then(([data, pen]) => playHandwriting(heroTitle, data, pen))
-      .catch(() => root.classList.remove('hw'));
+      .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
+      .catch(() => { if (!previewing) root.classList.remove('hw'); });
+
+    // The stroke editor in _draw/ embeds this page and sends unsaved edits to preview them in place.
+    if (window.parent !== window) {
+      addEventListener('message', async e => {
+        if (e.origin !== location.origin) return;
+        const { offset } = e.data ?? {};
+        const placed = heroTitle.querySelector('.hero-handwriting');
+        if (offset && placed) {
+          placed.style.setProperty('--hw-x', offset.x);
+          placed.style.setProperty('--hw-y', offset.y);
+          return;
+        }
+        if (!e.data?.handwriting) return;
+        previewing = true;
+        const pen = await import('./pen.js');
+        stop?.();
+        root.classList.add('hw');
+        stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
+      });
+    }
   }
 
   const copyBtn = document.getElementById('copy-email');
@@ -91,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function playHandwriting(title, data, { prepareStroke, strokePath }) {
+  function playHandwriting(title, data, { prepareStroke, strokePath }, { instant = false } = {}) {
     const START_DELAY = 400;
     const MAX_PAUSE = 120;
     const SPEED = 1.7;
@@ -125,6 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.className = 'hero-handwriting';
     canvas.setAttribute('aria-hidden', 'true');
     canvas.style.setProperty('--hw-aspect', data.width / data.height);
+    canvas.style.setProperty('--hw-size', data.size ?? 1);
+    canvas.style.setProperty('--hw-x', data.offset?.x ?? 0);
+    canvas.style.setProperty('--hw-y', data.offset?.y ?? 0);
     title.appendChild(canvas);
 
     const ctx = canvas.getContext('2d');
@@ -132,7 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let penSize = 1;
     let startedAt = null;
-    let elapsed = reduceMotion ? Infinity : 0;
+    let elapsed = reduceMotion || instant ? Infinity : 0;
+    let stopped = false;
+    const listeners = new AbortController();
+    const signal = listeners.signal;
 
     function render() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -190,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else { eye.dx = eye.tx; eye.dy = eye.ty; }
       }
       if (elapsed >= duration) render();
-      if (settling) requestAnimationFrame(glance);
+      if (settling && !stopped) requestAnimationFrame(glance);
       else gazing = false;
     }
 
@@ -199,23 +227,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.pointerType === 'touch') return;
         pointer = { x: e.clientX, y: e.clientY };
         aim();
-      }, { passive: true });
+      }, { passive: true, signal });
       document.addEventListener('mouseout', e => {
         if (e.relatedTarget) return;
         pointer = null;
         aim();
-      });
-      addEventListener('scroll', aim, { passive: true });
+      }, { signal });
+      addEventListener('scroll', aim, { passive: true, signal });
     }
 
     function frame(now) {
       if (startedAt === null) startedAt = now + START_DELAY;
       elapsed = Math.max(0, now - startedAt);
       render();
-      if (elapsed < duration) requestAnimationFrame(frame);
+      if (elapsed < duration && !stopped) requestAnimationFrame(frame);
     }
 
-    new ResizeObserver(([entry]) => {
+    const resizer = new ResizeObserver(([entry]) => {
       const dpr = window.devicePixelRatio || 1;
       const cssWidth = entry.contentRect.width;
       // The exact device-pixel size keeps the ink as crisp as the type; Safari doesn't report it.
@@ -223,12 +251,20 @@ document.addEventListener('DOMContentLoaded', () => {
       canvas.width = device ? device.inlineSize : Math.round(cssWidth * dpr);
       canvas.height = device ? device.blockSize : Math.round(entry.contentRect.height * dpr);
       // Ink weight follows the heading size, not the recording's scale, so it reads like the type it replaces.
-      penSize = parseFloat(getComputedStyle(title).fontSize) * 0.1 * data.width / cssWidth;
+      penSize = parseFloat(getComputedStyle(title).fontSize) * 0.1 * (data.size ?? 1) * data.width / cssWidth;
       strokes.forEach(stroke => { stroke.path = null; });
       render();
-    }).observe(canvas);
+    });
+    resizer.observe(canvas);
 
-    if (!reduceMotion) requestAnimationFrame(frame);
+    if (elapsed === 0) requestAnimationFrame(frame);
+
+    return () => {
+      stopped = true;
+      listeners.abort();
+      resizer.disconnect();
+      canvas.remove();
+    };
   }
 
   if ('IntersectionObserver' in window) {
