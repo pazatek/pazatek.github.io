@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="robots" content="noindex">
+  <title>Handwriting recorder</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      background: #fafafa;
+      color: #1a1a1a;
+      font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .toolbar {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      background: #fff;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      z-index: 1;
+    }
+
+    button {
+      font: inherit;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      background: #f0f0f2;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    #save { background: #2563eb; color: #fff; }
+
+    #status {
+      padding: 0 10px;
+      color: #6e6e73;
+      white-space: nowrap;
+    }
+
+    .hint {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: #707075;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="pad"></canvas>
+
+  <div class="toolbar">
+    <button id="undo" disabled>Undo</button>
+    <button id="clear" disabled>Clear</button>
+    <button id="save" disabled>Save</button>
+    <button id="zoom" title="Reset zoom">100%</button>
+    <span id="status">Write with your Pencil</span>
+  </div>
+
+  <p class="hint">Only the Pencil draws, so rest your hand anywhere. Pinch with two fingers to zoom and move around.</p>
+
+  <script type="module">
+    import { prepareStroke, strokePath } from '../pen.js';
+
+    const PEN_SIZE = 7;
+    const PAD = 16;
+    const MIN_ZOOM = 0.5;
+    const MAX_ZOOM = 5;
+    const GUIDE_Y = Math.round(innerHeight * 0.55);
+
+    const canvas = document.getElementById('pad');
+    const ctx = canvas.getContext('2d');
+    const undoBtn = document.getElementById('undo');
+    const clearBtn = document.getElementById('clear');
+    const saveBtn = document.getElementById('save');
+    const status = document.getElementById('status');
+    const zoomBtn = document.getElementById('zoom');
+
+    let strokes = [];
+    let current = null;
+    let t0 = null;
+    let cleared = null;
+    let view = { scale: 1, x: 0, y: 0 };
+    const touches = new Map();
+    let pinch = null;
+    let lastPenAt = -Infinity;
+
+    function showCount() {
+      const n = strokes.length;
+      status.textContent = n ? n + (n === 1 ? ' stroke' : ' strokes') : 'Write with your Pencil';
+      clearBtn.disabled = saveBtn.disabled = n === 0;
+      undoBtn.disabled = n === 0 && !cleared;
+    }
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(innerWidth * dpr);
+      canvas.height = Math.round(innerHeight * dpr);
+      redraw();
+    }
+
+    function drawGuide() {
+      const y = Math.round(view.y + GUIDE_Y * view.scale) + 0.5;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(40, y);
+      ctx.lineTo(innerWidth - 40, y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Strokes are stored in page coordinates, but shaped at the size they were written on screen,
+    // so ink weight and speed-based pressure match what the hand did at whatever zoom it was.
+    const shape = (s, complete) => strokePath(prepareStroke(s.map(p => [p.x * s.zoom, p.y * s.zoom, p.p, p.t])), PEN_SIZE, complete);
+
+    function fillStroke(s, path) {
+      const dpr = window.devicePixelRatio || 1;
+      const k = dpr * view.scale / s.zoom;
+      ctx.setTransform(k, 0, 0, k, dpr * view.x, dpr * view.y);
+      ctx.fill(path);
+    }
+
+    function redraw() {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      drawGuide();
+      ctx.fillStyle = '#1a1a1a';
+      for (const s of strokes) fillStroke(s, s.path ||= shape(s, true));
+      if (current) fillStroke(current, shape(current, false));
+      zoomBtn.textContent = Math.round(view.scale * 100) + '%';
+    }
+
+    function toPoint(e, prev) {
+      // A Pencil sometimes reports 0 pressure mid-stroke; mice and fingers have none to report.
+      const p = e.pointerType !== 'pen' ? 0.5 : e.pressure > 0 ? e.pressure : prev ? prev.p : 0.5;
+      return { x: (e.clientX - view.x) / view.scale, y: (e.clientY - view.y) / view.scale, t: e.timeStamp - t0, p };
+    }
+
+    function zoomAround(sx, sy, scale, wx = (sx - view.x) / view.scale, wy = (sy - view.y) / view.scale) {
+      scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale));
+      view = { scale, x: sx - wx * scale, y: sy - wy * scale };
+      redraw();
+    }
+
+    function pinchState() {
+      const [a, b] = [...touches.values()];
+      return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, dist: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)) };
+    }
+
+    // Two fingers pinch and pan. A palm resting while writing is one touch, and a second
+    // touch right after the Pencil lifts is more likely the hand shifting than a gesture.
+    function touchDown(e) {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size !== 2 || current || e.timeStamp - lastPenAt < 300) return;
+      const { cx, cy, dist } = pinchState();
+      pinch = { dist, scale: view.scale, wx: (cx - view.x) / view.scale, wy: (cy - view.y) / view.scale };
+    }
+
+    function touchMove(e) {
+      if (!touches.has(e.pointerId)) return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!pinch || touches.size !== 2) return;
+      const { cx, cy, dist } = pinchState();
+      zoomAround(cx, cy, pinch.scale * dist / pinch.dist, pinch.wx, pinch.wy);
+    }
+
+    function touchUp(e) {
+      touches.delete(e.pointerId);
+      pinch = null;
+    }
+
+    // iPadOS Scribble swallows quick Pencil taps (WebKit bug 217430) unless touches on the canvas are cancelled.
+    canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+    canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+    // Fingers and palms never draw, only the Pencil (or a mouse, for testing on a laptop).
+    canvas.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'touch') return touchDown(e);
+      // A lost pointerup would otherwise block every later stroke.
+      if (current) strokes.push(current);
+      cleared = null;
+      pinch = null;
+      lastPenAt = e.timeStamp;
+
+      if (t0 === null) t0 = e.timeStamp;
+      canvas.setPointerCapture(e.pointerId);
+      current = [toPoint(e)];
+      current.pointerId = e.pointerId;
+      current.zoom = view.scale;
+      redraw();
+    });
+
+    canvas.addEventListener('pointermove', e => {
+      if (e.pointerType === 'touch') return touchMove(e);
+      if (!current || e.pointerId !== current.pointerId) return;
+      lastPenAt = e.timeStamp;
+      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      for (const ev of events.length ? events : [e]) current.push(toPoint(ev, current[current.length - 1]));
+      redraw();
+    });
+
+    const endStroke = e => {
+      if (e.pointerType === 'touch') return touchUp(e);
+      if (!current || e.pointerId !== current.pointerId) return;
+      lastPenAt = e.timeStamp;
+      strokes.push(current);
+      current = null;
+      showCount();
+      redraw();
+    };
+    canvas.addEventListener('pointerup', endStroke);
+    canvas.addEventListener('pointercancel', endStroke);
+
+    undoBtn.addEventListener('click', () => {
+      if (!strokes.length && cleared) {
+        ({ strokes, t0 } = cleared);
+        cleared = null;
+      } else {
+        strokes.pop();
+        if (!strokes.length) t0 = null;
+      }
+      showCount();
+      redraw();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      cleared = { strokes, t0 };
+      strokes = [];
+      t0 = null;
+      showCount();
+      redraw();
+    });
+
+    zoomBtn.addEventListener('click', () => {
+      view = { scale: 1, x: 0, y: 0 };
+      redraw();
+    });
+
+    // Trackpad pinch (reported as ctrl+wheel) and scroll, for trying the recorder on a laptop.
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      if (e.ctrlKey) zoomAround(e.clientX, e.clientY, view.scale * Math.exp(-e.deltaY / 100));
+      else {
+        view = { ...view, x: view.x - e.deltaX, y: view.y - e.deltaY };
+        redraw();
+      }
+    }, { passive: false });
+
+    function exportRecording() {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const s of strokes) for (const p of s) {
+        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+      }
+      const start = strokes[0][0].t;
+      const r = n => Math.round(n * 10) / 10;
+      // Export at the zoom it was written at, so the site's speed-based pressure sees real hand speed.
+      const count = strokes.reduce((n, s) => n + s.length, 0);
+      const k = strokes.reduce((sum, s) => sum + s.zoom * s.length, 0) / count;
+
+      return {
+        width: Math.ceil((maxX - minX) * k) + PAD * 2,
+        height: Math.ceil((maxY - minY) * k) + PAD * 2,
+        // Each stroke is a flat run of [x, y, ms since start, pressure].
+        strokes: strokes.map(s => s.flatMap(p => [
+          r((p.x - minX) * k + PAD),
+          r((p.y - minY) * k + PAD),
+          Math.round(p.t - start),
+          Math.round(p.p * 100) / 100,
+        ])),
+      };
+    }
+
+    saveBtn.addEventListener('click', async () => {
+      const json = JSON.stringify(exportRecording());
+      status.textContent = 'Saving…';
+      try {
+        const res = await fetch('save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json });
+        if (!res.ok) throw new Error(res.status);
+        status.textContent = 'Saved to handwriting.json';
+      } catch {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        a.download = 'handwriting.json';
+        a.click();
+        status.textContent = 'Downloaded handwriting.json';
+      }
+    });
+
+    addEventListener('resize', resize);
+    resize();
+  </script>
+</body>
+</html>
