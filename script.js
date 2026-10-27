@@ -115,20 +115,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function playHandwriting(title, data, { prepareStroke, strokePath }, { instant = false } = {}) {
     const START_DELAY = 400;
-    const MAX_PAUSE = 120;
-    const SPEED = 3.4;
+    const SPEED = 2.8;
+    // Pauses shrink on their own scale so word breaks still read longer than gaps between letters.
+    const PAUSE_SCALE = 0.2;
+    const PAUSE_CAP = 500;
     const EYE_RANGE = 4.5;
 
     const strokes = [];
-    let shift = 0;
-    let prevEnd = 0;
+    let clock = 0;
+    let prevEnd = null;
     data.strokes.forEach((flat, n) => {
       const raw = [];
       for (let i = 0; i < flat.length; i += 4) raw.push([flat[i], flat[i + 1], flat[i + 3], flat[i + 2]]);
       const points = prepareStroke(raw);
-      shift += Math.max(0, raw[0][3] - prevEnd - MAX_PAUSE);
+      const start = raw[0][3];
+      if (prevEnd !== null) clock += Math.min(Math.max(0, start - prevEnd), PAUSE_CAP) * PAUSE_SCALE;
       prevEnd = raw[raw.length - 1][3];
-      strokes.push({ points, times: points.map(p => (p[3] - shift) / SPEED), weight: data.weight?.[n] ?? 1, path: null });
+      strokes.push({ points, times: points.map(p => clock + (p[3] - start) / SPEED), weight: data.weight?.[n] ?? 1, path: null });
+      clock += (prevEnd - start) / SPEED;
     });
     const duration = strokes[strokes.length - 1].times.slice(-1)[0];
 
