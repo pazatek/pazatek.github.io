@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (prevEnd !== null) clock += Math.min(Math.max(0, start - prevEnd), PAUSE_CAP) * PAUSE_SCALE;
       prevEnd = raw[raw.length - 1][3];
       strokes.push({ points, times: points.map(p => clock + (p[3] - start) / SPEED), weight: data.weight?.[n] ?? 1, path: null });
-      clock += (prevEnd - start) / SPEED;
+      clock += (prevEnd - start) / SPEED + (data.pauseAfter?.[n] ?? 0);
     });
     const duration = strokes[strokes.length - 1].times.slice(-1)[0];
 
