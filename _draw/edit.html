@@ -24,6 +24,7 @@
       inset: 0;
       width: 100%;
       height: 100%;
+      z-index: 2;
     }
 
     .bar {
@@ -39,11 +40,12 @@
       border: 1px solid rgba(0, 0, 0, 0.08);
       border-radius: 999px;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-      z-index: 1;
+      z-index: 3;
     }
 
     .tools { top: 12px; flex-wrap: wrap; justify-content: center; border-radius: 16px; width: max-content; }
     .group { display: flex; align-items: center; gap: 4px; padding-left: 8px; border-left: 1px solid rgba(0, 0, 0, 0.08); white-space: nowrap; }
+    .group[hidden] { display: none; }
     #size { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
     .chips { bottom: 12px; flex-wrap: wrap; justify-content: center; border-radius: 16px; }
 
@@ -58,34 +60,23 @@
     }
 
     button:disabled { opacity: 0.4; cursor: default; }
-    #save { background: #2563eb; color: #fff; }
+    button.on, #save { background: #2563eb; color: #fff; }
 
     .chips button { padding: 4px 9px; min-width: 32px; font-variant-numeric: tabular-nums; }
-    .chips button.on { background: #2563eb; color: #fff; }
 
     #status { padding: 0 8px; color: #6e6e73; white-space: nowrap; }
 
     #preview {
       position: fixed;
-      right: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 8px;
-      background: #fff;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      border-radius: 16px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      border-radius: 12px;
+      background: #18181b;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
       z-index: 1;
     }
 
     #preview[hidden] { display: none; }
-    .viewport { position: relative; overflow: hidden; border-radius: 10px; background: #18181b; }
-    .viewport iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; }
-    .grab { position: absolute; inset: 0; cursor: move; touch-action: none; }
-    .preview-hint { text-align: center; color: #6e6e73; font-size: 13px; }
-    .preview-bar { display: flex; gap: 6px; justify-content: center; }
-    .preview-bar button.on { background: #2563eb; color: #fff; }
+    #preview iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; }
   </style>
 </head>
 <body>
@@ -100,37 +91,37 @@
     <button id="cw" disabled title="Rotate 1° clockwise">↻</button>
     <button id="delete" disabled>Delete</button>
     <button id="none" disabled>Deselect</button>
-    <button id="preview-btn">Preview on site</button>
     <button id="restore" hidden>Restore draft</button>
     <button id="save">Save</button>
     <span class="group">Size on site <button id="shrink">−</button><span id="size">100%</span><button id="grow">+</button></span>
+    <span class="group" id="hero-tools">
+      <button data-device="desktop" class="on">Desktop</button>
+      <button data-device="phone">Phone</button>
+      <button id="recenter">Center</button>
+      <button id="replay">Replay</button>
+    </span>
+    <span class="group"><button id="mode">Raw strokes</button></span>
     <span id="status">Tap a stroke</span>
   </div>
 
   <div class="bar chips" id="chips"></div>
 
-  <div id="preview" hidden>
-    <div class="viewport"><iframe id="site" title="Site preview"></iframe><div class="grab" id="grab"></div></div>
-    <div class="preview-hint">Drag in the preview to move it on the page</div>
-    <div class="preview-bar">
-      <button data-device="desktop" class="on">Desktop</button>
-      <button data-device="phone">Phone</button>
-      <button id="recenter">Center</button>
-      <button id="replay">Replay</button>
-    </div>
-  </div>
+  <div id="preview"><iframe id="site" title="Site preview" src="../"></iframe></div>
 
   <script type="module">
     import { prepareStroke, strokePath } from '../pen.js';
 
     const PAD = 16;
     const PEN_SIZE = 5;
+    const DEVICES = { desktop: [1280, 800], phone: [390, 844] };
 
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
     const chips = document.getElementById('chips');
     const status = document.getElementById('status');
-    const buttons = Object.fromEntries(['undo', 'all', 'smaller', 'bigger', 'ccw', 'cw', 'delete', 'none', 'preview-btn', 'restore', 'save', 'shrink', 'grow', 'replay', 'recenter'].map(id => [id, document.getElementById(id)]));
+    const preview = document.getElementById('preview');
+    const site = document.getElementById('site');
+    const buttons = Object.fromEntries(['undo', 'all', 'smaller', 'bigger', 'ccw', 'cw', 'delete', 'none', 'restore', 'save', 'shrink', 'grow', 'replay', 'recenter', 'mode'].map(id => [id, document.getElementById(id)]));
 
     const data = await (await fetch('../handwriting.json', { cache: 'no-store' })).json();
     let strokes = data.strokes.map(flat => {
@@ -144,8 +135,11 @@
     let marks = { eyes: data.eyes || [], weight: data.weight || {}, pauseAfter: data.pauseAfter || {}, size: data.size ?? 1, offset: data.offset ?? { x: 0, y: 0 } };
     let selected = new Set();
     let history = [];
-    let paths = [];
-    let view = { scale: 1, x: 0, y: 0 };
+    let rawPaths = [];
+    let heroPaths = { size: 0, list: [] };
+    let mode = 'hero';
+    let device = 'desktop';
+    let rawView = { scale: 1, x: 0, y: 0 };
     let drag = null;
 
     // Edits are kept as a draft in this browser until a save reaches the server, so a reload,
@@ -164,10 +158,20 @@
 
     const snapshot = () => history.push(state());
     function changed() {
-      paths = [];
+      rawPaths = [];
+      heroPaths.list = [];
       try { localStorage.setItem(DRAFT_KEY, state()); } catch {}
-      render();
       sendPreview();
+      updateUI();
+      draw();
+    }
+
+    function bounds(list) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const s of list) for (const [x, y] of s) {
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      return { x0, y0, x1, y1 };
     }
 
     function exportData() {
@@ -186,88 +190,141 @@
       return out;
     }
 
-    const DEVICES = { desktop: [1280, 800], phone: [390, 844] };
-    const preview = document.getElementById('preview');
-    const site = document.getElementById('site');
-    const viewport = preview.querySelector('.viewport');
-    let device = 'desktop';
-
-    function layoutPreview() {
-      const [w, h] = DEVICES[device];
-      const top = document.querySelector('.tools').getBoundingClientRect().bottom + 12;
-      preview.style.top = top + 'px';
-      const k = Math.min((Math.min(innerWidth * 0.46, 560) - 16) / w, (innerHeight - top - 76) / h);
-      Object.assign(site.style, { width: w + 'px', height: h + 'px', transform: `scale(${k})` });
-      Object.assign(viewport.style, { width: w * k + 'px', height: h * k + 'px' });
-    }
-
     function sendPreview(instant = true) {
-      if (preview.hidden || !site.contentWindow) return;
-      site.contentWindow.postMessage({ handwriting: exportData(), instant }, location.origin);
+      site.contentWindow?.postMessage({ handwriting: exportData(), instant }, location.origin);
     }
 
-    function bounds(list) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const s of list) for (const [x, y] of s) {
-        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
-      }
-      return { x0, y0, x1, y1 };
+    let previewQueued = false;
+    function queuePreview() {
+      if (previewQueued) return;
+      previewQueued = true;
+      requestAnimationFrame(() => { previewQueued = false; sendPreview(); });
     }
 
-    function fit() {
-      const b = bounds(strokes);
-      const room = preview.hidden ? innerWidth : innerWidth - preview.offsetWidth - 24;
-      const w = b.x1 - b.x0 + PAD * 4;
-      const h = b.y1 - b.y0 + PAD * 4;
-      const scale = Math.min(room / w, (innerHeight - 160) / h);
-      view = { scale, x: (room - (b.x1 + b.x0) * scale) / 2, y: (innerHeight - (b.y1 + b.y0) * scale) / 2 };
-    }
-
-    function resize() {
+    function layout() {
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.round(innerWidth * dpr);
       canvas.height = Math.round(innerHeight * dpr);
-      layoutPreview();
-      fit();
-      render();
+      preview.hidden = mode !== 'hero';
+      document.getElementById('hero-tools').hidden = mode !== 'hero';
+      updateUI();
+      const top = document.querySelector('.tools').getBoundingClientRect().bottom + 12;
+      const bottom = chips.getBoundingClientRect().top - 12;
+      if (mode === 'hero') {
+        const [w, h] = DEVICES[device];
+        const k = Math.min((innerWidth - 24) / w, (bottom - top) / h);
+        Object.assign(site.style, { width: w + 'px', height: h + 'px', transform: `scale(${k})` });
+        Object.assign(preview.style, { width: w * k + 'px', height: h * k + 'px', left: (innerWidth - w * k) / 2 + 'px', top: top + (bottom - top - h * k) / 2 + 'px' });
+      } else {
+        const b = bounds(strokes);
+        const w = b.x1 - b.x0 + PAD * 4;
+        const h = b.y1 - b.y0 + PAD * 4;
+        const scale = Math.min(innerWidth / w, (bottom - top) / h);
+        rawView = { scale, x: (innerWidth - (b.x1 + b.x0) * scale) / 2, y: top + (bottom - top - (b.y1 + b.y0) * scale) / 2 };
+      }
+      draw();
     }
 
-    function render() {
+    // Where a data unit lands on screen in the mockup: the site's own canvas, scaled down with the frame.
+    function heroView() {
+      const doc = site.contentDocument;
+      const placed = doc?.querySelector('.hero-handwriting');
+      const heading = doc?.querySelector('.hero-text h1');
+      if (!placed || !heading || !placed.offsetWidth) return null;
+      const r = placed.getBoundingClientRect();
+      const v = preview.getBoundingClientRect();
+      const k = v.width / DEVICES[device][0];
+      const b = bounds(strokes);
+      const width = Math.ceil(b.x1 - b.x0) + PAD * 2;
+      const scale = r.width / width * k;
+      const em = parseFloat(site.contentWindow.getComputedStyle(heading).fontSize);
+      return {
+        scale,
+        x: v.left + r.left * k + (PAD - b.x0) * scale,
+        y: v.top + r.top * k + (PAD - b.y0) * scale,
+        ink: em * 0.1 * (marks.size ?? 1) * k / scale,
+        perEm: em * k,
+      };
+    }
+
+    const currentView = () => mode === 'hero' ? heroView() : rawView;
+    const toInput = s => prepareStroke(s.map(([x, y, t, p]) => [x, y, p, t]));
+
+    function draw() {
       const dpr = window.devicePixelRatio || 1;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, innerWidth, innerHeight);
+      const view = currentView();
+      if (!view) return;
       ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.x, dpr * view.y);
+
+      if (mode === 'raw') {
+        strokes.forEach((s, i) => {
+          rawPaths[i] ||= strokePath(toInput(s), PEN_SIZE * (marks.weight[i] ?? 1));
+          ctx.fillStyle = selected.has(i) ? '#2563eb' : selected.size ? 'rgba(26, 26, 26, 0.35)' : '#1a1a1a';
+          ctx.fill(rawPaths[i]);
+        });
+      } else {
+        // The site draws the ink itself; this layer only marks what's selected.
+        if (Math.abs(heroPaths.size - view.ink) > 0.05) heroPaths = { size: view.ink, list: [] };
+        ctx.fillStyle = '#3b82f6';
+        for (const i of selected) {
+          heroPaths.list[i] ||= strokePath(toInput(strokes[i]), view.ink * 1.35 * (marks.weight[i] ?? 1));
+          ctx.fill(heroPaths.list[i]);
+        }
+      }
+
+      ctx.font = `600 ${11 / view.scale}px -apple-system, sans-serif`;
+      ctx.lineWidth = 3 / view.scale;
+      ctx.strokeStyle = mode === 'hero' ? 'rgba(0, 0, 0, 0.6)' : '#fafafa';
       strokes.forEach((s, i) => {
-        paths[i] ||= strokePath(prepareStroke(s.map(([x, y, t, p]) => [x, y, p, t])), PEN_SIZE * (marks.weight[i] ?? 1));
-        ctx.fillStyle = selected.has(i) ? '#2563eb' : selected.size ? 'rgba(26, 26, 26, 0.35)' : '#1a1a1a';
-        ctx.fill(paths[i]);
-      });
-      ctx.font = `${11 / view.scale}px -apple-system, sans-serif`;
-      strokes.forEach((s, i) => {
-        ctx.fillStyle = selected.has(i) ? '#2563eb' : '#d70015';
-        ctx.fillText(i, s[0][0] + 3 / view.scale, s[0][1] - 3 / view.scale);
+        if (mode === 'hero' && !selected.has(i)) return;
+        const at = [s[0][0] + 3 / view.scale, s[0][1] - 4 / view.scale];
+        ctx.strokeText(i, ...at);
+        ctx.fillStyle = selected.has(i) ? '#60a5fa' : '#d70015';
+        ctx.fillText(i, ...at);
       });
 
+      if (drag?.kind === 'box') {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const [x0, y0, x1, y1] = drag.box;
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 1;
+        ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+        ctx.strokeRect(x0 + 0.5, y0 + 0.5, x1 - x0, y1 - y0);
+      }
+    }
+
+    // The mockup re-lays itself out after every preview message, so the selection is redrawn each frame.
+    (function follow() {
+      if (mode === 'hero') draw();
+      requestAnimationFrame(follow);
+    })();
+
+    function updateUI() {
       chips.replaceChildren(...strokes.map((_, i) => {
         const b = document.createElement('button');
         b.textContent = marks.eyes.includes(i) ? `${i} eye` : i;
         b.className = selected.has(i) ? 'on' : '';
-        b.onclick = () => { selected.has(i) ? selected.delete(i) : selected.add(i); render(); };
+        b.onclick = () => { selected.has(i) ? selected.delete(i) : selected.add(i); updateUI(); draw(); };
         return b;
       }));
       const n = selected.size;
       for (const id of ['smaller', 'bigger', 'ccw', 'cw', 'delete', 'none']) buttons[id].disabled = n === 0;
       document.getElementById('size').textContent = Math.round((marks.size ?? 1) * 100) + '%';
+      buttons.mode.textContent = mode === 'hero' ? 'Raw strokes' : 'Hero mockup';
       buttons.undo.disabled = history.length === 0;
       if (!status.dataset.sticky) {
-        status.textContent = n === strokes.length ? `All ${n} strokes selected`
-          : n ? `Selected ${[...selected].sort((a, b) => a - b).join(', ')}` : 'Tap a stroke';
+        status.textContent = n === strokes.length ? `All ${n} strokes selected: drag to place on the page`
+          : n ? `Selected ${[...selected].sort((a, b) => a - b).join(', ')}`
+          : mode === 'hero' ? 'Tap a stroke, or drag a box around a word' : 'Tap a stroke';
       }
     }
 
-    const toData = e => [(e.clientX - view.x) / view.scale, (e.clientY - view.y) / view.scale];
+    const toData = (e, view) => [(e.clientX - view.x) / view.scale, (e.clientY - view.y) / view.scale];
 
-    function hit([x, y]) {
+    function hit([x, y], view) {
       let best = -1, bestD = 14 / view.scale;
       strokes.forEach((s, i) => {
         for (const [px, py] of s) {
@@ -280,59 +337,86 @@
 
     canvas.addEventListener('pointerdown', e => {
       delete status.dataset.sticky;
-      const at = toData(e);
-      const i = hit(at);
+      const view = currentView();
+      if (!view) return;
+      const at = toData(e, view);
+      const i = hit(at, view);
+      canvas.setPointerCapture(e.pointerId);
+      const base = { id: e.pointerId, start: [e.clientX, e.clientY], view, original: state(), moved: false };
       if (i < 0) {
-        if (!e.shiftKey) selected.clear();
-        render();
+        drag = { ...base, kind: 'box', additive: e.shiftKey || e.metaKey, box: [e.clientX, e.clientY, e.clientX, e.clientY] };
         return;
       }
       if (e.shiftKey || e.metaKey) selected.has(i) ? selected.delete(i) : selected.add(i);
       else if (!selected.has(i)) selected = new Set([i]);
-      canvas.setPointerCapture(e.pointerId);
-      drag = { id: e.pointerId, at, original: state(), moved: false };
-      render();
+      const whole = mode === 'hero' && selected.size === strokes.length;
+      drag = { ...base, kind: whole ? 'place' : 'strokes', from: marks.offset ?? { x: 0, y: 0 } };
+      updateUI();
+      draw();
     });
 
     canvas.addEventListener('pointermove', e => {
       if (!drag || e.pointerId !== drag.id) return;
-      const [x, y] = toData(e);
-      const dx = x - drag.at[0], dy = y - drag.at[1];
-      if (!drag.moved && Math.hypot(dx, dy) * view.scale < 3) return;
+      const dx = e.clientX - drag.start[0];
+      const dy = e.clientY - drag.start[1];
+      if (!drag.moved && Math.hypot(dx, dy) < 3) return;
       drag.moved = true;
-      const original = JSON.parse(drag.original).strokes;
-      for (const i of selected) strokes[i] = original[i].map(([px, py, t, p]) => [px + dx, py + dy, t, p]);
-      paths = [];
-      render();
+      if (drag.kind === 'box') {
+        drag.box = [Math.min(drag.start[0], e.clientX), Math.min(drag.start[1], e.clientY), Math.max(drag.start[0], e.clientX), Math.max(drag.start[1], e.clientY)];
+        draw();
+      } else if (drag.kind === 'place') {
+        const r = n => Math.round(n * 100) / 100;
+        marks = { ...marks, offset: { x: r(drag.from.x + dx / drag.view.perEm), y: r(drag.from.y + dy / drag.view.perEm) } };
+        site.contentWindow?.postMessage({ offset: marks.offset }, location.origin);
+      } else {
+        const original = JSON.parse(drag.original).strokes;
+        const sx = dx / drag.view.scale, sy = dy / drag.view.scale;
+        for (const i of selected) strokes[i] = original[i].map(([px, py, t, p]) => [px + sx, py + sy, t, p]);
+        rawPaths = [];
+        heroPaths.list = [];
+        if (mode === 'hero') queuePreview();
+        else draw();
+      }
     });
 
     const endDrag = e => {
       if (!drag || e.pointerId !== drag.id) return;
-      const moved = drag.moved;
-      if (moved) history.push(drag.original);
+      const { kind, moved, box, view, additive, original } = drag;
       drag = null;
-      moved ? changed() : render();
+      if (kind === 'box') {
+        if (!additive) selected.clear();
+        if (moved) {
+          const [x0, y0] = toData({ clientX: box[0], clientY: box[1] }, view);
+          const [x1, y1] = toData({ clientX: box[2], clientY: box[3] }, view);
+          strokes.forEach((s, i) => {
+            const inside = s.filter(([x, y]) => x >= x0 && x <= x1 && y >= y0 && y <= y1).length;
+            if (inside * 2 >= s.length) selected.add(i);
+          });
+        }
+        updateUI();
+        draw();
+        return;
+      }
+      if (moved) {
+        history.push(original);
+        changed();
+      }
     };
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
 
-    function scaleSelection(k) {
+    function transformSelection(fn) {
       snapshot();
       const b = bounds([...selected].map(i => strokes[i]));
       const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
-      for (const i of selected) strokes[i] = strokes[i].map(([x, y, t, p]) => [cx + (x - cx) * k, cy + (y - cy) * k, t, p]);
+      for (const i of selected) strokes[i] = strokes[i].map(([x, y, t, p]) => [...fn(x - cx, y - cy).map((v, k) => v + (k ? cy : cx)), t, p]);
       changed();
     }
 
+    const scaleSelection = k => transformSelection((x, y) => [x * k, y * k]);
     function rotateSelection(degrees) {
-      snapshot();
-      const b = bounds([...selected].map(i => strokes[i]));
-      const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
       const cos = Math.cos(degrees * Math.PI / 180), sin = Math.sin(degrees * Math.PI / 180);
-      for (const i of selected) {
-        strokes[i] = strokes[i].map(([x, y, t, p]) => [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos, t, p]);
-      }
-      changed();
+      transformSelection((x, y) => [x * cos - y * sin, x * sin + y * cos]);
     }
 
     function resizeOnSite(step) {
@@ -341,65 +425,33 @@
       changed();
     }
 
-    buttons.all.onclick = () => { selected = new Set(strokes.keys()); render(); };
-
-    buttons['preview-btn'].onclick = () => {
-      preview.hidden = !preview.hidden;
-      buttons['preview-btn'].textContent = preview.hidden ? 'Preview on site' : 'Hide preview';
-      if (!preview.hidden && !site.getAttribute('src')) site.src = '../';
-      resize();
-      sendPreview();
-    };
-    site.addEventListener('load', () => sendPreview());
+    buttons.all.onclick = () => { selected = new Set(strokes.keys()); updateUI(); draw(); };
+    buttons.none.onclick = () => { selected.clear(); updateUI(); draw(); };
+    buttons.ccw.onclick = () => rotateSelection(-1);
+    buttons.cw.onclick = () => rotateSelection(1);
+    buttons.smaller.onclick = () => scaleSelection(1 / 1.05);
+    buttons.bigger.onclick = () => scaleSelection(1.05);
+    buttons.shrink.onclick = () => resizeOnSite(-0.05);
+    buttons.grow.onclick = () => resizeOnSite(0.05);
     buttons.replay.onclick = () => sendPreview(false);
     buttons.recenter.onclick = () => {
       snapshot();
       marks = { ...marks, offset: { x: 0, y: 0 } };
       changed();
     };
-
-    // Offsets are in the heading's font size, so a drag converts preview pixels to that unit.
-    const grab = document.getElementById('grab');
-    let placing = null;
-    grab.addEventListener('pointerdown', e => {
-      const heading = site.contentDocument?.querySelector('.hero-text h1');
-      if (!heading) return;
-      grab.setPointerCapture(e.pointerId);
-      const em = parseFloat(site.contentWindow.getComputedStyle(heading).fontSize);
-      const k = viewport.getBoundingClientRect().width / DEVICES[device][0];
-      placing = { id: e.pointerId, x: e.clientX, y: e.clientY, perEm: em * k, from: marks.offset ?? { x: 0, y: 0 }, original: state(), moved: false };
-    });
-    grab.addEventListener('pointermove', e => {
-      if (!placing || e.pointerId !== placing.id) return;
-      const r = n => Math.round(n * 100) / 100;
-      placing.moved = true;
-      marks = { ...marks, offset: { x: r(placing.from.x + (e.clientX - placing.x) / placing.perEm), y: r(placing.from.y + (e.clientY - placing.y) / placing.perEm) } };
-      site.contentWindow.postMessage({ offset: marks.offset }, location.origin);
-    });
-    const endPlacing = e => {
-      if (!placing || e.pointerId !== placing.id) return;
-      if (placing.moved) {
-        history.push(placing.original);
-        changed();
-      }
-      placing = null;
+    buttons.mode.onclick = () => {
+      mode = mode === 'hero' ? 'raw' : 'hero';
+      layout();
     };
-    grab.addEventListener('pointerup', endPlacing);
-    grab.addEventListener('pointercancel', endPlacing);
-    for (const b of preview.querySelectorAll('[data-device]')) {
+    for (const b of document.querySelectorAll('[data-device]')) {
       b.onclick = () => {
         device = b.dataset.device;
-        for (const other of preview.querySelectorAll('[data-device]')) other.classList.toggle('on', other === b);
-        resize();
+        for (const other of document.querySelectorAll('[data-device]')) other.classList.toggle('on', other === b);
+        layout();
       };
     }
-    buttons.ccw.onclick = () => rotateSelection(-1);
-    buttons.cw.onclick = () => rotateSelection(1);
-    buttons.shrink.onclick = () => resizeOnSite(-0.05);
-    buttons.grow.onclick = () => resizeOnSite(0.05);
-    buttons.smaller.onclick = () => scaleSelection(1 / 1.05);
-    buttons.bigger.onclick = () => scaleSelection(1.05);
-    buttons.none.onclick = () => { selected.clear(); render(); };
+    site.addEventListener('load', () => sendPreview());
+    if (site.contentDocument?.readyState === 'complete') sendPreview();
 
     buttons.delete.onclick = () => {
       snapshot();
@@ -452,11 +504,10 @@
     });
 
     buttons.save.onclick = async () => {
-      const out = exportData();
       status.dataset.sticky = '1';
       status.textContent = 'Saving…';
       try {
-        const res = await fetch('save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) });
+        const res = await fetch('save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(exportData()) });
         if (!res.ok) throw new Error(res.status);
         status.textContent = 'Saved to handwriting.json';
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
@@ -466,8 +517,8 @@
       }
     };
 
-    addEventListener('resize', resize);
-    resize();
+    addEventListener('resize', layout);
+    layout();
   </script>
 </body>
 </html>
