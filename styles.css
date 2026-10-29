@@ -248,6 +248,34 @@ body {
   pointer-events: none;
 }
 
+.hw .hero-subtext,
+.hw .hero-pill {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.hw.hw-done .hero-subtext,
+.hw.hw-done .hero-pill {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.hw.hw-done .hero-pill {
+  transition-delay: 0.12s;
+}
+
+/* The toggle's shine runs on a timer from page load and would otherwise play while it's hidden. */
+.hw:not(.hw-done) .hero-pill-track {
+  animation: none;
+}
+
+.hero-gap {
+  padding-inline: 0.3em;
+}
+
 .image-credit {
   text-align: center;
   font-size: 12px;
@@ -856,6 +884,11 @@ body {
    REDUCED MOTION — stop every loop, show final states
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
+  .hw .hero-subtext,
+  .hw .hero-pill {
+    transition: none;
+  }
+
   .hero-pill-track,
   .shiny-text,
   .h2c-source mark::before,

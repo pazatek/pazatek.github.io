@@ -136,6 +136,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const duration = strokes[strokes.length - 1].times.slice(-1)[0];
 
+    // The writing's lowest point is the tail of the "y", which can hang down across the line of text below.
+    let tail = { stroke: 0, y: -Infinity };
+    strokes.forEach(({ points }, n) => {
+      for (const p of points) if (p[1] > tail.y) tail = { stroke: n, y: p[1] };
+    });
+
     const eyes = (data.eyes || []).filter(i => strokes[i]).map(i => {
       const { points } = strokes[i];
       const eye = {
@@ -162,6 +168,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let penSize = 1;
     let startedAt = null;
     let elapsed = reduceMotion || instant ? Infinity : 0;
+    const finished = () => root.classList.add('hw-done');
+    if (elapsed === Infinity) finished();
+    else root.classList.remove('hw-done');
     let stopped = false;
     const listeners = new AbortController();
     const signal = listeners.signal;
@@ -187,6 +196,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (eye) ctx.translate(-eye.dx, -eye.dy);
       }
+    }
+
+    // Widen the space between the two words the tail passes through, so it threads between them
+    // instead of crossing a letter. Where that is depends on how the line wraps, so it's measured.
+    const subtext = document.querySelector('.hero-subtext');
+    function makeRoomForTail() {
+      if (!subtext) return;
+      for (const gap of subtext.querySelectorAll('.hero-gap')) gap.replaceWith(...gap.childNodes);
+      subtext.normalize();
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width) return;
+      const k = rect.width / data.width;
+      const path = strokes[tail.stroke].points.map(p => [rect.left + p[0] * k, rect.top + p[1] * k]);
+      const range = document.createRange();
+      const walker = document.createTreeWalker(subtext, NodeFilter.SHOW_TEXT);
+      let best = null;
+      for (let node; (node = walker.nextNode());) {
+        for (let i = node.data.indexOf(' '); i >= 0; i = node.data.indexOf(' ', i + 1)) {
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const space = range.getBoundingClientRect();
+          const middle = space.top + space.height / 2;
+          const crossing = path.reduce((a, b) => Math.abs(b[1] - middle) < Math.abs(a[1] - middle) ? b : a);
+          if (Math.abs(crossing[1] - middle) > space.height / 2) continue;
+          const off = Math.abs(space.left + space.width / 2 - crossing[0]);
+          if (off < space.height && (!best || off < best.off)) best = { node, i, off };
+        }
+      }
+      if (!best) return;
+      const space = best.node.splitText(best.i);
+      space.splitText(1);
+      const gap = document.createElement('span');
+      gap.className = 'hero-gap';
+      space.replaceWith(gap);
+      gap.append(space);
     }
 
     let pointer = null;
@@ -244,7 +288,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (startedAt === null) startedAt = now + START_DELAY;
       elapsed = Math.max(0, now - startedAt);
       render();
-      if (elapsed < duration && !stopped) requestAnimationFrame(frame);
+      if (elapsed >= duration) finished();
+      else if (!stopped) requestAnimationFrame(frame);
     }
 
     const resizer = new ResizeObserver(([entry]) => {
@@ -258,8 +303,10 @@ document.addEventListener('DOMContentLoaded', () => {
       penSize = parseFloat(getComputedStyle(title).fontSize) * 0.1 * (data.size ?? 1) * data.width / cssWidth;
       strokes.forEach(stroke => { stroke.path = null; });
       render();
+      makeRoomForTail();
     });
     resizer.observe(canvas);
+    document.fonts?.ready.then(() => { if (!stopped) makeRoomForTail(); });
 
     if (elapsed === 0) requestAnimationFrame(frame);
 
@@ -268,6 +315,8 @@ document.addEventListener('DOMContentLoaded', () => {
       listeners.abort();
       resizer.disconnect();
       canvas.remove();
+      for (const gap of subtext?.querySelectorAll('.hero-gap') ?? []) gap.replaceWith(...gap.childNodes);
+      subtext?.normalize();
     };
   }
 
