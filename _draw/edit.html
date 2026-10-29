@@ -87,8 +87,9 @@
     <button id="all">Select all</button>
     <button id="smaller" disabled>Smaller</button>
     <button id="bigger" disabled>Bigger</button>
-    <button id="ccw" disabled title="Rotate 1° counterclockwise">↺</button>
-    <button id="cw" disabled title="Rotate 1° clockwise">↻</button>
+    <button id="ccw" disabled title="Rotate counterclockwise (hold to keep turning)">↺</button>
+    <button id="cw" disabled title="Rotate clockwise (hold to keep turning)">↻</button>
+    <button id="step" title="Rotation per step">0.25°</button>
     <button id="delete" disabled>Delete</button>
     <button id="none" disabled>Deselect</button>
     <button id="restore" hidden>Restore draft</button>
@@ -121,7 +122,7 @@
     const status = document.getElementById('status');
     const preview = document.getElementById('preview');
     const site = document.getElementById('site');
-    const buttons = Object.fromEntries(['undo', 'all', 'smaller', 'bigger', 'ccw', 'cw', 'delete', 'none', 'restore', 'save', 'shrink', 'grow', 'replay', 'recenter', 'mode'].map(id => [id, document.getElementById(id)]));
+    const buttons = Object.fromEntries(['undo', 'all', 'smaller', 'bigger', 'ccw', 'cw', 'step', 'delete', 'none', 'restore', 'save', 'shrink', 'grow', 'replay', 'recenter', 'mode'].map(id => [id, document.getElementById(id)]));
 
     const data = await (await fetch('../handwriting.json', { cache: 'no-store' })).json();
     let strokes = data.strokes.map(flat => {
@@ -141,6 +142,9 @@
     let device = 'desktop';
     let rawView = { scale: 1, x: 0, y: 0 };
     let drag = null;
+    const STEPS = [0.25, 0.1, 1];
+    let step = STEPS[0];
+    let turned = 0;
 
     // Edits are kept as a draft in this browser until a save reaches the server, so a reload,
     // a navigation or a failed save never loses them.
@@ -315,10 +319,14 @@
       document.getElementById('size').textContent = Math.round((marks.size ?? 1) * 100) + '%';
       buttons.mode.textContent = mode === 'hero' ? 'Raw strokes' : 'Hero mockup';
       buttons.undo.disabled = history.length === 0;
+      const key = [...selected].sort((a, b) => a - b).join(',');
+      if (key !== updateUI.selection) turned = 0;
+      updateUI.selection = key;
       if (!status.dataset.sticky) {
-        status.textContent = n === strokes.length ? `All ${n} strokes selected: drag to place on the page`
-          : n ? `Selected ${[...selected].sort((a, b) => a - b).join(', ')}`
-          : mode === 'hero' ? 'Tap a stroke, or drag a box around a word' : 'Tap a stroke';
+        const angle = turned ? ` · rotated ${turned > 0 ? '+' : '−'}${Math.abs(turned).toFixed(2)}°` : '';
+        status.textContent = (n === strokes.length ? `All ${n} strokes selected: drag to place on the page`
+          : n ? `Selected ${key.replaceAll(',', ', ')}`
+          : mode === 'hero' ? 'Tap a stroke, or drag a box around a word' : 'Tap a stroke') + angle;
       }
     }
 
@@ -414,9 +422,51 @@
     }
 
     const scaleSelection = k => transformSelection((x, y) => [x * k, y * k]);
+    function rotated(list, degrees, cx, cy) {
+      const cos = Math.cos(degrees * Math.PI / 180), sin = Math.sin(degrees * Math.PI / 180);
+      return list.map(([x, y, t, p]) => [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos, t, p]);
+    }
+
     function rotateSelection(degrees) {
+      turned += degrees;
       const cos = Math.cos(degrees * Math.PI / 180), sin = Math.sin(degrees * Math.PI / 180);
       transformSelection((x, y) => [x * cos - y * sin, x * sin + y * cos]);
+    }
+
+    // Holding a rotate button keeps turning, always from where the press started, so repeated
+    // small steps don't drift and the whole hold is one undo.
+    function holdRotate(button, direction) {
+      button.addEventListener('pointerdown', e => {
+        if (button.disabled || !selected.size) return;
+        button.setPointerCapture(e.pointerId);
+        const original = state();
+        const from = JSON.parse(original).strokes;
+        const b = bounds([...selected].map(i => strokes[i]));
+        const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+        const startTurn = turned;
+        let angle = 0;
+        const turn = () => {
+          angle += direction * step;
+          turned = Math.round((startTurn + angle) * 100) / 100;
+          for (const i of selected) strokes[i] = rotated(from[i], angle, cx, cy);
+          rawPaths = [];
+          heroPaths.list = [];
+          queuePreview();
+          updateUI();
+          draw();
+        };
+        turn();
+        let timer = setTimeout(function repeat() { turn(); timer = setTimeout(repeat, 70); }, 350);
+        const stop = () => {
+          clearTimeout(timer);
+          button.removeEventListener('pointerup', stop);
+          button.removeEventListener('pointercancel', stop);
+          history.push(original);
+          changed();
+        };
+        button.addEventListener('pointerup', stop);
+        button.addEventListener('pointercancel', stop);
+      });
     }
 
     function resizeOnSite(step) {
@@ -427,8 +477,12 @@
 
     buttons.all.onclick = () => { selected = new Set(strokes.keys()); updateUI(); draw(); };
     buttons.none.onclick = () => { selected.clear(); updateUI(); draw(); };
-    buttons.ccw.onclick = () => rotateSelection(-1);
-    buttons.cw.onclick = () => rotateSelection(1);
+    holdRotate(buttons.ccw, -1);
+    holdRotate(buttons.cw, 1);
+    buttons.step.onclick = () => {
+      step = STEPS[(STEPS.indexOf(step) + 1) % STEPS.length];
+      buttons.step.textContent = `${step}°`;
+    };
     buttons.smaller.onclick = () => scaleSelection(1 / 1.05);
     buttons.bigger.onclick = () => scaleSelection(1.05);
     buttons.shrink.onclick = () => resizeOnSite(-0.05);
@@ -470,6 +524,7 @@
     };
 
     buttons.undo.onclick = () => {
+      turned = 0;
       setState(history.pop());
       selected = new Set([...selected].filter(i => i < strokes.length));
       changed();
@@ -492,7 +547,7 @@
         for (const i of selected) strokes[i] = strokes[i].map(([x, y, t, p]) => [x + move[0], y + move[1], t, p]);
         changed();
       } else if ((e.key === '[' || e.key === ']') && selected.size) {
-        rotateSelection(e.key === '[' ? -1 : 1);
+        rotateSelection((e.key === '[' ? -1 : 1) * step);
       } else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         buttons.all.click();
