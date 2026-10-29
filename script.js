@@ -354,6 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
     }, { rootMargin: '10% 0px' });
-    document.querySelectorAll('.project-card').forEach(card => observer.observe(card));
+    document.querySelectorAll('.project').forEach(project => observer.observe(project));
   }
 });
