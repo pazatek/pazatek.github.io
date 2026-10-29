@@ -79,6 +79,7 @@ button, input, select, textarea {
    BASE
    ============================================ */
 html {
+  scrollbar-gutter: stable;
   line-height: 1.7;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-text-size-adjust: 100%;
@@ -222,6 +223,8 @@ body {
 }
 
 .hero-subtext {
+  position: relative;
+  left: var(--tail-shift, 0);
   font-size: clamp(13px, 1.6vw, 16px);
   font-weight: 400;
   line-height: 1.6;
@@ -267,14 +270,53 @@ body {
   transition-delay: 0.12s;
 }
 
+html.hw-playing,
+html.hw-playing body {
+  overflow: hidden;
+}
+
+.scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  color: rgba(255, 255, 255, 0.85);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  transition: opacity 0.6s ease 0.4s, visibility 0s 0.4s;
+}
+
+.scroll-cue:hover {
+  color: #fff;
+}
+
+.scroll-cue svg {
+  width: 28px;
+  height: 28px;
+  animation: scroll-cue-bob 1.8s ease-in-out infinite;
+}
+
+.hw:not(.hw-done) .scroll-cue,
+.scrolled .scroll-cue {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s 0.3s;
+}
+
+@keyframes scroll-cue-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+
 /* The toggle's shine runs on a timer from page load and would otherwise play while it's hidden. */
 .hw:not(.hw-done) .hero-pill-track {
   animation: none;
 }
 
-.hero-gap {
-  padding-inline: 0.3em;
-}
 
 .image-credit {
   text-align: center;
@@ -883,10 +925,20 @@ body {
 /* ============================================
    REDUCED MOTION — stop every loop, show final states
    ============================================ */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hw .hero-subtext,
   .hw .hero-pill {
     transition: none;
+  }
+
+  .scroll-cue svg {
+    animation: none;
   }
 
   .hero-pill-track,
