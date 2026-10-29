@@ -54,8 +54,6 @@ button, input, select, textarea {
   --success: #15803d;
   --success-fill: #15803d;
   --danger: #d70015;
-  --gold: #8a6512;
-  --gold-shine: #c9972e;
   --toggle-track: #d2d2d7;
   --row-hover: rgba(0, 0, 0, 0.025);
 }
@@ -69,8 +67,6 @@ button, input, select, textarea {
   --link: #60a5fa;
   --link-hover: #93c5fd;
   --success: #30d158;
-  --gold: #a67c1a;
-  --gold-shine: #ffe9a8;
   --toggle-track: #3f3f46;
   --row-hover: rgba(255, 255, 255, 0.05);
 }
@@ -504,12 +500,6 @@ html.hw-playing body {
   line-height: 1.65;
 }
 
-.project-award {
-  display: block;
-  width: fit-content;
-  margin-top: 12px;
-}
-
 .project-stack {
   margin-top: 14px;
   color: var(--fg-faint);
@@ -549,32 +539,6 @@ html.hw-playing body {
 
 .project-link:hover svg {
   transform: translateX(2px) translateY(-2px);
-}
-
-.shiny-text {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  background-image: linear-gradient(
-    120deg,
-    var(--gold) 0%,
-    var(--gold) 35%,
-    var(--gold-shine) 50%,
-    var(--gold) 65%,
-    var(--gold) 100%
-  );
-  background-size: 200% auto;
-  background-position: 150% center;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shiny-text-shine 3s linear infinite;
-}
-
-@keyframes shiny-text-shine {
-  from { background-position: 150% center; }
-  to { background-position: -50% center; }
 }
 
 /* The calendar demo's cursor slides an invisible full-width strip, which would otherwise scroll. */
@@ -931,18 +895,11 @@ html.hw-playing body {
   }
 
   .hero-pill-track,
-  .shiny-text,
   .h2c-source mark::before,
   .h2c-source mark::after,
   .h2c-event,
   .h2c-task-pill {
     animation: none;
-  }
-
-  .shiny-text {
-    background-image: none;
-    -webkit-text-fill-color: currentColor;
-    color: var(--gold);
   }
 
   .h2c-source mark::before {
