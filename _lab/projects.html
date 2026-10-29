@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Projects lab</title>
+  <script>
+    try { if (localStorage.getItem('lab-theme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) {}
+  </script>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="../styles.css">
+  <script src="../script.js" defer></script>
+  <style>
+    .lab-bar {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 30px color-mix(in srgb, var(--fg) 14%, transparent);
+      font-size: 13px;
+    }
+
+    .lab-bar button {
+      padding: 6px 11px;
+      border-radius: 9px;
+      color: var(--fg-muted);
+    }
+
+    .lab-bar button.on {
+      background: var(--fg);
+      color: var(--bg);
+    }
+
+    .pj {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 24px 120px;
+    }
+
+    .pj-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      margin-top: 18px;
+    }
+
+    .pj-award {
+      display: block;
+      margin-top: 10px;
+    }
+
+    .pj-stack {
+      color: var(--fg-faint);
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
+    /* ---------- A · Index ---------- */
+    .ix {
+      list-style: none;
+      border-top: 1px solid var(--border);
+    }
+
+    .ix-row {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ix-link {
+      display: grid;
+      grid-template-columns: 2.5rem minmax(0, 1fr) auto 1.25rem;
+      align-items: baseline;
+      gap: 1.25rem;
+      padding: 1.75rem 0;
+    }
+
+    .ix-num {
+      color: var(--fg-faint);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ix-title {
+      display: block;
+      font-size: clamp(24px, 3.2vw, 34px);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+      transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .ix-desc {
+      display: block;
+      color: var(--fg-muted);
+      font-size: 15px;
+      line-height: 1.55;
+      margin-top: 8px;
+      max-width: 52ch;
+    }
+
+    .ix-meta {
+      color: var(--fg-faint);
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .ix-arrow {
+      color: var(--fg-faint);
+      transition: transform 0.35s ease, color 0.35s ease;
+    }
+
+    .ix-row:hover .ix-title { transform: translateX(8px); }
+    .ix-row:hover .ix-arrow { color: var(--link); transform: translate(2px, -2px); }
+
+    .ix-preview {
+      padding: 0 0 1.75rem 3.75rem;
+    }
+
+    @media (hover: hover) and (min-width: 801px) {
+      .ix-preview {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        width: 360px;
+        padding: 18px;
+        background: var(--bg);
+        border-radius: 14px;
+        box-shadow: 0 24px 60px color-mix(in srgb, var(--fg) 18%, transparent);
+        pointer-events: none;
+        opacity: 0;
+        scale: 0.94;
+        transition: opacity 0.2s ease, scale 0.25s ease;
+      }
+
+      .ix-row.peek .ix-preview {
+        opacity: 1;
+        scale: 1;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .ix-link { grid-template-columns: 2rem minmax(0, 1fr) 1rem; }
+      .ix-meta { display: none; }
+      .ix-preview { padding-left: 3.25rem; }
+    }
+
+    /* ---------- B · Spreads ---------- */
+    .sp {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      gap: clamp(32px, 7vw, 104px);
+      align-items: center;
+      padding: clamp(48px, 8vw, 110px) 0;
+    }
+
+    .sp:nth-of-type(even) .sp-text { order: 2; }
+
+    .sp-kicker {
+      color: var(--fg-faint);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .sp-title {
+      font-size: clamp(30px, 4.4vw, 48px);
+      font-weight: 650;
+      letter-spacing: -0.035em;
+      line-height: 1.02;
+      margin: 12px 0 16px;
+    }
+
+    .sp-desc {
+      color: var(--fg-muted);
+      font-size: 16px;
+      line-height: 1.65;
+      max-width: 42ch;
+    }
+
+    .sp-demo { zoom: 1.2; min-width: 0; }
+
+    @media (max-width: 800px) {
+      .sp { grid-template-columns: 1fr; gap: 28px; }
+      .sp:nth-of-type(even) .sp-text { order: 0; }
+      .sp-demo { zoom: 1; }
+    }
+
+    /* ---------- C · List ---------- */
+    .ac {
+      border-top: 1px solid var(--border);
+    }
+
+    .ac details {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ac summary {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 1.6rem 0;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .ac summary::-webkit-details-marker { display: none; }
+
+    .ac-title {
+      font-size: clamp(28px, 4.6vw, 52px);
+      font-weight: 650;
+      letter-spacing: -0.035em;
+      line-height: 1;
+      color: var(--fg-faint);
+      transition: color 0.3s ease;
+    }
+
+    .ac summary:hover .ac-title,
+    .ac details[open] .ac-title { color: var(--fg); }
+
+    .ac-kind {
+      margin-left: auto;
+      color: var(--fg-faint);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .ac-plus {
+      position: relative;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      align-self: center;
+    }
+
+    .ac-plus::before,
+    .ac-plus::after {
+      content: '';
+      position: absolute;
+      inset: 6px 0;
+      background: var(--fg-faint);
+      border-radius: 1px;
+      transition: transform 0.3s ease;
+    }
+
+    .ac-plus::after { transform: rotate(90deg); }
+    .ac details[open] .ac-plus::after { transform: rotate(0deg); }
+
+    .ac-body {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      gap: clamp(28px, 6vw, 80px);
+      align-items: center;
+      padding: 0 0 2.5rem;
+      animation: ac-in 0.45s ease both;
+    }
+
+    .ac-desc {
+      color: var(--fg-muted);
+      font-size: 16px;
+      line-height: 1.65;
+      max-width: 44ch;
+    }
+
+    @keyframes ac-in {
+      from { opacity: 0; translate: 0 -6px; }
+    }
+
+    @media (max-width: 800px) {
+      .ac-body { grid-template-columns: 1fr; }
+      .ac-kind { display: none; }
+    }
+
+    /* ---------- D · Showcase ---------- */
+    .st {
+      display: grid;
+      grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+      gap: clamp(32px, 6vw, 96px);
+    }
+
+    .st-nav {
+      position: sticky;
+      top: 18vh;
+      align-self: start;
+    }
+
+    .st-list {
+      list-style: none;
+    }
+
+    .st-list li {
+      display: flex;
+      gap: 0.75rem;
+      align-items: baseline;
+      padding: 6px 0;
+      font-size: clamp(20px, 2.4vw, 26px);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--fg-faint);
+      cursor: pointer;
+      transition: color 0.3s ease, transform 0.3s ease;
+    }
+
+    .st-list li span {
+      font-size: 12px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .st-list li.on {
+      color: var(--fg);
+      transform: translateX(6px);
+    }
+
+    .st-info {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .st-desc {
+      color: var(--fg-muted);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .st-panel {
+      min-height: 72vh;
+      display: grid;
+      align-content: center;
+    }
+
+    .st-panel .st-info-src { display: none; }
+    .st-demo { zoom: 1.25; }
+
+    @media (max-width: 800px) {
+      .st { grid-template-columns: 1fr; }
+      .st-nav { display: none; }
+      .st-panel { min-height: 0; padding: 40px 0; gap: 20px; }
+      .st-panel .st-info-src { display: block; }
+      .st-demo { zoom: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="content-wrapper">
+      <section class="section-divider" id="contact">
+        <h2 class="section-title">Contact</h2>
+        <div class="contact-grid">
+          <a href="https://www.linkedin.com/in/piotr-zatek" class="contact-item" target="_blank" rel="noopener"><span>LinkedIn</span></a>
+          <a href="https://github.com/pazatek" class="contact-item" target="_blank" rel="noopener"><span>GitHub</span></a>
+          <button class="contact-item" id="copy-email" data-copy="pzatek2@illinois.edu"><span id="email-label">Email</span></button>
+        </div>
+      </section>
+    </div>
+    <div id="projects"></div>
+  </main>
+
+  <nav class="lab-bar" aria-label="Lab controls">
+    <button data-v="a">A · Index</button>
+    <button data-v="b">B · Spreads</button>
+    <button data-v="c">C · List</button>
+    <button data-v="d">D · Showcase</button>
+    <button id="lab-theme">Dark</button>
+  </nav>
+
+  <template id="demo-h2c">
+    <p class="h2c-source">Reminder: we have a <mark data-text="2hr meeting next Tuesday at 10am">2hr meeting next Tuesday at 10am</mark> to review the roadmap. Also, <mark class="h2c-mark-task" data-text="submit the expense report next Thursday">submit the expense report next Thursday</mark>.</p>
+    <div class="h2c-week">
+      <div class="h2c-col"><span class="h2c-day-num" id="h2c-mon-num"></span><span class="h2c-day-label">Mon</span></div>
+      <div class="h2c-col h2c-active">
+        <span class="h2c-day-num" id="h2c-tue-num"></span><span class="h2c-day-label">Tue</span>
+        <span class="h2c-event">Meeting · 10 AM</span>
+      </div>
+      <div class="h2c-col"><span class="h2c-day-num" id="h2c-wed-num"></span><span class="h2c-day-label">Wed</span></div>
+      <div class="h2c-col h2c-active">
+        <span class="h2c-day-num" id="h2c-thu-num"></span><span class="h2c-day-label">Thu</span>
+        <span class="h2c-task-pill"><svg class="h2c-check" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="1" width="10" height="10" rx="2"/></svg> Expense report</span>
+      </div>
+      <div class="h2c-col"><span class="h2c-day-num" id="h2c-fri-num"></span><span class="h2c-day-label">Fri</span></div>
+    </div>
+  </template>
+
+  <template id="demo-optimize">
+    <table class="project-table">
+      <thead><tr><th>Model</th><th>Cost/call</th><th>Quality</th></tr></thead>
+      <tbody>
+        <tr><td>GPT-4o</td><td>$0.0082</td><td>98%</td></tr>
+        <tr><td>Claude Sonnet 4</td><td>$0.0045</td><td>96%</td></tr>
+        <tr><td>Gemini 2.5 Flash</td><td>$0.0012</td><td>91%</td></tr>
+      </tbody>
+    </table>
+  </template>
+
+  <template id="demo-shield">
+    <div class="pii-demo-bar">
+      <span class="pii-demo-label">Email Draft</span>
+      <button class="pii-toggle" id="shield-toggle" aria-pressed="false">
+        <span class="pii-toggle-label" id="shield-status">Off</span>
+        <span class="pii-toggle-track"><span class="pii-toggle-thumb"></span></span>
+      </button>
+    </div>
+    <div class="pii-demo-body">
+      <p class="pii-demo-line">Hi team, contact me at <span class="pii-redactable" data-original="555-123-4567" data-redacted="[REDACTED]">555-123-4567</span>.</p>
+      <p class="pii-demo-line">Payment card: <span class="pii-redactable" data-original="1234-5678-9012-3456" data-redacted="[REDACTED]">1234-5678-9012-3456</span>.</p>
+      <p class="pii-demo-line">SSO ID: <span class="pii-redactable" data-original="3847562019" data-redacted="[REDACTED]">3847562019</span>.</p>
+    </div>
+  </template>
+
+  <template id="demo-rp">
+    <table class="project-table">
+      <thead><tr><th>Company</th><th>Position</th><th>Link</th></tr></thead>
+      <tbody>
+        <tr><td>John Deere</td><td>Student Software Engineer</td><td><span class="table-link-static">Apply</span></td></tr>
+        <tr><td>Rivian</td><td>Software Engineer Intern</td><td><span class="table-link-static">Apply</span></td></tr>
+        <tr><td>Synchrony</td><td>Emerging Technology Intern</td><td><span class="table-link-static">Apply</span></td></tr>
+      </tbody>
+    </table>
+  </template>
+
+  <script>
+    (function () {
+      var ARROW = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>';
+      var PROJECTS = [
+        {
+          title: 'highlight2calendar',
+          kind: 'Chrome extension',
+          desc: 'Highlight a date anywhere on the web and it becomes a Google Calendar event or task. Claude Haiku reads the text; you confirm with one click.',
+          stack: 'React · TypeScript · Claude Haiku · Google Calendar & Tasks APIs',
+          links: [['Install', 'https://highlight2calendar.com', true], ['Privacy policy', '/privacy', false]],
+          demo: 'h2c'
+        },
+        {
+          title: 'optimize.ai',
+          kind: 'Hackathon',
+          award: 'Best Agentic AI Trace — Keywords AI (YC W24) Hackathon',
+          desc: 'Rewrites prompts so cheaper models match premium ones, cutting API cost by up to 90%. Five agents profile, benchmark, evaluate, optimize and recommend.',
+          stack: 'Next.js · TypeScript · Supabase · Keywords AI',
+          links: [['Devpost', 'https://devpost.com/software/optimize-ai', true]],
+          demo: 'optimize'
+        },
+        {
+          title: 'Synchrony Shield',
+          kind: 'Hackathon',
+          award: 'Runner-up — Synchrony Corporate AI Hackathon',
+          desc: 'Redacts phone numbers, cards, SSNs, emails and addresses from text fields as you type, entirely in your browser.',
+          stack: 'JavaScript · Chrome Extensions API',
+          links: [['GitHub', 'https://github.com/RobHand27/Synchrony-Shield', true]],
+          demo: 'shield'
+        },
+        {
+          title: 'UIUC Research Park Job Board',
+          kind: '500 jobs tracked',
+          desc: 'Watches the Research Park board for new internships and emails subscribers, since the site no longer sends its own alerts.',
+          stack: 'Python · Flask · Supabase · GitHub Actions · Vercel',
+          links: [['Check it out', 'https://rp-jobs.vercel.app', true]],
+          demo: 'rp'
+        },
+        {
+          title: 'This website',
+          kind: 'You’re here',
+          desc: 'Handwritten on an iPad and replayed stroke by stroke in the browser.',
+          stack: 'HTML · CSS · JavaScript · perfect-freehand',
+          links: [['GitHub', 'https://github.com/pazatek/pazatek.github.io', true]]
+        }
+      ];
+
+      var esc = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
+      var num = function (i) { return String(i + 1).padStart(2, '0'); };
+      var links = function (p) {
+        return '<div class="pj-links">' + p.links.map(function (l) {
+          return '<a class="project-link" href="' + l[1] + '"' + (l[2] ? ' target="_blank" rel="noopener"' : '') + '>' + esc(l[0]) + (l[2] ? ARROW : '') + '</a>';
+        }).join('') + '</div>';
+      };
+      var award = function (p) { return p.award ? '<span class="shiny-text pj-award">' + esc(p.award) + '</span>' : ''; };
+      var demo = function (p, cls) { return p.demo ? '<div class="' + cls + '" data-demo="' + p.demo + '"></div>' : ''; };
+
+      var VARIANTS = {
+        a: function () {
+          return '<ol class="ix">' + PROJECTS.map(function (p, i) {
+            return '<li class="ix-row">' +
+              '<a class="ix-link" href="' + p.links[0][1] + '"' + (p.links[0][2] ? ' target="_blank" rel="noopener"' : '') + '>' +
+                '<span class="ix-num">' + num(i) + '</span>' +
+                '<span><span class="ix-title">' + esc(p.title) + '</span><span class="ix-desc">' + esc(p.desc) + '</span>' + award(p) + '</span>' +
+                '<span class="ix-meta">' + esc(p.kind) + '</span>' +
+                '<span class="ix-arrow">↗</span>' +
+              '</a>' + demo(p, 'ix-preview') + '</li>';
+          }).join('') + '</ol>';
+        },
+        b: function () {
+          return PROJECTS.map(function (p, i) {
+            return '<article class="sp"><div class="sp-text">' +
+              '<p class="sp-kicker">' + num(i) + ' — ' + esc(p.kind) + '</p>' +
+              '<h3 class="sp-title">' + esc(p.title) + '</h3>' +
+              '<p class="sp-desc">' + esc(p.desc) + '</p>' + award(p) +
+              '<p class="pj-stack">' + esc(p.stack) + '</p>' + links(p) +
+              '</div>' + (p.demo ? demo(p, 'sp-demo') : '<div></div>') + '</article>';
+          }).join('');
+        },
+        c: function () {
+          return '<div class="ac">' + PROJECTS.map(function (p, i) {
+            return '<details name="projects"' + (i === 0 ? ' open' : '') + '>' +
+              '<summary><span class="ac-title">' + esc(p.title) + '</span><span class="ac-kind">' + esc(p.kind) + '</span><span class="ac-plus" aria-hidden="true"></span></summary>' +
+              '<div class="ac-body"><div><p class="ac-desc">' + esc(p.desc) + '</p>' + award(p) +
+              '<p class="pj-stack">' + esc(p.stack) + '</p>' + links(p) + '</div>' + demo(p, 'ac-demo') + '</div>' +
+              '</details>';
+          }).join('') + '</div>';
+        },
+        d: function () {
+          var info = function (p) {
+            return '<p class="st-desc">' + esc(p.desc) + '</p>' + award(p) + '<p class="pj-stack">' + esc(p.stack) + '</p>' + links(p);
+          };
+          return '<div class="st"><div class="st-nav"><ol class="st-list">' + PROJECTS.map(function (p, i) {
+            return '<li data-panel="' + i + '"' + (i === 0 ? ' class="on"' : '') + '><span>' + num(i) + '</span>' + esc(p.title) + '</li>';
+          }).join('') + '</ol><div class="st-info">' + info(PROJECTS[0]) + '</div></div>' +
+            '<div class="st-stage">' + PROJECTS.map(function (p, i) {
+              return '<section class="st-panel" data-panel="' + i + '"><div class="st-info-src"><h3 class="sp-title">' + esc(p.title) + '</h3>' + info(p) + '</div>' +
+                (p.demo ? demo(p, 'st-demo') : '<p class="st-desc">You’re looking at it.</p>') + '</section>';
+            }).join('') + '</div></div>';
+        }
+      };
+
+      var v = new URLSearchParams(location.search).get('v');
+      if (!VARIANTS[v]) v = 'a';
+      var mount = document.getElementById('projects');
+      mount.innerHTML = '<section class="pj pj-' + v + '"><h2 class="section-title">Projects</h2>' + VARIANTS[v]() + '</section>';
+      mount.querySelectorAll('[data-demo]').forEach(function (slot) {
+        slot.append(document.getElementById('demo-' + slot.dataset.demo).content.cloneNode(true));
+      });
+
+      document.querySelectorAll('.lab-bar [data-v]').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.v === v);
+        b.onclick = function () { location.search = '?v=' + b.dataset.v; };
+      });
+      var themeBtn = document.getElementById('lab-theme');
+      var syncTheme = function () { themeBtn.textContent = document.documentElement.classList.contains('dark') ? 'Light' : 'Dark'; };
+      syncTheme();
+      themeBtn.onclick = function () {
+        var dark = document.documentElement.classList.toggle('dark');
+        try { localStorage.setItem('lab-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        syncTheme();
+      };
+
+      if (v === 'a') {
+        mount.querySelectorAll('.ix-row').forEach(function (row) {
+          var preview = row.querySelector('.ix-preview');
+          if (!preview || !matchMedia('(hover: hover) and (min-width: 801px)').matches) return;
+          row.addEventListener('mouseenter', function () { row.classList.add('peek'); });
+          row.addEventListener('mouseleave', function () { row.classList.remove('peek'); });
+          row.addEventListener('mousemove', function (e) {
+            var w = preview.offsetWidth, h = preview.offsetHeight;
+            var x = Math.min(e.clientX + 28, innerWidth - w - 16);
+            var y = Math.min(Math.max(e.clientY - h / 2, 16), innerHeight - h - 16);
+            preview.style.translate = x + 'px ' + y + 'px';
+          });
+        });
+      }
+
+      if (v === 'd') {
+        var items = mount.querySelectorAll('.st-list li');
+        var infoBox = mount.querySelector('.st-info');
+        var panels = mount.querySelectorAll('.st-panel');
+        var show = function (i) {
+          items.forEach(function (li) { li.classList.toggle('on', li.dataset.panel === String(i)); });
+          infoBox.innerHTML = panels[i].querySelector('.st-info-src').innerHTML.replace(/<h3[\s\S]*?<\/h3>/, '');
+        };
+        var watch = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) { if (e.isIntersecting) show(+e.target.dataset.panel); });
+        }, { rootMargin: '-45% 0px -45% 0px' });
+        panels.forEach(function (p) { watch.observe(p); });
+        items.forEach(function (li) {
+          li.onclick = function () { panels[+li.dataset.panel].scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
