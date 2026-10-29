@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const markScrolled = () => root.classList.toggle('scrolled', scrollY > 40);
+  addEventListener('scroll', markScrolled, { passive: true });
+  markScrolled();
+
   const heroTitle = document.querySelector('.hero-text h1');
   if (heroTitle) {
     let stop = null;
@@ -167,10 +171,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let penSize = 1;
     let startedAt = null;
-    let elapsed = reduceMotion || instant ? Infinity : 0;
-    const finished = () => root.classList.add('hw-done');
-    if (elapsed === Infinity) finished();
-    else root.classList.remove('hw-done');
+    // Arriving partway down the page (a link to a section, a reload mid-scroll) skips the replay.
+    const skip = reduceMotion || instant || scrollY > 0 || location.hash;
+    let elapsed = skip ? Infinity : 0;
+    const finished = () => {
+      root.classList.add('hw-done');
+      root.classList.remove('hw-playing');
+    };
+    if (skip) finished();
+    else {
+      root.classList.remove('hw-done');
+      root.classList.add('hw-playing');
+    }
     let stopped = false;
     const listeners = new AbortController();
     const signal = listeners.signal;
@@ -198,39 +210,58 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Widen the space between the two words the tail passes through, so it threads between them
-    // instead of crossing a letter. Where that is depends on how the line wraps, so it's measured.
+    // Open the space the tail crosses just wide enough for the stroke, and nudge the line so the
+    // tail sits in the middle of it. Which space that is depends on how the line wraps, so it's measured.
     const subtext = document.querySelector('.hero-subtext');
-    function makeRoomForTail() {
+    function clearTailGap() {
       if (!subtext) return;
       for (const gap of subtext.querySelectorAll('.hero-gap')) gap.replaceWith(...gap.childNodes);
       subtext.normalize();
+      subtext.style.removeProperty('--tail-shift');
+    }
+
+    function makeRoomForTail() {
+      clearTailGap();
       const rect = canvas.getBoundingClientRect();
-      if (!rect.width) return;
+      if (!subtext || !rect.width) return;
       const k = rect.width / data.width;
       const path = strokes[tail.stroke].points.map(p => [rect.left + p[0] * k, rect.top + p[1] * k]);
+      const style = getComputedStyle(subtext);
+      const em = parseFloat(style.fontSize);
+      // Measured before the text fades in, while it's still lowered for its entrance; the tail slants,
+      // so the crossing is found at the line's final height.
+      const lowered = style.transform === 'none' ? 0 : new DOMMatrixReadOnly(style.transform).m42;
       const range = document.createRange();
       const walker = document.createTreeWalker(subtext, NodeFilter.SHOW_TEXT);
       let best = null;
       for (let node; (node = walker.nextNode());) {
         for (let i = node.data.indexOf(' '); i >= 0; i = node.data.indexOf(' ', i + 1)) {
-          range.setStart(node, i);
-          range.setEnd(node, i + 1);
-          const space = range.getBoundingClientRect();
-          const middle = space.top + space.height / 2;
+          if (i === 0 || i === node.data.length - 1) continue;
+          // The visible gap runs from the letter before to the letter after, not just the space's own box.
+          range.setStart(node, i - 1);
+          range.setEnd(node, i);
+          const before = range.getBoundingClientRect();
+          range.setStart(node, i + 1);
+          range.setEnd(node, i + 2);
+          const after = range.getBoundingClientRect();
+          if (after.top > before.bottom) continue;
+          const middle = before.top + before.height / 2 - lowered;
           const crossing = path.reduce((a, b) => Math.abs(b[1] - middle) < Math.abs(a[1] - middle) ? b : a);
-          if (Math.abs(crossing[1] - middle) > space.height / 2) continue;
-          const off = Math.abs(space.left + space.width / 2 - crossing[0]);
-          if (off < space.height && (!best || off < best.off)) best = { node, i, off };
+          if (Math.abs(crossing[1] - middle) > before.height / 2) continue;
+          const shift = crossing[0] - (before.right + after.left) / 2;
+          if (Math.abs(shift) <= em * 0.6 && (!best || Math.abs(shift) < Math.abs(best.shift))) best = { node, i, shift, width: after.left - before.right };
         }
       }
       if (!best) return;
+      const opening = penSize * k + em * 0.6;
       const space = best.node.splitText(best.i);
       space.splitText(1);
       const gap = document.createElement('span');
       gap.className = 'hero-gap';
+      gap.style.paddingInline = `${Math.max(0, (opening - best.width) / 2)}px`;
       space.replaceWith(gap);
       gap.append(space);
+      subtext.style.setProperty('--tail-shift', `${best.shift}px`);
     }
 
     let pointer = null;
@@ -315,8 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
       listeners.abort();
       resizer.disconnect();
       canvas.remove();
-      for (const gap of subtext?.querySelectorAll('.hero-gap') ?? []) gap.replaceWith(...gap.childNodes);
-      subtext?.normalize();
+      clearTailGap();
     };
   }
 
