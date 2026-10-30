@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const HEAD_SWAY = 0.35;
     const FACE_DEPTH = 0.85;
     const NOSE_HOLD = 0.3;
+    const PART_TRAVEL = 0.65;
 
     const strokes = [];
     let clock = 0;
@@ -192,12 +193,21 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const n of data.face || []) for (const p of strokes[n].points) p[4] = FACE_DEPTH;
 
       const mirror = ([x, y]) => [2 * head.x - x, y];
-      const turnInto = (stroke, partner, reversed) => {
-        stroke.turnTo = spaced(partner.points, stroke.points.length, reversed).map(mirror);
+      const turnInto = (stroke, partner, reversed, travel = 1) => {
+        stroke.turnTo = spaced(partner.points, stroke.points.length, reversed).map(mirror).map(([x, y], i) => {
+          const p = stroke.points[i];
+          return [p[0] + (x - p[0]) * travel, p[1] + (y - p[1]) * travel];
+        });
       };
       for (const [a, b] of data.swap || []) {
         turnInto(strokes[a], strokes[b]);
         turnInto(strokes[b], strokes[a]);
+      }
+      // The center part stays near where it's drawn: at full travel its outer ends sweep up and down
+      // past the eyes and read as raised eyebrows.
+      for (const [a, b] of data.part || []) {
+        turnInto(strokes[a], strokes[b], false, PART_TRAVEL);
+        turnInto(strokes[b], strokes[a], false, PART_TRAVEL);
       }
       for (const n of data.flip || []) turnInto(strokes[n], strokes[n], true);
       for (const n of data.nose || []) {
@@ -205,7 +215,8 @@ document.addEventListener('DOMContentLoaded', () => {
         turnInto(strokes[n], strokes[n]);
         strokes[n].hold = points.reduce((sum, p) => sum + p[0], 0) / points.length;
       }
-      // An ear can't cross the face, so one shrinks away as its echo grows out on the far side. Both
+      // An ear can't cross the face, so one fades away as its echo fades in on the far side. Fading
+      // rather than shrinking, which redraws the taper on an ever shorter stroke and looks choppy. Both
       // ride on the nearest point of the jaw: anywhere else, the jaw sweeps past and leaves them inside the face.
       for (const n of data.ears || []) {
         const ear = strokes[n];
@@ -220,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { jaw, at } = nearest;
         const echoAt = jaw.points.length - 1 - at;
-        ear.tucks = true;
+        ear.fades = true;
         ear.riding = { jaw, at, grow: false, offsets: ear.points.map(p => [p[0] - jaw.points[at][0], p[1] - jaw.points[at][1]]) };
         earEchoes.push({
           points: ear.points,
@@ -232,9 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pose = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0 };
     const gaze = { x: 0, y: 0, tx: 0, ty: 0 };
 
-    // The head rarely reaches either end of the turn exactly, so ears vanish a little short of it
-    // rather than leaving a speck of ink on the face.
-    const earSize = amount => Math.max(0, Math.min(1, (amount - 0.1) * 2.5));
+    const earShown = amount => Math.max(0, Math.min(1, (amount - 0.15) / 0.6));
 
     function spaced(points, count, reversed) {
       const path = reversed ? [...points].reverse() : points;
@@ -258,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (stroke.riding) {
         const { jaw, at, offsets, grow } = stroke.riding;
         const [jawX, jawY] = turned(jaw, at, turn, tilt);
-        const scale = grow ? t : 1 - t;
+        const scale = 0.45 + 0.55 * (grow ? t : 1 - t);
         return [jawX + offsets[i][0] * scale, jawY + offsets[i][1] * scale, p[2]];
       }
       const [x, y] = stroke.turnTo?.[i] ?? p;
@@ -335,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const stroke of strokes) {
         const { points, times, eye } = stroke;
-        const size = penSize * stroke.weight * (stroke.tucks ? earSize(2 - pose.x) : 1);
+        const size = penSize * stroke.weight;
         if (times[0] > elapsed) break;
         if (eye) {
           const [x, y] = head ? turned(stroke, 0, pose.x, pose.y) : points[0];
@@ -346,7 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (times[times.length - 1] <= elapsed) {
           const moved = !eye && points[0][4] !== undefined && (pose.x || pose.y);
-          if (size) ctx.fill(moved ? strokePath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), size) : stroke.path ||= strokePath(points, size));
+          ctx.globalAlpha = stroke.fades ? earShown(2 - pose.x) : 1;
+          ctx.fill(moved ? strokePath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), size) : stroke.path ||= strokePath(points, size));
+          ctx.globalAlpha = 1;
         } else {
           let shown = 1;
           while (times[shown] <= elapsed) shown++;
@@ -354,10 +365,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (eye) ctx.restore();
       }
-      if (earSize(pose.x)) {
+      if (earShown(pose.x)) {
+        ctx.globalAlpha = earShown(pose.x);
         for (const echo of earEchoes) {
-          ctx.fill(strokePath(echo.points.map((_, i) => turned(echo, i, pose.x, pose.y)), penSize * echo.weight * earSize(pose.x)));
+          ctx.fill(strokePath(echo.points.map((_, i) => turned(echo, i, pose.x, pose.y)), penSize * echo.weight));
         }
+        ctx.globalAlpha = 1;
       }
     }
 
@@ -460,11 +473,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const GAZE_RATE = 30;
     // Leaving the drawn pose is eased in over this long so the head doesn't snap out of it. Once
     // it's awake it tracks at full speed.
-    const WAKE_MS = 700;
+    const WAKE_MS = 200;
     let wakeStart = -Infinity;
     // The head follows on a slower spring, so the eyes get there first, as they do on a person.
-    const HEAD_STIFFNESS = 70;
-    const HEAD_DAMPING = 15;
+    const HEAD_STIFFNESS = 130;
+    const HEAD_DAMPING = 21;
     let lastFrame = null;
     let blinkStart = -Infinity;
     let openness = 1;
