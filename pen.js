@@ -6,6 +6,8 @@ const THINNING = 0.35;
 const START_TAPER = 0.8;
 const END_TAPER = 2;
 
+const FOLD_REACH = 30;
+
 const dist = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
 
 // Pencils without a pressure sensor report one constant value; derive it instead from speed,
@@ -136,17 +138,35 @@ export function inkWidths(points, size) {
 
 // For a line that's moving. perfect-freehand drops outline points that land too close together or
 // too near the ends of a stroke, and which ones change as the line moves, so bits of it pop from
-// frame to frame. Here every point keeps its place in the outline and its width.
+// frame to frame. Here every point keeps its place in the outline and its width, except where the
+// line folds back on itself, like the foot of the nose mid-turn: the edge there lands inside the
+// ink further along, and an outline that went through it would cross itself and fill as a hole.
+// A round dab, wound the same way as the outline, stands in for each edge point left out. Only
+// there: where dabs overlap each other the ink shows faint seams, so they can't make up a whole line.
 export function inkPath(points, widths) {
   const left = [];
   const right = [];
+  const folded = [];
+  const onEdge = (x, y, i) => {
+    for (let j = Math.max(0, i - FOLD_REACH); j <= Math.min(points.length - 1, i + FOLD_REACH); j++) {
+      if (j !== i && Math.hypot(points[j][0] - x, points[j][1] - y) < widths[j] - 0.01) return false;
+    }
+    return true;
+  };
   points.forEach(([x, y], i) => {
     const a = points[Math.max(0, i - 3)];
     const b = points[Math.min(points.length - 1, i + 3)];
     const run = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const [nx, ny] = [-(b[1] - a[1]) / run * widths[i], (b[0] - a[0]) / run * widths[i]];
-    left.push([x + nx, y + ny]);
-    right.push([x - nx, y - ny]);
+    const [leftEdge, rightEdge] = [onEdge(x + nx, y + ny, i), onEdge(x - nx, y - ny, i)];
+    if (leftEdge) left.push([x + nx, y + ny]);
+    if (rightEdge) right.push([x - nx, y - ny]);
+    if (!leftEdge || !rightEdge) folded.push(i);
   });
-  return pathThrough(left.concat(right.reverse()));
+  const path = pathThrough(left.concat(right.reverse()));
+  for (const i of folded) {
+    path.moveTo(points[i][0] + widths[i], points[i][1]);
+    path.arc(points[i][0], points[i][1], widths[i], 0, Math.PI * 2, true);
+  }
+  return path;
 }
