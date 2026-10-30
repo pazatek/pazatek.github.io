@@ -205,14 +205,28 @@ document.addEventListener('DOMContentLoaded', () => {
         turnInto(strokes[n], strokes[n]);
         strokes[n].hold = points.reduce((sum, p) => sum + p[0], 0) / points.length;
       }
-      // An ear can't cross the face, so one tucks away behind the jaw as its echo comes out on the far side.
+      // An ear can't cross the face, so one shrinks away as its echo grows out on the far side. Both
+      // ride on the nearest point of the jaw: anywhere else, the jaw sweeps past and leaves them inside the face.
       for (const n of data.ears || []) {
-        const { points, weight } = strokes[n];
-        const [a, b] = [points[0], points[points.length - 1]];
+        const ear = strokes[n];
+        const [a, b] = [ear.points[0], ear.points[ear.points.length - 1]];
         const root = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        strokes[n].turnTo = points.map(() => root);
-        strokes[n].tucks = true;
-        earEchoes.push({ points: points.map(p => [...mirror(root), ...p.slice(2)]), turnTo: points.map(mirror), weight });
+        let nearest = null;
+        for (const i of data.flip || []) {
+          strokes[i].points.forEach((p, at) => {
+            const gap = Math.hypot(p[0] - root[0], p[1] - root[1]);
+            if (!nearest || gap < nearest.gap) nearest = { jaw: strokes[i], at, gap };
+          });
+        }
+        const { jaw, at } = nearest;
+        const echoAt = jaw.points.length - 1 - at;
+        ear.tucks = true;
+        ear.riding = { jaw, at, grow: false, offsets: ear.points.map(p => [p[0] - jaw.points[at][0], p[1] - jaw.points[at][1]]) };
+        earEchoes.push({
+          points: ear.points,
+          weight: ear.weight,
+          riding: { jaw, at: echoAt, grow: true, offsets: ear.points.map(mirror).map(p => [p[0] - jaw.turnTo[echoAt][0], p[1] - jaw.turnTo[echoAt][1]]) },
+        });
       }
     }
     const pose = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0 };
@@ -241,6 +255,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function turned(stroke, i, turn, tilt) {
       const p = stroke.points[i];
       const t = turn / 2;
+      if (stroke.riding) {
+        const { jaw, at, offsets, grow } = stroke.riding;
+        const [jawX, jawY] = turned(jaw, at, turn, tilt);
+        const scale = grow ? t : 1 - t;
+        return [jawX + offsets[i][0] * scale, jawY + offsets[i][1] * scale, p[2]];
+      }
       const [x, y] = stroke.turnTo?.[i] ?? p;
       // Keeps some of the nose's shape at the halfway point, where it would otherwise be a bare line.
       const hold = stroke.hold === undefined ? 0 : (p[0] - stroke.hold) * NOSE_HOLD * 4 * t * (1 - t);
@@ -416,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (rect.bottom < 0) return;
       const k = rect.width / data.width;
       pose.tx = pose.ty = gaze.tx = gaze.ty = 0;
-      if (pointer) {
+      if (pointer && elapsed >= duration) {
         const middle = head ? head.x : eyes[0].stroke.points[0][0];
         const nose = data.nose?.length ? strokes[data.nose[0]].points : eyes[0].stroke.points;
         const level = nose.reduce((sum, p) => sum + p[1], 0) / nose.length;
@@ -438,9 +458,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const GAZE_RATE = 30;
-    // Leaving the drawn pose is eased in over this long, so the first cursor move doesn't snap the
-    // head out of it. Once it's awake the head tracks at full speed.
-    const WAKE_MS = 1600;
+    // Leaving the drawn pose is eased in over this long so the head doesn't snap out of it. Once
+    // it's awake it tracks at full speed.
+    const WAKE_MS = 700;
     let wakeStart = -Infinity;
     // The head follows on a slower spring, so the eyes get there first, as they do on a person.
     const HEAD_STIFFNESS = 70;
@@ -498,12 +518,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (eyes.length) {
       scheduleBlink();
-      document.addEventListener('pointermove', e => {
-        if (e.pointerType === 'touch' || elapsed < duration) return;
-        if (!pointer && !pose.x && !pose.y) wakeStart = performance.now();
+      // Nothing reports a cursor that hasn't moved, so a reload picks up where it was left.
+      try { pointer = JSON.parse(sessionStorage.getItem('hw-cursor')); } catch {}
+      addEventListener('pagehide', () => {
+        try { sessionStorage.setItem('hw-cursor', JSON.stringify(pointer)); } catch {}
+      }, { signal });
+      const track = e => {
+        if (e.pointerType === 'touch') return;
+        if (!pointer && !pose.x && !pose.y && elapsed >= duration) wakeStart = performance.now();
         pointer = { x: e.clientX, y: e.clientY };
         aim();
-      }, { passive: true, signal });
+      };
+      document.addEventListener('pointermove', track, { passive: true, signal });
+      // Browsers don't report where a still cursor is, but they do send mouseover as the page lays out
+      // beneath it. Touch screens send one after every tap, which isn't a place to look.
+      if (matchMedia('(hover: hover)').matches) document.addEventListener('mouseover', track, { passive: true, signal });
       document.addEventListener('mouseout', e => {
         if (e.relatedTarget) return;
         pointer = null;
@@ -516,8 +545,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (startedAt === null) startedAt = now + START_DELAY;
       elapsed = Math.max(0, now - startedAt);
       render();
-      if (elapsed >= duration) finished();
-      else if (!stopped) requestAnimationFrame(frame);
+      if (elapsed >= duration) {
+        finished();
+        wakeStart = now;
+        aim();
+      } else if (!stopped) requestAnimationFrame(frame);
     }
 
     const resizer = new ResizeObserver(([entry]) => {
