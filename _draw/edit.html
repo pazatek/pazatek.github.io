@@ -133,7 +133,7 @@
     // Which strokes are pupils (they follow the cursor on the site) and which are drawn lighter, by index,
     // plus how large the whole drawing appears on the site and where it sits. Scaling or moving every
     // stroke wouldn't change either, since the site fits the drawing to its space.
-    let marks = { eyes: data.eyes || [], head: data.head || [], face: data.face || [], nose: data.nose || [], swap: data.swap || [], flip: data.flip || [], ears: data.ears || [], weight: data.weight || {}, pauseAfter: data.pauseAfter || {}, size: data.size ?? 1, offset: data.offset ?? { x: 0, y: 0 } };
+    let marks = { eyes: data.eyes || [], head: data.head || [], face: data.face || [], nose: data.nose || [], swap: data.swap || [], part: data.part || [], flip: data.flip || [], ears: data.ears || [], weight: data.weight || {}, pauseAfter: data.pauseAfter || {}, size: data.size ?? 1, offset: data.offset ?? { x: 0, y: 0 } };
     let selected = new Set();
     let history = [];
     let rawPaths = [];
@@ -191,6 +191,7 @@
       if (marks.face?.length) out.face = marks.face;
       if (marks.nose?.length) out.nose = marks.nose;
       if (marks.swap?.length) out.swap = marks.swap;
+      if (marks.part?.length) out.part = marks.part;
       if (marks.flip?.length) out.flip = marks.flip;
       if (marks.ears?.length) out.ears = marks.ears;
       if (Object.keys(marks.weight).length) out.weight = marks.weight;
@@ -524,6 +525,7 @@
         face: (marks.face ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
         nose: (marks.nose ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
         swap: (marks.swap ?? []).filter(pair => pair.every(i => renumber.has(i))).map(pair => pair.map(i => renumber.get(i))),
+        part: (marks.part ?? []).filter(pair => pair.every(i => renumber.has(i))).map(pair => pair.map(i => renumber.get(i))),
         flip: (marks.flip ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
         ears: (marks.ears ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
         weight: Object.fromEntries(Object.entries(marks.weight).filter(([i]) => renumber.has(+i)).map(([i, w]) => [renumber.get(+i), w])),
