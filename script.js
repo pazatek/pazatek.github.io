@@ -146,7 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const HEAD_YAW_LEFT = 0.11;
     const HEAD_PITCH = 0.13;
     const HEAD_SWAY = 0.35;
-    const NOSE_DEPTH = 0.5;
+    const FACE_DEPTH = 0.85;
+    const NOSE_DEPTH = 0.8;
 
     const strokes = [];
     let clock = 0;
@@ -186,6 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return t * t * (3 - 2 * t);
       };
       for (const p of inked) p[4] = depthAt(p);
+      // The eyes, nose and mouth sit at different heights on that shape, so without one shared depth
+      // the mouth lags the eyes and the whole face shears as it turns.
+      for (const n of data.face || []) for (const p of strokes[n].points) p[4] = FACE_DEPTH;
       for (const n of data.nose || []) {
         const { points } = strokes[n];
         const [a, b] = [points[0], points[points.length - 1]];
