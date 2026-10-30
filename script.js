@@ -141,6 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const PAUSE_SCALE = 0.2;
     const PAUSE_CAP = 500;
     const EYE_RANGE = 11;
+    const HEAD_YAW = 0.26;
+    const HEAD_PITCH = 0.18;
+    const HEAD_SWAY = 0.2;
+    const NOSE_DEPTH = 0.5;
 
     const strokes = [];
     let clock = 0;
@@ -163,6 +167,38 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const p of points) if (p[1] > tail.y) tail = { stroke: n, y: p[1] };
     });
 
+    // The head is a flat drawing, so turning it treats its ink as painted on an ellipsoid: lines in
+    // the middle of the face stand proud and slide furthest, the outline sits on the rim and barely
+    // moves, and the nose sticks out past the surface. The fifth value on a point is that depth.
+    const headStrokes = (data.head || []).filter(i => strokes[i]).map(i => strokes[i]);
+    let head = null;
+    if (headStrokes.length) {
+      const inked = headStrokes.flatMap(stroke => stroke.points);
+      const [left, right] = [Math.min(...inked.map(p => p[0])), Math.max(...inked.map(p => p[0]))];
+      const [top, bottom] = [Math.min(...inked.map(p => p[1])), Math.max(...inked.map(p => p[1]))];
+      head = { x: (left + right) / 2, y: (top + bottom) / 2, rx: (right - left) / 2, ry: (bottom - top) / 2 };
+      // Smoothstep rather than a true ellipsoid: a real one is steepest at its rim, which kinks any
+      // line that crosses the rim, like the jaw and the hair, as the head turns.
+      const depthAt = p => {
+        const t = Math.max(0, 1 - ((p[0] - head.x) / head.rx) ** 2 - ((p[1] - head.y) / head.ry) ** 2);
+        return t * t * (3 - 2 * t);
+      };
+      for (const p of inked) p[4] = depthAt(p);
+      for (const n of data.nose || []) {
+        const { points } = strokes[n];
+        const [a, b] = [points[0], points[points.length - 1]];
+        const offLine = p => Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1]));
+        const peak = Math.max(...points.map(offLine));
+        for (const p of points) p[4] += NOSE_DEPTH * offLine(p) / peak;
+      }
+    }
+    const pose = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0 };
+
+    function turned(p, x, y) {
+      const lift = p[4] === undefined ? 0 : p[4] + HEAD_SWAY;
+      return [p[0] + head.rx * x * lift, p[1] + head.ry * y * lift, p[2]];
+    }
+
     const eyes = (data.eyes || []).filter(i => strokes[i]).map(i => {
       const { points } = strokes[i];
       const eye = {
@@ -170,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         y: points.reduce((sum, p) => sum + p[1], 0) / points.length,
         dx: 0, dy: 0, tx: 0, ty: 0, vx: 0, vy: 0,
       };
+      eye.point = [eye.x, eye.y, 0, 0, points[0][4]];
       strokes[i].eye = eye;
       return eye;
     });
@@ -183,7 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // How far along (tx, ty) a pupil can go before it would touch another line: the gap covers the
     // pupil, the neighbouring ink and a margin, and never asks for more room than the pupil has at rest.
     function roomToLook(eye, tx, ty) {
-      const closest = t => Math.min(...eye.near.map(p => Math.hypot(p[0] - eye.x - tx * t, p[1] - eye.y - ty * t)));
+      const [x, y] = head ? turned(eye.point, pose.tx, pose.ty) : [eye.x, eye.y];
+      const near = head ? eye.near.map(p => turned(p, pose.tx, pose.ty)) : eye.near;
+      const closest = t => Math.min(...near.map(p => Math.hypot(p[0] - x - tx * t, p[1] - y - ty * t)));
       const gap = Math.min(penSize * 1.7, closest(0));
       if (closest(1) >= gap) return 1;
       let lo = 0;
@@ -239,13 +278,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const size = penSize * stroke.weight;
         if (times[0] > elapsed) break;
         if (eye) {
+          const [x, y] = head ? turned(eye.point, pose.x, pose.y) : [eye.x, eye.y];
           ctx.save();
-          ctx.translate(eye.x + eye.dx, eye.y + eye.dy);
+          ctx.translate(x + eye.dx, y + eye.dy);
           ctx.scale(1, openness);
           ctx.translate(-eye.x, -eye.y);
         }
         if (times[times.length - 1] <= elapsed) {
-          ctx.fill(stroke.path ||= strokePath(points, size));
+          const moved = !eye && points[0][4] !== undefined && (pose.x || pose.y);
+          ctx.fill(moved ? strokePath(points.map(p => turned(p, pose.x, pose.y)), size) : stroke.path ||= strokePath(points, size));
         } else {
           let shown = 1;
           while (times[shown] <= elapsed) shown++;
@@ -328,11 +369,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const rect = canvas.getBoundingClientRect();
       if (rect.bottom < 0) return;
       const k = rect.width / data.width;
+      pose.tx = pose.ty = 0;
+      if (head && pointer && elapsed >= duration) {
+        const vx = pointer.x - (rect.left + head.x * k);
+        const vy = pointer.y - (rect.top + head.y * k);
+        const dist = Math.hypot(vx, vy) || 1;
+        const reach = 1 - Math.exp(-dist / 320);
+        pose.tx = vx / dist * reach * HEAD_YAW;
+        pose.ty = vy / dist * reach * HEAD_PITCH;
+      }
       for (const eye of eyes) {
         eye.tx = eye.ty = 0;
         if (!pointer) continue;
-        const vx = pointer.x - (rect.left + eye.x * k);
-        const vy = pointer.y - (rect.top + eye.y * k);
+        const [x, y] = head ? turned(eye.point, pose.tx, pose.ty) : [eye.x, eye.y];
+        const vx = pointer.x - (rect.left + x * k);
+        const vy = pointer.y - (rect.top + y * k);
         const dist = Math.hypot(vx, vy) || 1;
         const reach = EYE_RANGE * (1 - Math.exp(-dist / 120));
         const room = roomToLook(eye, vx / dist * reach, vy / dist * reach);
@@ -346,6 +397,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // instead of gliding there; a slightly underdamped spring gives that.
     const STIFFNESS = 900;
     const DAMPING = 42;
+    // The head follows on a slower spring, so the eyes get there first, as they do on a person.
+    const HEAD_STIFFNESS = 110;
+    const HEAD_DAMPING = 19;
     let lastFrame = null;
     let blinkStart = -Infinity;
     let openness = 1;
@@ -362,6 +416,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Math.abs(eye.tx - eye.dx) + Math.abs(eye.ty - eye.dy) + Math.hypot(eye.vx, eye.vy) * 0.02 > 0.02) moving = true;
         else Object.assign(eye, { dx: eye.tx, dy: eye.ty, vx: 0, vy: 0 });
       }
+      pose.vx += (HEAD_STIFFNESS * (pose.tx - pose.x) - HEAD_DAMPING * pose.vx) * dt;
+      pose.vy += (HEAD_STIFFNESS * (pose.ty - pose.y) - HEAD_DAMPING * pose.vy) * dt;
+      pose.x += pose.vx * dt;
+      pose.y += pose.vy * dt;
+      if (Math.abs(pose.tx - pose.x) + Math.abs(pose.ty - pose.y) + Math.hypot(pose.vx, pose.vy) * 0.02 > 0.001) moving = true;
+      else Object.assign(pose, { x: pose.tx, y: pose.ty, vx: 0, vy: 0 });
       const t = now - blinkStart;
       openness = t < 70 ? 1 - 0.9 * t / 70 : t < 190 ? 0.1 + 0.9 * (t - 70) / 120 : 1;
       if (elapsed >= duration) render();
@@ -409,8 +469,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (startedAt === null) startedAt = now + START_DELAY;
       elapsed = Math.max(0, now - startedAt);
       render();
-      if (elapsed >= duration) finished();
-      else if (!stopped) requestAnimationFrame(frame);
+      if (elapsed >= duration) {
+        finished();
+        aim();
+      } else if (!stopped) requestAnimationFrame(frame);
     }
 
     const resizer = new ResizeObserver(([entry]) => {
