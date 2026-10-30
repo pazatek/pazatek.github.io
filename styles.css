@@ -247,10 +247,14 @@ body {
 .hw .hero-subtext,
 .hw .hero-pill {
   opacity: 0;
-  transform: translateY(14px);
-  filter: blur(6px);
+  transform: translateY(28px);
+  filter: blur(12px);
   pointer-events: none;
-  transition: opacity 1.4s ease, transform 1.4s cubic-bezier(0.16, 1, 0.3, 1), filter 1.4s ease;
+  transition: opacity 1.8s ease 0.3s, transform 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s, filter 1.8s ease 0.3s;
+}
+
+.hw .hero-pill {
+  transition-delay: 0.9s;
 }
 
 .hw.hw-done .hero-subtext,
@@ -282,7 +286,7 @@ html.hw-playing body {
   margin-left: -22px;
   color: rgba(255, 255, 255, 0.85);
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-  transition: opacity 1.4s ease, visibility 0s;
+  transition: opacity 1.4s ease 1.8s, visibility 0s 1.8s;
 }
 
 .scroll-cue:hover {
@@ -897,7 +901,9 @@ html.hw-playing body {
 @media (prefers-reduced-motion: reduce) {
   .hw .hero-subtext,
   .hw .hero-pill {
-    transition: none;
+    transform: none;
+    filter: none;
+    transition: opacity 1.4s ease 0.3s;
   }
 
   .scroll-cue svg {
