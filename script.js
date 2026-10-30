@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
-      import('./pen.js?v=16'),
+      import('./pen.js?v=17'),
     ])
       .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
       .catch(() => { if (!previewing) root.classList.remove('hw'); });
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e.data?.handwriting) return;
         previewing = true;
-        const pen = await import('./pen.js?v=16');
+        const pen = await import('./pen.js?v=17');
         stop?.();
         root.classList.add('hw');
         stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const FACE_DEPTH = 0.85;
     const NOSE_HOLD = 0.3;
     const PART_TRAVEL = 0.65;
+    const EAR_FLAT = 0.85;
 
     const strokes = [];
     let clock = 0;
@@ -215,29 +216,26 @@ document.addEventListener('DOMContentLoaded', () => {
         turnInto(strokes[n], strokes[n]);
         strokes[n].hold = points.reduce((sum, p) => sum + p[0], 0) / points.length;
       }
-      // An ear can't cross the face, so one fades away as its echo fades in on the far side. Fading
-      // rather than shrinking, which redraws the taper on an ever shorter stroke and looks choppy. Both
-      // ride on the nearest point of the jaw: anywhere else, the jaw sweeps past and leaves them inside the face.
+      // An ear can't cross the face, so one flattens away as its echo opens out on the far side. Each
+      // point rides on its nearest point of the jaw, so a flat ear lies exactly on the jaw line and
+      // disappears into it, and the jaw can't sweep past and leave an ear inside the face.
       for (const n of data.ears || []) {
         const ear = strokes[n];
+        const closestOn = (stroke, [x, y]) => stroke.points.reduce((best, p, at) => {
+          const gap = Math.hypot(p[0] - x, p[1] - y);
+          return gap < best.gap ? { stroke, at, gap } : best;
+        }, { gap: Infinity });
         const [a, b] = [ear.points[0], ear.points[ear.points.length - 1]];
         const root = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        let nearest = null;
-        for (const i of data.flip || []) {
-          strokes[i].points.forEach((p, at) => {
-            const gap = Math.hypot(p[0] - root[0], p[1] - root[1]);
-            if (!nearest || gap < nearest.gap) nearest = { jaw: strokes[i], at, gap };
-          });
-        }
-        const { jaw, at } = nearest;
-        const echoAt = jaw.points.length - 1 - at;
-        ear.fades = true;
-        ear.riding = { jaw, at, grow: false, offsets: ear.points.map(p => [p[0] - jaw.points[at][0], p[1] - jaw.points[at][1]]) };
+        const { stroke: jaw } = (data.flip || []).map(i => closestOn(strokes[i], root)).reduce((x, y) => (y.gap < x.gap ? y : x));
+        const at = ear.points.map(p => closestOn(jaw, p).at);
+        const echoAt = at.map(i => jaw.points.length - 1 - i);
+        ear.riding = { jaw, at, grow: false, offsets: ear.points.map((p, i) => [p[0] - jaw.points[at[i]][0], p[1] - jaw.points[at[i]][1]]) };
         earEchoes.push({
           points: ear.points,
           weight: ear.weight,
           ear,
-          riding: { jaw, at: echoAt, grow: true, offsets: ear.points.map(mirror).map(p => [p[0] - jaw.turnTo[echoAt][0], p[1] - jaw.turnTo[echoAt][1]]) },
+          riding: { jaw, at: echoAt, grow: true, offsets: ear.points.map(mirror).map((p, i) => [p[0] - jaw.turnTo[echoAt[i]][0], p[1] - jaw.turnTo[echoAt[i]][1]]) },
         });
       }
     }
@@ -245,7 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const gaze = { x: 0, y: 0, tx: 0, ty: 0 };
 
     const widthsOf = (stroke, size) => stroke.widths ||= inkWidths(stroke.points, size);
-    const earShown = amount => Math.max(0, Math.min(1, (amount - 0.15) / 0.6));
 
     function spaced(points, count, reversed) {
       const path = reversed ? [...points].reverse() : points;
@@ -268,8 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const t = turn / 2;
       if (stroke.riding) {
         const { jaw, at, offsets, grow } = stroke.riding;
-        const [jawX, jawY] = turned(jaw, at, turn, tilt);
-        const scale = 0.6 + 0.4 * (grow ? t : 1 - t);
+        const [jawX, jawY] = turned(jaw, at[i], turn, tilt);
+        const scale = Math.max(0, 1 - (grow ? 1 - t : t) / EAR_FLAT) ** 1.2;
         return [jawX + offsets[i][0] * scale, jawY + offsets[i][1] * scale, p[2]];
       }
       const [x, y] = stroke.turnTo?.[i] ?? p;
@@ -357,9 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (times[times.length - 1] <= elapsed) {
           const moved = !eye && points[0][4] !== undefined && (pose.x || pose.y);
-          ctx.globalAlpha = stroke.fades ? earShown(2 - pose.x) : 1;
           ctx.fill(moved ? inkPath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), widthsOf(stroke, size)) : stroke.path ||= strokePath(points, size));
-          ctx.globalAlpha = 1;
         } else {
           let shown = 1;
           while (times[shown] <= elapsed) shown++;
@@ -367,12 +362,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (eye) ctx.restore();
       }
-      if (earShown(pose.x)) {
-        ctx.globalAlpha = earShown(pose.x);
+      if (pose.x > 0) {
         for (const echo of earEchoes) {
           ctx.fill(inkPath(echo.points.map((_, i) => turned(echo, i, pose.x, pose.y)), widthsOf(echo.ear, penSize * echo.weight)));
         }
-        ctx.globalAlpha = 1;
       }
     }
 
