@@ -30,6 +30,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Windows has no flag emoji and shows the letters "PL", so the drawn flag stays unless the
+  // emoji actually renders as a flag (in color, unlike the letters).
+  const flag = document.querySelector('.flag');
+  if (flag) {
+    const probe = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+    probe.canvas.width = probe.canvas.height = 24;
+    probe.font = '20px sans-serif';
+    probe.fillText('🇵🇱', 0, 20);
+    const pixels = probe.getImageData(0, 0, 24, 24).data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i + 3] > 128 && pixels[i] - pixels[i + 1] > 80) {
+        flag.replaceWith('🇵🇱');
+        break;
+      }
+    }
+  }
+
   const markScrolled = () => root.classList.toggle('scrolled', scrollY > 40);
   addEventListener('scroll', markScrolled, { passive: true });
   markScrolled();
