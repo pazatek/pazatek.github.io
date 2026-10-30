@@ -207,9 +207,12 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
+  /* A pixel on a laptop-height window, growing with taller screens so the hero keeps its
+     share of a big monitor instead of stopping at laptop size. */
+  --hero-px: max(1px, 100vh / 840);
   padding: 63.3vh 24px 0;
   color: #fff;
-  font-size: clamp(28px, 5vw, 52px);
+  font-size: clamp(28px, 5vw, 52 * var(--hero-px));
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -218,7 +221,7 @@ body {
 }
 
 .hero-subtext {
-  font-size: clamp(13px, 1.6vw, 16px);
+  font-size: clamp(13px, 1.6vw, 16 * var(--hero-px));
   font-weight: 400;
   line-height: 1.6;
   max-width: 36em;
@@ -337,13 +340,14 @@ html.hw-playing body {
 
 .hero-pill {
   display: inline-flex;
-  margin-top: 4px;
+  margin-top: 0.25em;
+  font-size: calc(16 * var(--hero-px));
 }
 
 .hero-pill-track {
   position: relative;
-  width: 52px;
-  height: 28px;
+  width: 3.25em;
+  height: 1.75em;
   background-color: rgba(255, 255, 255, 0.25);
   background-image: linear-gradient(
     110deg,
@@ -356,7 +360,7 @@ html.hw-playing body {
   background-size: 250% 100%;
   background-position: 150% center;
   background-repeat: no-repeat;
-  border-radius: 14px;
+  border-radius: 0.875em;
   flex-shrink: 0;
   transition: background-color 0.8s ease;
   animation: hero-pill-glisten 2.4s ease-in-out 1.6s 2;
@@ -374,27 +378,27 @@ html.hw-playing body {
 .hero-pill-sun,
 .hero-pill-moon {
   position: absolute;
-  top: 5px;
-  width: 18px;
-  height: 18px;
+  top: 0.3125em;
+  width: 1.125em;
+  height: 1.125em;
   color: rgba(255, 255, 255, 0.5);
   transition: color 0.8s ease;
 }
 
 .hero-pill-sun {
-  left: 5px;
+  left: 0.3125em;
 }
 
 .hero-pill-moon {
-  right: 5px;
+  right: 0.3125em;
 }
 
 .hero-pill-thumb {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
+  top: 0.1875em;
+  left: 0.1875em;
+  width: 1.375em;
+  height: 1.375em;
   background: #fff;
   border-radius: 50%;
   transition: transform 0.8s ease;
@@ -403,7 +407,7 @@ html.hw-playing body {
 }
 
 .dark .hero-pill-thumb {
-  transform: translateX(24px);
+  transform: translateX(1.5em);
 }
 
 .dark .hero-pill-moon {
