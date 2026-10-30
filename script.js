@@ -140,8 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pauses shrink on their own scale so word breaks still read longer than gaps between letters.
     const PAUSE_SCALE = 0.2;
     const PAUSE_CAP = 500;
-    const EYE_RANGE = 11;
+    const EYE_RANGE = 6;
     const HEAD_YAW = 0.26;
+    // The portrait is drawn already angled to the viewer's left, so a pupil reaches the jaw sooner that way.
+    const HEAD_YAW_LEFT = 0.13;
     const HEAD_PITCH = 0.18;
     const HEAD_SWAY = 0.2;
     const NOSE_DEPTH = 0.5;
@@ -193,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     const pose = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0 };
+    const gaze = { x: 0, y: 0, tx: 0, ty: 0 };
 
     function turned(p, x, y) {
       const lift = p[4] === undefined ? 0 : p[4] + HEAD_SWAY;
@@ -204,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const eye = {
         x: points.reduce((sum, p) => sum + p[0], 0) / points.length,
         y: points.reduce((sum, p) => sum + p[1], 0) / points.length,
-        dx: 0, dy: 0, tx: 0, ty: 0, vx: 0, vy: 0,
       };
       eye.point = [eye.x, eye.y, 0, 0, points[0][4]];
       strokes[i].eye = eye;
@@ -214,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
       eye.near = strokes
         .filter((stroke, n) => !data.eyes.includes(n))
         .flatMap(stroke => stroke.points)
-        .filter(p => Math.hypot(p[0] - eye.x, p[1] - eye.y) < EYE_RANGE * 2 + 10);
+        .filter(p => Math.hypot(p[0] - eye.x, p[1] - eye.y) < EYE_RANGE * 2 + 24);
     }
 
     // How far along (tx, ty) a pupil can go before it would touch another line: the gap covers the
@@ -280,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (eye) {
           const [x, y] = head ? turned(eye.point, pose.x, pose.y) : [eye.x, eye.y];
           ctx.save();
-          ctx.translate(x + eye.dx, y + eye.dy);
+          ctx.translate(x + gaze.x, y + gaze.y);
           ctx.scale(1, openness);
           ctx.translate(-eye.x, -eye.y);
         }
@@ -364,39 +366,33 @@ document.addEventListener('DOMContentLoaded', () => {
     let pointer = null;
     let gazing = false;
 
-    // Each pupil turns toward the cursor from its own position, so they converge a little when it's close.
+    // Both pupils share one gaze from the point between them. Aiming each on its own lets them drift
+    // apart, and with no eye outline to anchor them that reads as loose dots sliding around the face.
     function aim() {
       const rect = canvas.getBoundingClientRect();
       if (rect.bottom < 0) return;
       const k = rect.width / data.width;
-      pose.tx = pose.ty = 0;
-      if (head && pointer && elapsed >= duration) {
-        const vx = pointer.x - (rect.left + head.x * k);
-        const vy = pointer.y - (rect.top + head.y * k);
+      pose.tx = pose.ty = gaze.tx = gaze.ty = 0;
+      if (pointer) {
+        const middle = eyes.map(eye => eye.x).reduce((sum, x) => sum + x, 0) / eyes.length;
+        const level = eyes.map(eye => eye.y).reduce((sum, y) => sum + y, 0) / eyes.length;
+        const vx = pointer.x - (rect.left + middle * k);
+        const vy = pointer.y - (rect.top + level * k);
         const dist = Math.hypot(vx, vy) || 1;
-        const reach = 1 - Math.exp(-dist / 320);
-        pose.tx = vx / dist * reach * HEAD_YAW;
-        pose.ty = vy / dist * reach * HEAD_PITCH;
-      }
-      for (const eye of eyes) {
-        eye.tx = eye.ty = 0;
-        if (!pointer) continue;
-        const [x, y] = head ? turned(eye.point, pose.tx, pose.ty) : [eye.x, eye.y];
-        const vx = pointer.x - (rect.left + x * k);
-        const vy = pointer.y - (rect.top + y * k);
-        const dist = Math.hypot(vx, vy) || 1;
+        if (head && elapsed >= duration) {
+          const reach = 1 - Math.exp(-dist / 320);
+          pose.tx = vx / dist * reach * (vx < 0 ? HEAD_YAW_LEFT : HEAD_YAW);
+          pose.ty = vy / dist * reach * HEAD_PITCH;
+        }
         const reach = EYE_RANGE * (1 - Math.exp(-dist / 120));
-        const room = roomToLook(eye, vx / dist * reach, vy / dist * reach);
-        eye.tx = vx / dist * reach * room;
-        eye.ty = vy / dist * reach * room;
+        const room = Math.min(...eyes.map(eye => roomToLook(eye, vx / dist * reach, vy / dist * reach)));
+        gaze.tx = vx / dist * reach * room;
+        gaze.ty = vy / dist * reach * room;
       }
       lookAround();
     }
 
-    // Eyes jump to a new target quickly and settle with a slight overshoot, like a saccade,
-    // instead of gliding there; a slightly underdamped spring gives that.
-    const STIFFNESS = 900;
-    const DAMPING = 42;
+    const GAZE_RATE = 30;
     // The head follows on a slower spring, so the eyes get there first, as they do on a person.
     const HEAD_STIFFNESS = 110;
     const HEAD_DAMPING = 19;
@@ -408,14 +404,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const dt = lastFrame === null ? 1 / 60 : Math.min(1 / 30, (now - lastFrame) / 1000);
       lastFrame = now;
       let moving = false;
-      for (const eye of eyes) {
-        eye.vx += (STIFFNESS * (eye.tx - eye.dx) - DAMPING * eye.vx) * dt;
-        eye.vy += (STIFFNESS * (eye.ty - eye.dy) - DAMPING * eye.vy) * dt;
-        eye.dx += eye.vx * dt;
-        eye.dy += eye.vy * dt;
-        if (Math.abs(eye.tx - eye.dx) + Math.abs(eye.ty - eye.dy) + Math.hypot(eye.vx, eye.vy) * 0.02 > 0.02) moving = true;
-        else Object.assign(eye, { dx: eye.tx, dy: eye.ty, vx: 0, vy: 0 });
-      }
+      // Frame-rate independent, and unlike a spring it never overshoots.
+      const follow = 1 - Math.exp(-GAZE_RATE * dt);
+      gaze.x += (gaze.tx - gaze.x) * follow;
+      gaze.y += (gaze.ty - gaze.y) * follow;
+      if (Math.abs(gaze.tx - gaze.x) + Math.abs(gaze.ty - gaze.y) > 0.02) moving = true;
+      else Object.assign(gaze, { x: gaze.tx, y: gaze.ty });
       pose.vx += (HEAD_STIFFNESS * (pose.tx - pose.x) - HEAD_DAMPING * pose.vx) * dt;
       pose.vy += (HEAD_STIFFNESS * (pose.ty - pose.y) - HEAD_DAMPING * pose.vy) * dt;
       pose.x += pose.vx * dt;
