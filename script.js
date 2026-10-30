@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pauses shrink on their own scale so word breaks still read longer than gaps between letters.
     const PAUSE_SCALE = 0.2;
     const PAUSE_CAP = 500;
-    const EYE_RANGE = 6;
+    const EYE_RANGE = 3;
     const HEAD_YAW = 0.16;
     // The portrait is drawn already angled to the viewer's left, so a pupil reaches the jaw sooner that way.
     const HEAD_YAW_LEFT = 0.11;
