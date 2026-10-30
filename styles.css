@@ -218,8 +218,6 @@ body {
 }
 
 .hero-subtext {
-  position: relative;
-  left: var(--tail-shift, 0);
   font-size: clamp(13px, 1.6vw, 16px);
   font-weight: 400;
   line-height: 1.6;
@@ -263,6 +261,10 @@ body {
 
 .hw.hw-done .hero-pill {
   transition-delay: 0.12s;
+}
+
+.hero-tail-push {
+  position: relative;
 }
 
 html.hw-playing,
@@ -319,6 +321,16 @@ html.hw-playing body {
   color: var(--fg-faint);
   padding: 20px 24px 0;
   letter-spacing: 0.02em;
+}
+
+/* An SVG, not the emoji: Windows' emoji font has no country flags and shows the letters "PL". */
+.flag {
+  display: inline-block;
+  width: 1.3em;
+  height: auto;
+  vertical-align: -0.1em;
+  margin: 0 0.15em;
+  border-radius: 1px;
 }
 
 .hero-pill {
