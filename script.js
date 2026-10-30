@@ -393,6 +393,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const GAZE_RATE = 30;
+    // Leaving the drawn pose is eased in over this long, so the first cursor move doesn't snap the
+    // head out of it. Once it's awake the head tracks at full speed.
+    const WAKE_MS = 1600;
+    let wakeStart = -Infinity;
     // The head follows on a slower spring, so the eyes get there first, as they do on a person.
     const HEAD_STIFFNESS = 110;
     const HEAD_DAMPING = 19;
@@ -405,13 +409,16 @@ document.addEventListener('DOMContentLoaded', () => {
       lastFrame = now;
       let moving = false;
       // Frame-rate independent, and unlike a spring it never overshoots.
+      const woken = Math.max(0, Math.min(1, (now - wakeStart) / WAKE_MS));
+      const eased = woken * woken * (3 - 2 * woken);
+      if (woken < 1) moving = true;
       const follow = 1 - Math.exp(-GAZE_RATE * dt);
-      gaze.x += (gaze.tx - gaze.x) * follow;
-      gaze.y += (gaze.ty - gaze.y) * follow;
+      gaze.x += (gaze.tx * eased - gaze.x) * follow;
+      gaze.y += (gaze.ty * eased - gaze.y) * follow;
       if (Math.abs(gaze.tx - gaze.x) + Math.abs(gaze.ty - gaze.y) > 0.02) moving = true;
       else Object.assign(gaze, { x: gaze.tx, y: gaze.ty });
-      pose.vx += (HEAD_STIFFNESS * (pose.tx - pose.x) - HEAD_DAMPING * pose.vx) * dt;
-      pose.vy += (HEAD_STIFFNESS * (pose.ty - pose.y) - HEAD_DAMPING * pose.vy) * dt;
+      pose.vx += (HEAD_STIFFNESS * (pose.tx * eased - pose.x) - HEAD_DAMPING * pose.vx) * dt;
+      pose.vy += (HEAD_STIFFNESS * (pose.ty * eased - pose.y) - HEAD_DAMPING * pose.vy) * dt;
       pose.x += pose.vx * dt;
       pose.y += pose.vy * dt;
       if (Math.abs(pose.tx - pose.x) + Math.abs(pose.ty - pose.y) + Math.hypot(pose.vx, pose.vy) * 0.02 > 0.001) moving = true;
@@ -448,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
       scheduleBlink();
       document.addEventListener('pointermove', e => {
         if (e.pointerType === 'touch' || elapsed < duration) return;
+        if (!pointer && !pose.x && !pose.y) wakeStart = performance.now();
         pointer = { x: e.clientX, y: e.clientY };
         aim();
       }, { passive: true, signal });
