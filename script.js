@@ -141,11 +141,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const PAUSE_SCALE = 0.2;
     const PAUSE_CAP = 500;
     const EYE_RANGE = 6;
-    const HEAD_YAW = 0.26;
+    const HEAD_YAW = 0.16;
     // The portrait is drawn already angled to the viewer's left, so a pupil reaches the jaw sooner that way.
-    const HEAD_YAW_LEFT = 0.13;
-    const HEAD_PITCH = 0.18;
-    const HEAD_SWAY = 0.2;
+    const HEAD_YAW_LEFT = 0.11;
+    const HEAD_PITCH = 0.13;
+    const HEAD_SWAY = 0.35;
     const NOSE_DEPTH = 0.5;
 
     const strokes = [];
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const vx = pointer.x - (rect.left + middle * k);
         const vy = pointer.y - (rect.top + level * k);
         const dist = Math.hypot(vx, vy) || 1;
-        if (head && elapsed >= duration) {
+        if (head) {
           const reach = 1 - Math.exp(-dist / 320);
           pose.tx = vx / dist * reach * (vx < 0 ? HEAD_YAW_LEFT : HEAD_YAW);
           pose.ty = vy / dist * reach * HEAD_PITCH;
@@ -447,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (eyes.length) {
       scheduleBlink();
       document.addEventListener('pointermove', e => {
-        if (e.pointerType === 'touch') return;
+        if (e.pointerType === 'touch' || elapsed < duration) return;
         pointer = { x: e.clientX, y: e.clientY };
         aim();
       }, { passive: true, signal });
@@ -463,10 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (startedAt === null) startedAt = now + START_DELAY;
       elapsed = Math.max(0, now - startedAt);
       render();
-      if (elapsed >= duration) {
-        finished();
-        aim();
-      } else if (!stopped) requestAnimationFrame(frame);
+      if (elapsed >= duration) finished();
+      else if (!stopped) requestAnimationFrame(frame);
     }
 
     const resizer = new ResizeObserver(([entry]) => {
