@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pauses shrink on their own scale so word breaks still read longer than gaps between letters.
     const PAUSE_SCALE = 0.2;
     const PAUSE_CAP = 500;
-    const EYE_RANGE = 4.5;
+    const EYE_RANGE = 11;
 
     const strokes = [];
     let clock = 0;
@@ -173,6 +173,28 @@ document.addEventListener('DOMContentLoaded', () => {
       strokes[i].eye = eye;
       return eye;
     });
+    for (const eye of eyes) {
+      eye.near = strokes
+        .filter((stroke, n) => !data.eyes.includes(n))
+        .flatMap(stroke => stroke.points)
+        .filter(p => Math.hypot(p[0] - eye.x, p[1] - eye.y) < EYE_RANGE * 2 + 10);
+    }
+
+    // How far along (tx, ty) a pupil can go before it would touch another line: the gap covers the
+    // pupil, the neighbouring ink and a margin, and never asks for more room than the pupil has at rest.
+    function roomToLook(eye, tx, ty) {
+      const closest = t => Math.min(...eye.near.map(p => Math.hypot(p[0] - eye.x - tx * t, p[1] - eye.y - ty * t)));
+      const gap = Math.min(penSize * 1.7, closest(0));
+      if (closest(1) >= gap) return 1;
+      let lo = 0;
+      let hi = 1;
+      for (let i = 0; i < 8; i++) {
+        const mid = (lo + hi) / 2;
+        if (closest(mid) >= gap) lo = mid;
+        else hi = mid;
+      }
+      return lo;
+    }
 
     const canvas = document.createElement('canvas');
     canvas.className = 'hero-handwriting';
@@ -308,8 +330,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const vy = pointer.y - (rect.top + eye.y * k);
         const dist = Math.hypot(vx, vy) || 1;
         const reach = EYE_RANGE * (1 - Math.exp(-dist / 120));
-        eye.tx = vx / dist * reach;
-        eye.ty = vy / dist * reach;
+        const room = roomToLook(eye, vx / dist * reach, vy / dist * reach);
+        eye.tx = vx / dist * reach * room;
+        eye.ty = vy / dist * reach * room;
       }
       if (!gazing) {
         gazing = true;
