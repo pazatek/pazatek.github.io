@@ -168,11 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const ctx = canvas.getContext('2d');
     const ink = getComputedStyle(title.parentElement).color;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let penSize = 1;
     let startedAt = null;
     // Arriving partway down the page (a link to a section, a reload mid-scroll) skips the replay.
-    const skip = reduceMotion || instant || scrollY > 0 || location.hash;
+    // Reduced motion doesn't: Windows sets it whenever "Animation effects" is off, and the writing
+    // and the pupils move only within the heading.
+    const skip = instant || scrollY > 0 || location.hash;
     let elapsed = skip ? Infinity : 0;
     const finished = () => {
       root.classList.add('hw-done');
@@ -210,20 +211,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Open the space the tail crosses just wide enough for the stroke, and nudge the line so the
-    // tail sits in the middle of it. Which space that is depends on how the line wraps, so it's measured.
+    // Make room for the tail where it crosses the line below: find the nearest space, then shift the
+    // words on either side of it apart, on that line only, just far enough to clear the stroke. Word
+    // positions depend on the font and how the line wraps (Windows uses a different system font), so
+    // they're measured. Relative positioning moves the words without re-wrapping anything.
     const subtext = document.querySelector('.hero-subtext');
     function clearTailGap() {
       if (!subtext) return;
-      for (const gap of subtext.querySelectorAll('.hero-gap')) gap.replaceWith(...gap.childNodes);
+      for (const part of subtext.querySelectorAll('.hero-tail-push')) part.replaceWith(...part.childNodes);
       subtext.normalize();
-      subtext.style.removeProperty('--tail-shift');
     }
 
     function makeRoomForTail() {
       clearTailGap();
       const rect = canvas.getBoundingClientRect();
-      if (!subtext || !rect.width) return;
+      const node = subtext?.firstChild;
+      if (!rect.width || node?.nodeType !== Node.TEXT_NODE) return;
       const k = rect.width / data.width;
       const path = strokes[tail.stroke].points.map(p => [rect.left + p[0] * k, rect.top + p[1] * k]);
       const style = getComputedStyle(subtext);
@@ -231,37 +234,46 @@ document.addEventListener('DOMContentLoaded', () => {
       // Measured before the text fades in, while it's still lowered for its entrance; the tail slants,
       // so the crossing is found at the line's final height.
       const lowered = style.transform === 'none' ? 0 : new DOMMatrixReadOnly(style.transform).m42;
+      const ink = parseFloat(getComputedStyle(title).fontSize) * 0.1 * (data.size ?? 1);
+      const clearance = ink / 2 + em * 0.3;
       const range = document.createRange();
-      const walker = document.createTreeWalker(subtext, NodeFilter.SHOW_TEXT);
+      const box = i => {
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        return range.getBoundingClientRect();
+      };
+
       let best = null;
-      for (let node; (node = walker.nextNode());) {
-        for (let i = node.data.indexOf(' '); i >= 0; i = node.data.indexOf(' ', i + 1)) {
-          if (i === 0 || i === node.data.length - 1) continue;
-          // The visible gap runs from the letter before to the letter after, not just the space's own box.
-          range.setStart(node, i - 1);
-          range.setEnd(node, i);
-          const before = range.getBoundingClientRect();
-          range.setStart(node, i + 1);
-          range.setEnd(node, i + 2);
-          const after = range.getBoundingClientRect();
-          if (after.top > before.bottom) continue;
-          const middle = before.top + before.height / 2 - lowered;
-          const crossing = path.reduce((a, b) => Math.abs(b[1] - middle) < Math.abs(a[1] - middle) ? b : a);
-          if (Math.abs(crossing[1] - middle) > before.height / 2) continue;
-          const shift = crossing[0] - (before.right + after.left) / 2;
-          if (Math.abs(shift) <= em * 0.6 && (!best || Math.abs(shift) < Math.abs(best.shift))) best = { node, i, shift, width: after.left - before.right };
-        }
+      for (let i = node.data.indexOf(' '); i > 0 && i < node.data.length - 1; i = node.data.indexOf(' ', i + 1)) {
+        const before = box(i - 1);
+        const after = box(i + 1);
+        if (after.top > before.bottom) continue;
+        const middle = before.top + before.height / 2 - lowered;
+        const crossing = path.reduce((a, b) => Math.abs(b[1] - middle) < Math.abs(a[1] - middle) ? b : a);
+        if (Math.abs(crossing[1] - middle) > before.height / 2) continue;
+        const left = Math.min(0, crossing[0] - clearance - before.right);
+        const right = Math.max(0, crossing[0] + clearance - after.left);
+        const cost = right - left;
+        if (cost <= em * 1.5 && (!best || cost < best.cost)) best = { i, left, right, cost, top: before.top };
       }
-      if (!best) return;
-      const opening = penSize * k + em * 0.6;
-      const space = best.node.splitText(best.i);
-      space.splitText(1);
-      const gap = document.createElement('span');
-      gap.className = 'hero-gap';
-      gap.style.paddingInline = `${Math.max(0, (opening - best.width) / 2)}px`;
-      space.replaceWith(gap);
-      gap.append(space);
-      subtext.style.setProperty('--tail-shift', `${best.shift}px`);
+      if (!best || !best.cost) return;
+
+      let start = best.i;
+      let end = best.i;
+      while (start > 0 && Math.abs(box(start - 1).top - best.top) < 1) start--;
+      while (end < node.data.length - 1 && Math.abs(box(end + 1).top - best.top) < 1) end++;
+      node.splitText(end + 1);
+      const after = node.splitText(best.i + 1);
+      node.splitText(best.i);
+      const before = node.splitText(start);
+      for (const [part, offset] of [[before, best.left], [after, best.right]]) {
+        if (!offset) continue;
+        const push = document.createElement('span');
+        push.className = 'hero-tail-push';
+        push.style.left = `${offset}px`;
+        part.replaceWith(push);
+        push.append(part);
+      }
     }
 
     let pointer = null;
@@ -301,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else gazing = false;
     }
 
-    if (eyes.length && !reduceMotion) {
+    if (eyes.length) {
       document.addEventListener('pointermove', e => {
         if (e.pointerType === 'touch') return;
         pointer = { x: e.clientX, y: e.clientY };
