@@ -140,14 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pauses shrink on their own scale so word breaks still read longer than gaps between letters.
     const PAUSE_SCALE = 0.2;
     const PAUSE_CAP = 500;
-    const EYE_RANGE = 3;
-    const HEAD_YAW = 0.16;
-    // The portrait is drawn already angled to the viewer's left, so a pupil reaches the jaw sooner that way.
-    const HEAD_YAW_LEFT = 0.11;
-    const HEAD_PITCH = 0.13;
+    const EYE_RANGE = 5;
+    const HEAD_PITCH = 0.16;
     const HEAD_SWAY = 0.35;
     const FACE_DEPTH = 0.85;
-    const NOSE_DEPTH = 0.8;
+    const NOSE_HOLD = 0.3;
 
     const strokes = [];
     let clock = 0;
@@ -170,10 +167,13 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const p of points) if (p[1] > tail.y) tail = { stroke: n, y: p[1] };
     });
 
-    // The head is a flat drawing, so turning it treats its ink as painted on an ellipsoid: lines in
-    // the middle of the face stand proud and slide furthest, the outline sits on the rim and barely
-    // moves, and the nose sticks out past the surface. The fifth value on a point is that depth.
+    // A flat drawing has no other side to turn to, so the head morphs through three poses: the
+    // drawing, its mirror image, and the front view halfway between. Flipping each stroke in place
+    // would squash the head to a line at the halfway point, so each one becomes the mirror of its
+    // counterpart instead: one eye turns into the other, and the jaw into itself with its ends swapped.
+    // The fifth value on a point is its depth, which only tilting the head up and down uses.
     const headStrokes = (data.head || []).filter(i => strokes[i]).map(i => strokes[i]);
+    const earEchoes = [];
     let head = null;
     if (headStrokes.length) {
       const inked = headStrokes.flatMap(stroke => stroke.points);
@@ -181,53 +181,87 @@ document.addEventListener('DOMContentLoaded', () => {
       const [top, bottom] = [Math.min(...inked.map(p => p[1])), Math.max(...inked.map(p => p[1]))];
       head = { x: (left + right) / 2, y: (top + bottom) / 2, rx: (right - left) / 2, ry: (bottom - top) / 2 };
       // Smoothstep rather than a true ellipsoid: a real one is steepest at its rim, which kinks any
-      // line that crosses the rim, like the jaw and the hair, as the head turns.
+      // line that crosses the rim, like the jaw and the hair, as the head tilts.
       const depthAt = p => {
         const t = Math.max(0, 1 - ((p[0] - head.x) / head.rx) ** 2 - ((p[1] - head.y) / head.ry) ** 2);
         return t * t * (3 - 2 * t);
       };
       for (const p of inked) p[4] = depthAt(p);
       // The eyes, nose and mouth sit at different heights on that shape, so without one shared depth
-      // the mouth lags the eyes and the whole face shears as it turns.
+      // the mouth lags the eyes and the whole face shears as it tilts.
       for (const n of data.face || []) for (const p of strokes[n].points) p[4] = FACE_DEPTH;
+
+      const mirror = ([x, y]) => [2 * head.x - x, y];
+      const turnInto = (stroke, partner, reversed) => {
+        stroke.turnTo = spaced(partner.points, stroke.points.length, reversed).map(mirror);
+      };
+      for (const [a, b] of data.swap || []) {
+        turnInto(strokes[a], strokes[b]);
+        turnInto(strokes[b], strokes[a]);
+      }
+      for (const n of data.flip || []) turnInto(strokes[n], strokes[n], true);
       for (const n of data.nose || []) {
         const { points } = strokes[n];
+        turnInto(strokes[n], strokes[n]);
+        strokes[n].hold = points.reduce((sum, p) => sum + p[0], 0) / points.length;
+      }
+      // An ear can't cross the face, so one tucks away behind the jaw as its echo comes out on the far side.
+      for (const n of data.ears || []) {
+        const { points, weight } = strokes[n];
         const [a, b] = [points[0], points[points.length - 1]];
-        const offLine = p => Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1]));
-        const peak = Math.max(...points.map(offLine));
-        for (const p of points) p[4] += NOSE_DEPTH * offLine(p) / peak;
+        const root = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        strokes[n].turnTo = points.map(() => root);
+        strokes[n].tucks = true;
+        earEchoes.push({ points: points.map(p => [...mirror(root), ...p.slice(2)]), turnTo: points.map(mirror), weight });
       }
     }
     const pose = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0 };
     const gaze = { x: 0, y: 0, tx: 0, ty: 0 };
 
-    function turned(p, x, y) {
+    // The head rarely reaches either end of the turn exactly, so ears vanish a little short of it
+    // rather than leaving a speck of ink on the face.
+    const earSize = amount => Math.max(0, Math.min(1, (amount - 0.1) * 2.5));
+
+    function spaced(points, count, reversed) {
+      const path = reversed ? [...points].reverse() : points;
+      const lengths = [0];
+      for (let i = 1; i < path.length; i++) lengths.push(lengths[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+      const total = lengths[lengths.length - 1];
+      return Array.from({ length: count }, (_, i) => {
+        const wanted = total * i / Math.max(1, count - 1);
+        let at = 1;
+        while (at < path.length - 1 && lengths[at] < wanted) at++;
+        if (path.length === 1) return path[0];
+        const u = (wanted - lengths[at - 1]) / ((lengths[at] - lengths[at - 1]) || 1);
+        return [path[at - 1][0] + (path[at][0] - path[at - 1][0]) * u, path[at - 1][1] + (path[at][1] - path[at - 1][1]) * u];
+      });
+    }
+
+    // turn runs from 0, the drawing, to 2, its mirror image.
+    function turned(stroke, i, turn, tilt) {
+      const p = stroke.points[i];
+      const t = turn / 2;
+      const [x, y] = stroke.turnTo?.[i] ?? p;
+      // Keeps some of the nose's shape at the halfway point, where it would otherwise be a bare line.
+      const hold = stroke.hold === undefined ? 0 : (p[0] - stroke.hold) * NOSE_HOLD * 4 * t * (1 - t);
       const lift = p[4] === undefined ? 0 : p[4] + HEAD_SWAY;
-      return [p[0] + head.rx * x * lift, p[1] + head.ry * y * lift, p[2]];
+      return [p[0] + (x - p[0]) * t + hold, p[1] + (y - p[1]) * t + head.ry * tilt * lift, p[2]];
     }
 
     const eyes = (data.eyes || []).filter(i => strokes[i]).map(i => {
-      const { points } = strokes[i];
-      const eye = {
-        x: points.reduce((sum, p) => sum + p[0], 0) / points.length,
-        y: points.reduce((sum, p) => sum + p[1], 0) / points.length,
-      };
-      eye.point = [eye.x, eye.y, 0, 0, points[0][4]];
+      const eye = { stroke: strokes[i] };
       strokes[i].eye = eye;
       return eye;
     });
-    for (const eye of eyes) {
-      eye.near = strokes
-        .filter((stroke, n) => !data.eyes.includes(n))
-        .flatMap(stroke => stroke.points)
-        .filter(p => Math.hypot(p[0] - eye.x, p[1] - eye.y) < EYE_RANGE * 2 + 24);
-    }
 
     // How far along (tx, ty) a pupil can go before it would touch another line: the gap covers the
     // pupil, the neighbouring ink and a margin, and never asks for more room than the pupil has at rest.
     function roomToLook(eye, tx, ty) {
-      const [x, y] = head ? turned(eye.point, pose.tx, pose.ty) : [eye.x, eye.y];
-      const near = head ? eye.near.map(p => turned(p, pose.tx, pose.ty)) : eye.near;
+      const [x, y] = head ? turned(eye.stroke, 0, pose.tx, pose.ty) : eye.stroke.points[0];
+      const near = (head ? headStrokes : strokes)
+        .filter(stroke => !stroke.eye)
+        .flatMap(stroke => stroke.points.map((p, i) => head ? turned(stroke, i, pose.tx, pose.ty) : p))
+        .filter(p => Math.hypot(p[0] - x, p[1] - y) < EYE_RANGE * 2 + 24);
       const closest = t => Math.min(...near.map(p => Math.hypot(p[0] - x - tx * t, p[1] - y - ty * t)));
       const gap = Math.min(penSize * 1.7, closest(0));
       if (closest(1) >= gap) return 1;
@@ -281,24 +315,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const stroke of strokes) {
         const { points, times, eye } = stroke;
-        const size = penSize * stroke.weight;
+        const size = penSize * stroke.weight * (stroke.tucks ? earSize(2 - pose.x) : 1);
         if (times[0] > elapsed) break;
         if (eye) {
-          const [x, y] = head ? turned(eye.point, pose.x, pose.y) : [eye.x, eye.y];
+          const [x, y] = head ? turned(stroke, 0, pose.x, pose.y) : points[0];
           ctx.save();
           ctx.translate(x + gaze.x, y + gaze.y);
           ctx.scale(1, openness);
-          ctx.translate(-eye.x, -eye.y);
+          ctx.translate(-points[0][0], -points[0][1]);
         }
         if (times[times.length - 1] <= elapsed) {
           const moved = !eye && points[0][4] !== undefined && (pose.x || pose.y);
-          ctx.fill(moved ? strokePath(points.map(p => turned(p, pose.x, pose.y)), size) : stroke.path ||= strokePath(points, size));
+          if (size) ctx.fill(moved ? strokePath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), size) : stroke.path ||= strokePath(points, size));
         } else {
           let shown = 1;
           while (times[shown] <= elapsed) shown++;
           ctx.fill(strokePath(points.slice(0, shown), size, false));
         }
         if (eye) ctx.restore();
+      }
+      if (earSize(pose.x)) {
+        for (const echo of earEchoes) {
+          ctx.fill(strokePath(echo.points.map((_, i) => turned(echo, i, pose.x, pose.y)), penSize * echo.weight * earSize(pose.x)));
+        }
       }
     }
 
@@ -378,17 +417,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const k = rect.width / data.width;
       pose.tx = pose.ty = gaze.tx = gaze.ty = 0;
       if (pointer) {
-        const middle = eyes.map(eye => eye.x).reduce((sum, x) => sum + x, 0) / eyes.length;
-        const level = eyes.map(eye => eye.y).reduce((sum, y) => sum + y, 0) / eyes.length;
+        const middle = head ? head.x : eyes[0].stroke.points[0][0];
+        const nose = data.nose?.length ? strokes[data.nose[0]].points : eyes[0].stroke.points;
+        const level = nose.reduce((sum, p) => sum + p[1], 0) / nose.length;
         const vx = pointer.x - (rect.left + middle * k);
         const vy = pointer.y - (rect.top + level * k);
         const dist = Math.hypot(vx, vy) || 1;
         if (head) {
-          const reach = 1 - Math.exp(-dist / 320);
-          pose.tx = vx / dist * reach * (vx < 0 ? HEAD_YAW_LEFT : HEAD_YAW);
-          pose.ty = vy / dist * reach * HEAD_PITCH;
+          // The cursor on the nose is the front view; away from it the head swings out to either pose.
+          const swing = v => Math.sign(v) * (1 - Math.exp(-Math.abs(v) / (rect.width * 0.22)));
+          pose.tx = 1 + swing(vx);
+          pose.ty = swing(vy) * HEAD_PITCH;
         }
-        const reach = EYE_RANGE * (1 - Math.exp(-dist / 120));
+        const reach = EYE_RANGE * (1 - Math.exp(-dist / 160));
         const room = Math.min(...eyes.map(eye => roomToLook(eye, vx / dist * reach, vy / dist * reach)));
         gaze.tx = vx / dist * reach * room;
         gaze.ty = vy / dist * reach * room;
@@ -402,8 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const WAKE_MS = 1600;
     let wakeStart = -Infinity;
     // The head follows on a slower spring, so the eyes get there first, as they do on a person.
-    const HEAD_STIFFNESS = 110;
-    const HEAD_DAMPING = 19;
+    const HEAD_STIFFNESS = 70;
+    const HEAD_DAMPING = 15;
     let lastFrame = null;
     let blinkStart = -Infinity;
     let openness = 1;
