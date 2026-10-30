@@ -133,7 +133,7 @@
     // Which strokes are pupils (they follow the cursor on the site) and which are drawn lighter, by index,
     // plus how large the whole drawing appears on the site and where it sits. Scaling or moving every
     // stroke wouldn't change either, since the site fits the drawing to its space.
-    let marks = { eyes: data.eyes || [], head: data.head || [], nose: data.nose || [], weight: data.weight || {}, pauseAfter: data.pauseAfter || {}, size: data.size ?? 1, offset: data.offset ?? { x: 0, y: 0 } };
+    let marks = { eyes: data.eyes || [], head: data.head || [], face: data.face || [], nose: data.nose || [], weight: data.weight || {}, pauseAfter: data.pauseAfter || {}, size: data.size ?? 1, offset: data.offset ?? { x: 0, y: 0 } };
     let selected = new Set();
     let history = [];
     let rawPaths = [];
@@ -188,6 +188,7 @@
       };
       if (marks.eyes.length) out.eyes = marks.eyes;
       if (marks.head?.length) out.head = marks.head;
+      if (marks.face?.length) out.face = marks.face;
       if (marks.nose?.length) out.nose = marks.nose;
       if (Object.keys(marks.weight).length) out.weight = marks.weight;
       if (Object.keys(marks.pauseAfter ?? {}).length) out.pauseAfter = marks.pauseAfter;
@@ -517,6 +518,7 @@
       marks = {
         eyes: marks.eyes.filter(i => renumber.has(i)).map(i => renumber.get(i)),
         head: (marks.head ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
+        face: (marks.face ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
         nose: (marks.nose ?? []).filter(i => renumber.has(i)).map(i => renumber.get(i)),
         weight: Object.fromEntries(Object.entries(marks.weight).filter(([i]) => renumber.has(+i)).map(([i, w]) => [renumber.get(+i), w])),
         pauseAfter: Object.fromEntries(Object.entries(marks.pauseAfter ?? {}).filter(([i]) => renumber.has(+i)).map(([i, ms]) => [renumber.get(+i), ms])),
