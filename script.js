@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const eye = {
         x: points.reduce((sum, p) => sum + p[0], 0) / points.length,
         y: points.reduce((sum, p) => sum + p[1], 0) / points.length,
-        dx: 0, dy: 0, tx: 0, ty: 0,
+        dx: 0, dy: 0, tx: 0, ty: 0, vx: 0, vy: 0,
       };
       strokes[i].eye = eye;
       return eye;
@@ -238,7 +238,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const { points, times, eye } = stroke;
         const size = penSize * stroke.weight;
         if (times[0] > elapsed) break;
-        if (eye) ctx.translate(eye.dx, eye.dy);
+        if (eye) {
+          ctx.save();
+          ctx.translate(eye.x + eye.dx, eye.y + eye.dy);
+          ctx.scale(1, openness);
+          ctx.translate(-eye.x, -eye.y);
+        }
         if (times[times.length - 1] <= elapsed) {
           ctx.fill(stroke.path ||= strokePath(points, size));
         } else {
@@ -246,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
           while (times[shown] <= elapsed) shown++;
           ctx.fill(strokePath(points.slice(0, shown), size, false));
         }
-        if (eye) ctx.translate(-eye.dx, -eye.dy);
+        if (eye) ctx.restore();
       }
     }
 
@@ -334,26 +339,59 @@ document.addEventListener('DOMContentLoaded', () => {
         eye.tx = vx / dist * reach * room;
         eye.ty = vy / dist * reach * room;
       }
+      lookAround();
+    }
+
+    // Eyes jump to a new target quickly and settle with a slight overshoot, like a saccade,
+    // instead of gliding there; a slightly underdamped spring gives that.
+    const STIFFNESS = 900;
+    const DAMPING = 42;
+    let lastFrame = null;
+    let blinkStart = -Infinity;
+    let openness = 1;
+
+    function glance(now) {
+      const dt = lastFrame === null ? 1 / 60 : Math.min(1 / 30, (now - lastFrame) / 1000);
+      lastFrame = now;
+      let moving = false;
+      for (const eye of eyes) {
+        eye.vx += (STIFFNESS * (eye.tx - eye.dx) - DAMPING * eye.vx) * dt;
+        eye.vy += (STIFFNESS * (eye.ty - eye.dy) - DAMPING * eye.vy) * dt;
+        eye.dx += eye.vx * dt;
+        eye.dy += eye.vy * dt;
+        if (Math.abs(eye.tx - eye.dx) + Math.abs(eye.ty - eye.dy) + Math.hypot(eye.vx, eye.vy) * 0.02 > 0.02) moving = true;
+        else Object.assign(eye, { dx: eye.tx, dy: eye.ty, vx: 0, vy: 0 });
+      }
+      const t = now - blinkStart;
+      openness = t < 70 ? 1 - 0.9 * t / 70 : t < 190 ? 0.1 + 0.9 * (t - 70) / 120 : 1;
+      if (elapsed >= duration) render();
+      if ((moving || t < 190) && !stopped) requestAnimationFrame(glance);
+      else {
+        gazing = false;
+        lastFrame = null;
+      }
+    }
+
+    function lookAround() {
       if (!gazing) {
         gazing = true;
         requestAnimationFrame(glance);
       }
     }
 
-    function glance() {
-      let settling = false;
-      for (const eye of eyes) {
-        eye.dx += (eye.tx - eye.dx) * 0.18;
-        eye.dy += (eye.ty - eye.dy) * 0.18;
-        if (Math.abs(eye.tx - eye.dx) + Math.abs(eye.ty - eye.dy) > 0.02) settling = true;
-        else { eye.dx = eye.tx; eye.dy = eye.ty; }
-      }
-      if (elapsed >= duration) render();
-      if (settling && !stopped) requestAnimationFrame(glance);
-      else gazing = false;
+    let blinkTimer = 0;
+    function scheduleBlink() {
+      blinkTimer = setTimeout(() => {
+        if (elapsed >= duration && !document.hidden) {
+          blinkStart = performance.now();
+          lookAround();
+        }
+        scheduleBlink();
+      }, 2500 + Math.random() * 4000);
     }
 
     if (eyes.length) {
+      scheduleBlink();
       document.addEventListener('pointermove', e => {
         if (e.pointerType === 'touch') return;
         pointer = { x: e.clientX, y: e.clientY };
@@ -395,6 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return () => {
       stopped = true;
+      clearTimeout(blinkTimer);
       listeners.abort();
       resizer.disconnect();
       canvas.remove();
