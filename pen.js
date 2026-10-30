@@ -81,15 +81,14 @@ export function prepareStroke(points) {
   return resample(points);
 }
 
-// pass complete = false while a stroke is still being drawn.
-export function strokePath(points, size, complete = true) {
+function outlineOf(points, size, complete) {
   let length = 0;
   for (let i = 1; i < points.length; i++) length += dist(points[i - 1], points[i]);
 
   // A quick tap barely registers pressure, but a pen dot should be as heavy as the line around it.
   if (length < size) points = points.map(([x, y, p]) => [x, y, Math.max(p, 0.5)]);
 
-  const outline = getStroke(points, {
+  return getStroke(points, {
     size,
     thinning: THINNING,
     smoothing: 0.5,
@@ -101,7 +100,9 @@ export function strokePath(points, size, complete = true) {
     start: { taper: length > size * 1.5 ? Math.min(size * START_TAPER, length * 0.2) : 0, cap: true },
     end: { taper: length > size * 1.5 ? Math.min(size * END_TAPER, length * 0.35) : 0, cap: true },
   });
+}
 
+function pathThrough(outline) {
   const path = new Path2D();
   if (!outline.length) return path;
   path.moveTo(outline[0][0], outline[0][1]);
@@ -112,4 +113,40 @@ export function strokePath(points, size, complete = true) {
   }
   path.closePath();
   return path;
+}
+
+// pass complete = false while a stroke is still being drawn.
+export function strokePath(points, size, complete = true) {
+  return pathThrough(outlineOf(points, size, complete));
+}
+
+// How thick the ink is at each point, for inkPath. The stroke's ink, measured once.
+export function inkWidths(points, size) {
+  const outline = outlineOf(points, size, true);
+  let widths = points.map(([x, y]) => Math.min(...outline.map(o => Math.hypot(o[0] - x, o[1] - y))));
+  // The outline's points are coarse, so distances to them come out lumpy.
+  for (let pass = 0; pass < 4; pass++) {
+    widths = widths.map((w, i) => {
+      const near = widths.slice(Math.max(0, i - 3), i + 4);
+      return near.reduce((sum, v) => sum + v, 0) / near.length;
+    });
+  }
+  return widths;
+}
+
+// For a line that's moving. perfect-freehand drops outline points that land too close together or
+// too near the ends of a stroke, and which ones change as the line moves, so bits of it pop from
+// frame to frame. Here every point keeps its place in the outline and its width.
+export function inkPath(points, widths) {
+  const left = [];
+  const right = [];
+  points.forEach(([x, y], i) => {
+    const a = points[Math.max(0, i - 3)];
+    const b = points[Math.min(points.length - 1, i + 3)];
+    const run = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const [nx, ny] = [-(b[1] - a[1]) / run * widths[i], (b[0] - a[0]) / run * widths[i]];
+    left.push([x + nx, y + ny]);
+    right.push([x - nx, y - ny]);
+  });
+  return pathThrough(left.concat(right.reverse()));
 }

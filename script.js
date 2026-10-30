@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
-      import('./pen.js'),
+      import('./pen.js?v=16'),
     ])
       .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
       .catch(() => { if (!previewing) root.classList.remove('hw'); });
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e.data?.handwriting) return;
         previewing = true;
-        const pen = await import('./pen.js');
+        const pen = await import('./pen.js?v=16');
         stop?.();
         root.classList.add('hw');
         stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function playHandwriting(title, data, { prepareStroke, strokePath }, { instant = false } = {}) {
+  function playHandwriting(title, data, { prepareStroke, strokePath, inkPath, inkWidths }, { instant = false } = {}) {
     const START_DELAY = 400;
     const SPEED = 2.8;
     // Pauses shrink on their own scale so word breaks still read longer than gaps between letters.
@@ -236,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         earEchoes.push({
           points: ear.points,
           weight: ear.weight,
+          ear,
           riding: { jaw, at: echoAt, grow: true, offsets: ear.points.map(mirror).map(p => [p[0] - jaw.turnTo[echoAt][0], p[1] - jaw.turnTo[echoAt][1]]) },
         });
       }
@@ -243,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pose = { x: 0, y: 0, vx: 0, vy: 0, tx: 0, ty: 0 };
     const gaze = { x: 0, y: 0, tx: 0, ty: 0 };
 
+    const widthsOf = (stroke, size) => stroke.widths ||= inkWidths(stroke.points, size);
     const earShown = amount => Math.max(0, Math.min(1, (amount - 0.15) / 0.6));
 
     function spaced(points, count, reversed) {
@@ -267,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (stroke.riding) {
         const { jaw, at, offsets, grow } = stroke.riding;
         const [jawX, jawY] = turned(jaw, at, turn, tilt);
-        const scale = 0.45 + 0.55 * (grow ? t : 1 - t);
+        const scale = 0.6 + 0.4 * (grow ? t : 1 - t);
         return [jawX + offsets[i][0] * scale, jawY + offsets[i][1] * scale, p[2]];
       }
       const [x, y] = stroke.turnTo?.[i] ?? p;
@@ -356,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (times[times.length - 1] <= elapsed) {
           const moved = !eye && points[0][4] !== undefined && (pose.x || pose.y);
           ctx.globalAlpha = stroke.fades ? earShown(2 - pose.x) : 1;
-          ctx.fill(moved ? strokePath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), size) : stroke.path ||= strokePath(points, size));
+          ctx.fill(moved ? inkPath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), widthsOf(stroke, size)) : stroke.path ||= strokePath(points, size));
           ctx.globalAlpha = 1;
         } else {
           let shown = 1;
@@ -368,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (earShown(pose.x)) {
         ctx.globalAlpha = earShown(pose.x);
         for (const echo of earEchoes) {
-          ctx.fill(strokePath(echo.points.map((_, i) => turned(echo, i, pose.x, pose.y)), penSize * echo.weight));
+          ctx.fill(inkPath(echo.points.map((_, i) => turned(echo, i, pose.x, pose.y)), widthsOf(echo.ear, penSize * echo.weight)));
         }
         ctx.globalAlpha = 1;
       }
@@ -574,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
       canvas.height = device ? device.blockSize : Math.round(entry.contentRect.height * dpr);
       // Ink weight follows the heading size, not the recording's scale, so it reads like the type it replaces.
       penSize = parseFloat(getComputedStyle(title).fontSize) * 0.1 * (data.size ?? 1) * data.width / cssWidth;
-      strokes.forEach(stroke => { stroke.path = null; });
+      strokes.forEach(stroke => { stroke.path = stroke.widths = null; });
       render();
       makeRoomForTail();
     });
