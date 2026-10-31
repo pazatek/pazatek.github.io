@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
-      import('./pen.js?v=18'),
+      import('./pen.js?v=19'),
     ])
       .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
       .catch(() => { if (!previewing) root.classList.remove('hw'); });
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e.data?.handwriting) return;
         previewing = true;
-        const pen = await import('./pen.js?v=18');
+        const pen = await import('./pen.js?v=19');
         stop?.();
         root.classList.add('hw');
         stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const NOSE_HOLD = 0.3;
     const PART_TRAVEL = 0.65;
     const EAR_FLAT = 0.85;
+    const HEAD_PRESSURE = 0.6;
 
     const strokes = [];
     let clock = 0;
@@ -175,6 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // counterpart instead: one eye turns into the other, and the jaw into itself with its ends swapped.
     // The fifth value on a point is its depth, which only tilting the head up and down uses.
     const headStrokes = (data.head || []).filter(i => strokes[i]).map(i => strokes[i]);
+    for (const stroke of headStrokes) {
+      if (!data.eyes?.includes(strokes.indexOf(stroke))) for (const p of stroke.points) p[2] = HEAD_PRESSURE;
+    }
     const earEchoes = [];
     let head = null;
     if (headStrokes.length) {
