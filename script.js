@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
-      import('./pen.js?v=21'),
+      import('./pen.js?v=22'),
     ])
       .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
       .catch(() => { if (!previewing) root.classList.remove('hw'); });
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e.data?.handwriting) return;
         previewing = true;
-        const pen = await import('./pen.js?v=21');
+        const pen = await import('./pen.js?v=22');
         stop?.();
         root.classList.add('hw');
         stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
@@ -371,9 +371,13 @@ document.addEventListener('DOMContentLoaded', () => {
           ctx.scale(1, openness);
           ctx.translate(-points[0][0], -points[0][1]);
         }
-        if (times[times.length - 1] <= elapsed) {
-          const moved = !eye && points[0][4] !== undefined && (pose.x || pose.y);
-          ctx.fill(moved ? inkPath(points.map((_, i) => turned(stroke, i, pose.x, pose.y)), widthsOf(stroke, size)) : stroke.path ||= strokePath(points, size));
+        if (!eye && points[0][4] !== undefined) {
+          let shown = 1;
+          while (shown < points.length && times[shown] <= elapsed) shown++;
+          const moved = Array.from({ length: shown }, (_, i) => turned(stroke, i, pose.x, pose.y));
+          ctx.fill(inkPath(moved, widthsOf(stroke, size).slice(0, shown)));
+        } else if (times[times.length - 1] <= elapsed) {
+          ctx.fill(stroke.path ||= strokePath(points, size));
         } else {
           let shown = 1;
           while (times[shown] <= elapsed) shown++;
