@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
-      import('./pen.js?v=20'),
+      import('./pen.js?v=21'),
     ])
       .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
       .catch(() => { if (!previewing) root.classList.remove('hw'); });
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e.data?.handwriting) return;
         previewing = true;
-        const pen = await import('./pen.js?v=20');
+        const pen = await import('./pen.js?v=21');
         stop?.();
         root.classList.add('hw');
         stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
@@ -148,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const NOSE_LEAD = 9;
     const NOSE_BASE = 0.6;
     const NOSE_DEPTH = 0.35;
+    const MOUTH_TUCK = 0.45;
     const PART_TRAVEL = 0.65;
     const EAR_FLAT = 0.85;
     const HEAD_PRESSURE = 0.6;
@@ -199,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // The eyes, nose and mouth sit at different heights on that shape, so without one shared depth
       // the mouth lags the eyes and the whole face shears as it tilts.
       for (const n of data.face || []) for (const p of strokes[n].points) p[4] = FACE_DEPTH;
+      // The mouth sits just above a chin that hardly moves, so at the shared depth it lands on the
+      // jaw when the head looks down.
+      for (const n of data.face || []) strokes[n].tucks = !data.nose?.includes(n) && !data.eyes?.includes(n);
 
       const mirror = ([x, y]) => [2 * head.x - x, y];
       const turnInto = (stroke, partner, reversed, travel = 1) => {
@@ -287,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // The nose is nearest the viewer, so it swings further than the eyes, and more toward whichever
       // way the head faces. Back to nothing at both ends, which are the drawing and its mirror image.
       const lead = stroke.lead ? -stroke.lead[i] * NOSE_LEAD * Math.sin(2 * Math.PI * t) : 0;
-      const lift = p[4] === undefined ? 0 : p[4] + HEAD_SWAY;
+      const lift = p[4] === undefined ? 0 : p[4] + HEAD_SWAY - (stroke.tucks && tilt > 0 ? MOUTH_TUCK : 0);
       return [p[0] + (x - p[0]) * t + hold + lead, p[1] + (y - p[1]) * t + head.ry * tilt * lift, p[2]];
     }
 
