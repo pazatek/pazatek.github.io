@@ -7,6 +7,9 @@ const START_TAPER = 0.8;
 const END_TAPER = 2;
 
 const FOLD_REACH = 30;
+const FOLD_DEPTH = 0.75;
+const CAP_STEPS = 4;
+const TIP_WIDTH = 0.25;
 
 const dist = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
 
@@ -126,9 +129,11 @@ export function strokePath(points, size, complete = true) {
 export function inkWidths(points, size) {
   const outline = outlineOf(points, size, true);
   let widths = points.map(([x, y]) => Math.min(...outline.map(o => Math.hypot(o[0] - x, o[1] - y))));
-  // The outline's points are coarse, so distances to them come out lumpy.
+  // The outline's points are coarse, so distances to them come out lumpy. The two ends stay narrow,
+  // or the taper smooths away and the line ends blunt.
   for (let pass = 0; pass < 4; pass++) {
     widths = widths.map((w, i) => {
+      if (i === 0 || i === widths.length - 1) return Math.max(w, size * TIP_WIDTH);
       const near = widths.slice(Math.max(0, i - 3), i + 4);
       return near.reduce((sum, v) => sum + v, 0) / near.length;
     });
@@ -144,26 +149,41 @@ export function inkWidths(points, size) {
 // A round dab, wound the same way as the outline, stands in for each edge point left out. Only
 // there: where dabs overlap each other the ink shows faint seams, so they can't make up a whole line.
 export function inkPath(points, widths) {
+  const last = points.length - 1;
   const left = [];
   const right = [];
   const folded = [];
   const onEdge = (x, y, i) => {
-    for (let j = Math.max(0, i - FOLD_REACH); j <= Math.min(points.length - 1, i + FOLD_REACH); j++) {
-      if (j !== i && Math.hypot(points[j][0] - x, points[j][1] - y) < widths[j] - 0.01) return false;
+    for (let j = Math.max(0, i - FOLD_REACH); j <= Math.min(last, i + FOLD_REACH); j++) {
+      if (j !== i && Math.hypot(points[j][0] - x, points[j][1] - y) < widths[j] * FOLD_DEPTH) return false;
     }
     return true;
   };
-  points.forEach(([x, y], i) => {
+  const normal = i => {
     const a = points[Math.max(0, i - 3)];
-    const b = points[Math.min(points.length - 1, i + 3)];
+    const b = points[Math.min(last, i + 3)];
     const run = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    const [nx, ny] = [-(b[1] - a[1]) / run * widths[i], (b[0] - a[0]) / run * widths[i]];
+    return [-(b[1] - a[1]) / run * widths[i], (b[0] - a[0]) / run * widths[i]];
+  };
+  // Round from the left edge to the right, going out past the end of the line.
+  const cap = (i, outward) => {
+    const [nx, ny] = normal(i);
+    const arc = [];
+    for (let step = 1; step < CAP_STEPS; step++) {
+      const [cos, sin] = [Math.cos(Math.PI * step / CAP_STEPS), Math.sin(Math.PI * step / CAP_STEPS) * outward];
+      const [x, y] = [points[i][0] + nx * cos + ny * sin, points[i][1] + ny * cos - nx * sin];
+      if (onEdge(x, y, i)) arc.push([x, y]);
+    }
+    return arc;
+  };
+  points.forEach(([x, y], i) => {
+    const [nx, ny] = normal(i);
     const [leftEdge, rightEdge] = [onEdge(x + nx, y + ny, i), onEdge(x - nx, y - ny, i)];
     if (leftEdge) left.push([x + nx, y + ny]);
     if (rightEdge) right.push([x - nx, y - ny]);
     if (!leftEdge || !rightEdge) folded.push(i);
   });
-  const path = pathThrough(left.concat(right.reverse()));
+  const path = pathThrough([...left, ...cap(last, 1), ...right.reverse(), ...cap(0, -1).reverse()]);
   for (const i of folded) {
     path.moveTo(points[i][0] + widths[i], points[i][1]);
     path.arc(points[i][0], points[i][1], widths[i], 0, Math.PI * 2, true);
