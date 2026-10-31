@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previewing = false;
     Promise.all([
       fetch('handwriting.json').then(res => res.ok ? res.json() : Promise.reject(res.status)),
-      import('./pen.js?v=19'),
+      import('./pen.js?v=20'),
     ])
       .then(([data, pen]) => { if (!previewing) stop = playHandwriting(heroTitle, data, pen); })
       .catch(() => { if (!previewing) root.classList.remove('hw'); });
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!e.data?.handwriting) return;
         previewing = true;
-        const pen = await import('./pen.js?v=19');
+        const pen = await import('./pen.js?v=20');
         stop?.();
         root.classList.add('hw');
         stop = playHandwriting(heroTitle, e.data.handwriting, pen, { instant: e.data.instant });
@@ -145,6 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const HEAD_SWAY = 0.35;
     const FACE_DEPTH = 0.85;
     const NOSE_HOLD = 0.3;
+    const NOSE_LEAD = 9;
+    const NOSE_BASE = 0.6;
+    const NOSE_DEPTH = 0.35;
     const PART_TRAVEL = 0.65;
     const EAR_FLAT = 0.85;
     const HEAD_PRESSURE = 0.6;
@@ -218,7 +221,12 @@ document.addEventListener('DOMContentLoaded', () => {
       for (const n of data.nose || []) {
         const { points } = strokes[n];
         turnInto(strokes[n], strokes[n]);
-        strokes[n].hold = points.reduce((sum, p) => sum + p[0], 0) / points.length;
+        const hold = points.reduce((sum, p) => sum + p[0], 0) / points.length;
+        const tip = points.reduce((far, p, i) => (Math.abs(p[0] - hold) > Math.abs(points[far][0] - hold) ? i : far), 0);
+        strokes[n].hold = hold;
+        // Straight along the bridge and the underside, so those lines stay straight as the tip leads.
+        strokes[n].lead = points.map((_, i) => (i <= tip ? i / tip : 1 - NOSE_BASE * (i - tip) / (points.length - 1 - tip)));
+        points.forEach((p, i) => { p[4] += strokes[n].lead[i] * NOSE_DEPTH; });
       }
       // An ear can't cross the face, so one flattens away as its echo opens out on the far side. Each
       // point rides on its nearest point of the jaw, so a flat ear lies exactly on the jaw line and
@@ -276,8 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const [x, y] = stroke.turnTo?.[i] ?? p;
       // Keeps some of the nose's shape at the halfway point, where it would otherwise be a bare line.
       const hold = stroke.hold === undefined ? 0 : (p[0] - stroke.hold) * NOSE_HOLD * 4 * t * (1 - t);
+      // The nose is nearest the viewer, so it swings further than the eyes, and more toward whichever
+      // way the head faces. Back to nothing at both ends, which are the drawing and its mirror image.
+      const lead = stroke.lead ? -stroke.lead[i] * NOSE_LEAD * Math.sin(2 * Math.PI * t) : 0;
       const lift = p[4] === undefined ? 0 : p[4] + HEAD_SWAY;
-      return [p[0] + (x - p[0]) * t + hold, p[1] + (y - p[1]) * t + head.ry * tilt * lift, p[2]];
+      return [p[0] + (x - p[0]) * t + hold + lead, p[1] + (y - p[1]) * t + head.ry * tilt * lift, p[2]];
     }
 
     const eyes = (data.eyes || []).filter(i => strokes[i]).map(i => {
