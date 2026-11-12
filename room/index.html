@@ -168,6 +168,11 @@ function inputs() {
 }
 function onBlank(askKey) { $("keyform").hidden = !askKey; }
 function onGood() { $("keyform").hidden = true; $("why").hidden = true; }
+const STEPS = [[0, "Closed"], [3.25, "Eighth"], [6.5, "Quarter"], [13, "Half"], [26, "Full"]];
+function snapW(inches) {
+  if (inches < 1.6) return STEPS[0];
+  return STEPS.slice(1).reduce((best, s) => (Math.abs(Math.log(inches / s[0])) < Math.abs(Math.log(inches / best[0])) ? s : best));
+}
 function show(id, text, off) { const el = $(id); el.textContent = text; el.className = off ? "v off" : "v"; }
 function blank(msg, extra) {
   for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out"]) show(id, "--", true);
@@ -180,9 +185,10 @@ function render() {
   if (a.error) { blank(a.error); return; }
   if (a.phase !== st.phase) { st.phase = a.phase; keep(); }
   show("door", a.door === "open" ? "Open" : "Closed");
-  show("window", a.window <= 0 ? "Closed" : a.window >= K.FULL ? "Full" : a.window + " in");
+  const step = snapW(a.window);
+  show("window", step[1]);
   show("fan", a.fan.charAt(0).toUpperCase() + a.fan.slice(1), a.fan === "off");
-  viz.set(a.window, a.door === "open", a.fan);
+  viz.set(step[0], a.door === "open", a.fan);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
     : (a.fan === "low" ? "Desk above 72°" : a.phase === "cold" ? "Desk below 68°" : "Holding CO2");
@@ -245,10 +251,6 @@ const viz = (() => {
       seg([2.06, 1.0, DM - 0.03], [2.06, 1.15, DM - 0.01], INK, 2);
       box(1.92, 2.2, 0.52, 1.0, DM - 0.15, DM - 0.02, "#2c2c2e", "#636366");
     } },
-    { x: 3.02, z: 2.48, draw() {
-      box(2.75, 3.30, 0, 0.7, 2.185, 2.785, "#dcbd8f", INK);
-      for (const y of [0.175, 0.35, 0.525]) { seg([2.749, y, 2.185], [2.749, y, 2.785], INK, 1.5); seg([2.75, y, 2.184], [3.30, y, 2.184], INK, 1.5); }
-    } },
     { x: 0.87, z: 2.07, draw() {
       seg([0.87, 0, 2.07], [0.87, 0.42, 2.07], GREY, 2);
       for (const t of [0, 1.26, 2.51, 3.77, 5.03]) seg([0.87, 0.02, 2.07], [0.87 + 0.26 * Math.cos(t), 0.02, 2.07 + 0.26 * Math.sin(t)], GREY, 1.5);
@@ -269,7 +271,11 @@ const viz = (() => {
       for (let y = 0.36; y < 0.74; y += 0.075) seg([1.799, y, 0.08], [1.799, y, 2.02], BLUE, 0.8);
       box(1.9, 2.5, 0.75, 0.86, 0.12, 0.5, "#ffffff", "#c7c7cc"); box(2.6, 3.2, 0.75, 0.86, 0.12, 0.5, "#ffffff", "#c7c7cc");
     } },
-    { x: 1.28, z: 0.22, draw() { box(0.80, 1.77, 0, 0.95, 0, 0.435, "#a1a1a6", "#636366"); } },
+    { x: 1.28, z: 0.22, draw() {
+      box(0.80, 1.77, 0, 0.95, 0, 0.435, "#dcbd8f", INK);
+      for (const y of [0.24, 0.475, 0.71]) { seg([0.799, y, 0], [0.799, y, 0.435], INK, 1.5); seg([0.80, y, -0.001], [1.77, y, -0.001], INK, 1.5); }
+      box(1.2, 1.34, 0.95, 1.04, 0.16, 0.2, WHITE, "#aeaeb2");
+    } },
     { x: 2.55, z: 0.03, draw() { box(1.80, 3.30, 0.3, 1.1, 0, 0.065, "#8e8e93", "#636366"); } },
   ];
   function draw(now) {
