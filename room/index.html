@@ -198,19 +198,19 @@ function render() {
 
 const viz = (() => {
   const cv = $("room"), ctx = cv.getContext("2d");
-  const W = 3.3, D = 2.9, H = 2.4, FULL_M = 0.66, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
+  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, FULL_M = 0.70, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
   const want = { gap: 0, door: 0, fan: "off" }, cur = { gap: 0, door: 0, speed: 0 };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let w = 0, h = 0, yaw = 0.62, spin = 0, last = performance.now(), sc = 1;
+  let w = 0, h = 0, yaw = 0.36, spin = 0, last = performance.now(), sc = 1;
   function size() {
     const r = cv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
     w = r.width; h = r.height; cv.width = Math.max(1, Math.round(w * d)); cv.height = Math.max(1, Math.round(h * d));
-    ctx.setTransform(d, 0, 0, d, 0, 0); sc = Math.min(w / 4.4, h / 3.25);
+    ctx.setTransform(d, 0, 0, d, 0, 0); sc = Math.min(w / 4.7, h / 4.25);
   }
   function P(x, y, z) {
-    const cx = x - W / 2, cy = y - H / 2, cz = z - D / 2, c = Math.cos(yaw), s = Math.sin(yaw), ph = 0.44;
-    const x1 = cx * c - cz * s, z1 = cx * s + cz * c, y1 = cy * Math.cos(ph) + z1 * Math.sin(ph), z2 = -cy * Math.sin(ph) + z1 * Math.cos(ph), k = 11 / (11 + z2);
-    return [w / 2 + x1 * k * sc, h * 0.56 - y1 * k * sc];
+    const cx = x - W / 2, cy = y - H / 2, cz = z - D / 2, c = Math.cos(yaw), s = Math.sin(yaw), ph = 0.6;
+    const x1 = cx * c - cz * s, z1 = cx * s + cz * c, y1 = cy * Math.cos(ph) + z1 * Math.sin(ph), z2 = -cy * Math.sin(ph) + z1 * Math.cos(ph), k = 12 / (12 + z2);
+    return [w / 2 + x1 * k * sc, h * 0.5 - y1 * k * sc];
   }
   function poly(pts, fill, stroke, lw) {
     ctx.beginPath();
@@ -220,55 +220,73 @@ const viz = (() => {
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
   }
   function seg(a, b, stroke, lw) { const p = P(a[0], a[1], a[2]), q = P(b[0], b[1], b[2]); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
-  function box(x0, x1, y0, y1, z0, z1, side, top, stroke) {
-    poly([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], side, stroke);
-    poly([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], side, stroke);
-    poly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], top, stroke);
+  const wallZ = (z, x0, x1, fill, stroke) => poly([[x0, 0, z], [x1, 0, z], [x1, H, z], [x0, H, z]], fill, stroke);
+  const wallX = (x, z0, z1, fill, stroke) => poly([[x, 0, z0], [x, 0, z1], [x, H, z1], [x, H, z0]], fill, stroke);
+  function box(x0, x1, y0, y1, z0, z1) {
+    const side = "#1a1a1c", top = "#27272a", line = "#48484a";
+    poly([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], side, line);
+    poly([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], side, line);
+    poly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], top, line);
   }
   function draw(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    if (!still) yaw = 0.62 + 0.08 * Math.sin(now / 3200);
+    if (!still) yaw = 0.36 + 0.07 * Math.sin(now / 3200);
     const ease = still ? 1 : Math.min(1, dt * 5);
     cur.gap += (want.gap - cur.gap) * ease; cur.door += (want.door - cur.door) * ease; cur.speed += (SPEED[want.fan] - cur.speed) * ease;
     spin += cur.speed * dt;
     ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
-    const line = "#48484a", soft = "#2c2c2e", white = "#ffffff";
-    poly([[0, 0, 0], [W, 0, 0], [W, 0, D], [0, 0, D]], "#0c0c0d", line);
-    poly([[0, 0, D], [W, 0, D], [W, H, D], [0, H, D]], "#161618", line);
-    poly([[W, 0, 0], [W, 0, D], [W, H, D], [W, H, 0]], "#111113", line);
+    const line = "#48484a", soft = "#2c2c2e", grey = "#8e8e93", white = "#ffffff";
 
-    const wx0 = 0.45, wx1 = 1.77, wm = (wx0 + wx1) / 2, wy0 = 0.95, wy1 = 2.03, g = cur.gap * FULL_M, z = D - 0.001;
+    poly([[0, 0, 0], [W, 0, 0], [W, 0, DM], [NX, 0, DM], [NX, 0, D], [0, 0, D]], "#0c0c0d", line);
+    wallZ(D, 0, NX, "#161618", line);
+    wallX(NX, DM, D, "#111113", line);
+    wallZ(DM, NX, W, "#161618", line);
+    wallX(W, 0, DM, "#111113", line);
+
+    const wx0 = 0.10, wx1 = 1.50, wm = (wx0 + wx1) / 2, wy0 = 0.95, wy1 = 1.95, g = cur.gap * FULL_M, z = D - 0.001;
     poly([[wx0, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx0, wy1, z]], soft, null);
     if (g > 0.004) poly([[wx1 - g, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx1 - g, wy1, z]], white, null);
     poly([[wm - g, wy0, z], [wx1 - g, wy0, z], [wx1 - g, wy1, z], [wm - g, wy1, z]], "rgba(255,255,255,0.10)", white, 1.5);
     poly([[wx0, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx0, wy1, z]], null, white, 1.5);
-    seg([wm, wy0, z], [wm, wy1, z], "#8e8e93", 1);
-    box(0.6, 1.6, 0, 0.45, D - 0.24, D, "#1c1c1e", "#242426", line);
+    seg([wm, wy0, z], [wm, wy1, z], grey, 1);
+    box(0.35, 1.35, 0, 0.7, D - 0.25, D);
     if (g > 0.004 && !still) for (let i = 0; i < 3; i++) {
-      const f = (now / 1400 + i / 3) % 1, y = wy0 + 0.2 + i * 0.34, x = wx1 - g / 2;
-      ctx.globalAlpha = 0.75 * (1 - f); seg([x, y, D - 0.1 - f * 1.3], [x, y, D - 0.32 - f * 1.3], white, 1.5); ctx.globalAlpha = 1;
+      const f = (now / 1400 + i / 3) % 1, y = wy0 + 0.18 + i * 0.32, x = wx1 - g / 2;
+      ctx.globalAlpha = 0.75 * (1 - f); seg([x, y, D - 0.3 - f * 1.4], [x, y, D - 0.55 - f * 1.4], white, 1.5); ctx.globalAlpha = 1;
     }
 
-    const dz0 = 0.2, dz1 = 1.0, dh = 2.03, a = cur.door * 1.25, x = W - 0.001;
-    poly([[x, 0, dz0], [x, 0, dz1], [x, dh, dz1], [x, dh, dz0]], cur.door > 0.05 ? "#000000" : soft, cur.door > 0.05 ? white : "#8e8e93", cur.door > 0.05 ? 1.5 : 1);
-    if (cur.door > 0.02) {
-      const lx = W - (dz1 - dz0) * Math.sin(a), lz = dz1 - (dz1 - dz0) * Math.cos(a);
-      poly([[x, 0, dz1], [lx, 0, lz], [lx, dh, lz], [x, dh, dz1]], "rgba(255,255,255,0.14)", white, 1.5);
-    } else { const k = P(x, 1.0, dz0 + 0.1); ctx.fillStyle = "#8e8e93"; ctx.beginPath(); ctx.arc(k[0], k[1], 1.6, 0, 6.3); ctx.fill(); }
+    const cz = DM - 0.001;
+    poly([[1.85, 0, cz], [3.2, 0, cz], [3.2, 2.0, cz], [1.85, 2.0, cz]], "#1c1c1e", line);
+    seg([2.525, 0, cz], [2.525, 2.0, cz], line, 1);
+    poly([[0.001, 1.05, 1.75], [0.001, 1.05, 2.5], [0.001, 1.55, 2.5], [0.001, 1.55, 1.75]], "#1c1c1e", line);
 
-    box(1.9, 3.25, 0.2, 0.55, 1.15, 2.85, "#1a1a1c", "#252527", line);
-    for (const [lx, lz] of [[0.04, 1.51], [0.58, 1.51], [0.04, 0.29], [0.58, 0.29]]) seg([lx, 0, lz], [lx, 0.72, lz], line, 1.5);
-    box(0.0, 0.62, 0.72, 0.77, 0.25, 1.55, "#1a1a1c", "#252527", line);
+    box(2.75, 3.30, 0, 0.7, 2.185, 2.785);
+    for (const [lx, lz] of [[0.04, 2.53], [0.51, 2.53], [0.04, 1.64], [0.51, 1.64]]) seg([lx, 0, lz], [lx, 0.68, lz], line, 1.5);
+    box(0, 0.55, 0.68, 0.76, 1.605, 2.565);
+    box(1.80, 3.30, 0.3, 0.75, 0.065, 2.035);
+    box(1.15, 1.60, 0, 0.5, 0.835, 1.285);
+    box(1.80, 3.30, 0.3, 1.1, 0, 0.065);
+    box(0.80, 1.77, 0, 0.95, 0, 0.435);
 
-    const fx = W / 2, fy = 2.08, fz = D / 2, on = cur.speed > 0.05, R = 0.62;
-    seg([fx, H, fz], [fx, fy, fz], "#8e8e93", 1.5);
+    const dx0 = 0.03, dx1 = 0.80, dh = 2.0, a = cur.door * 1.3, open = cur.door > 0.05;
+    poly([[dx0, 0, 0], [dx1, 0, 0], [dx1, dh, 0], [dx0, dh, 0]], open ? null : "rgba(255,255,255,0.08)", open ? grey : white, 1.5);
+    if (open) {
+      const lx = dx0 + (dx1 - dx0) * Math.cos(a), lz = (dx1 - dx0) * Math.sin(a);
+      poly([[dx0, 0, 0], [lx, 0, lz], [lx, dh, lz], [dx0, dh, 0]], "rgba(255,255,255,0.14)", white, 1.5);
+    }
+
+    poly([[0, H, 0], [W, H, 0], [W, H, DM], [NX, H, DM], [NX, H, D], [0, H, D]], null, soft);
+    seg([0, 0, 0], [0, H, 0], soft, 1); seg([0, 0, D], [0, H, D], soft, 1); seg([W, 0, 0], [W, H, 0], soft, 1);
+
+    const fx = 1.665, fy = 2.1, fz = 1.435, on = cur.speed > 0.05, R = 0.66;
+    seg([fx, H, fz], [fx, fy, fz], grey, 1.5);
     if (cur.speed > 1) { ctx.globalAlpha = Math.min(0.16, cur.speed * 0.02); const ring = []; for (let i = 0; i < 28; i++) { const t = i / 28 * Math.PI * 2; ring.push([fx + R * Math.cos(t), fy, fz + R * Math.sin(t)]); } poly(ring, white, null); ctx.globalAlpha = 1; }
     for (let i = 0; i < 5; i++) {
       const t = spin + i * Math.PI * 2 / 5, c = Math.cos(t), s = Math.sin(t), hw = 0.075;
       poly([[fx + 0.1 * c + hw * s, fy, fz + 0.1 * s - hw * c], [fx + R * c + hw * s, fy, fz + R * s - hw * c], [fx + R * c - hw * s, fy, fz + R * s + hw * c], [fx + 0.1 * c - hw * s, fy, fz + 0.1 * s + hw * c]],
         on ? "rgba(255,255,255,0.9)" : "#3a3a3c", on ? null : "#636366", 1);
     }
-    const hub = P(fx, fy, fz); ctx.fillStyle = on ? white : "#8e8e93"; ctx.beginPath(); ctx.arc(hub[0], hub[1], 2.5, 0, 6.3); ctx.fill();
+    const hub = P(fx, fy, fz); ctx.fillStyle = on ? white : grey; ctx.beginPath(); ctx.arc(hub[0], hub[1], 2.5, 0, 6.3); ctx.fill();
     if (!document.hidden && !still) requestAnimationFrame(draw);
   }
   const kick = () => { last = performance.now(); requestAnimationFrame(draw); };
