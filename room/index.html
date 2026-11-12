@@ -287,7 +287,8 @@ const viz = (() => {
     ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
     const wallA = "#d1d1d6", wallB = "#b7b7bc", wallEdge = "#e5e5ea";
 
-    poly([[0, 0, 0], [W, 0, 0], [W, 0, DM], [NX, 0, DM], [NX, 0, D], [0, 0, D]], "#4a4a4e", null);
+    poly([[0, 0, 0], [W, 0, 0], [W, 0, DM], [NX, 0, DM], [NX, 0, D], [0, 0, D]], "#8d877f", null);
+    for (let x = 0.19; x < W; x += 0.19) seg([x, 0, 0], [x, 0, x < NX ? D : DM], "#797369", 0.8);
     wallZ(D, 0, NX, wallA, wallEdge);
     wallX(NX, DM, D, wallB, wallEdge);
     wallZ(DM, NX, W, wallA, wallEdge);
