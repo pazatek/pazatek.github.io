@@ -320,11 +320,17 @@ const viz = (() => {
     seg([wm, wy0, z], [wm, wy1, z], "#ffffff", 2);
 
     const cz = DM - 0.002;
-    for (const [a, b] of [[1.85, 2.52], [2.53, 3.2]]) {
+    for (const [a, b] of [[1.85, 2.585], [2.595, W]]) {
       tri([a, 0.04, cz], [b, 0.04, cz], [b, 2.0, cz], "#c4e0ee"); tri([a, 0.04, cz], [b, 2.0, cz], [a, 2.0, cz], "#e3f2f9");
       tri([a, 0.04, cz], [a + 0.25, 0.04, cz], [a, 0.5, cz], "#f3fafd");
     }
     box(0, 0.025, 1.38, 1.85, 1.75, 2.5, "#101014");
+    const px = W - 0.002, py0 = 1.14, py1 = 2.05;
+    [[2.305, "#1aa39a", "#1aa39a"], [1.425, "#f2c230", "#1e5a3a"], [0.555, "#1b3a7a", "#1b3a7a"]].forEach(([cz0, upper, lower]) => {
+      const zl = cz0 + 0.305, zr = cz0 - 0.305;
+      tri([px, py1, zl], [px, py1, zr], [px, py0, zl], upper); tri([px, py1, zr], [px, py0, zr], [px, py0, zl], lower);
+      poly([[px, py0, zl], [px, py0, zr], [px, py1, zr], [px, py1, zl]], null, INK, 1.5);
+    });
 
     const c = Math.cos(yaw), sn = Math.sin(yaw);
     items.map(o => [(o.x - W / 2) * sn + (o.z - D / 2) * c, o]).sort((a, b) => b[0] - a[0]).forEach(p => p[1].draw());
