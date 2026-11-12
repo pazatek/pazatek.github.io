@@ -173,7 +173,9 @@ function snapW(inches) {
   if (inches < 1.6) return STEPS[0];
   return STEPS.slice(1).reduce((best, s) => (Math.abs(Math.log(inches / s[0])) < Math.abs(Math.log(inches / best[0])) ? s : best));
 }
-function show(id, text, off) { const el = $(id); el.textContent = text; el.className = off ? "v off" : "v"; }
+function show(id, text, off, color) { const el = $(id); el.textContent = text; el.className = off ? "v off" : "v"; el.style.color = off || !color ? "" : color; }
+const C = { cold: "#64d2ff", good: "#30d158", fair: "#ffd60a", warm: "#ff9f0a", bad: "#ff453a", ice: "#5e9eff" };
+function roomColor(t, lo, hi) { return t < lo ? C.cold : t <= hi ? C.good : t <= hi + 3 ? C.warm : C.bad; }
 function blank(msg, extra) {
   for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out"]) show(id, "--", true);
   $("tag").textContent = "Paused"; $("why").hidden = false; $("why").textContent = msg; onBlank(extra);
@@ -192,10 +194,11 @@ function render() {
   $("tag").textContent = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
     : (a.fan === "low" ? "Desk above 72°" : a.phase === "cold" ? "Desk below 68°" : "Holding CO2");
-  show("t-desk", s.deskF == null ? "--" : f1(s.deskF) + "°", s.deskF == null);
-  show("t-bed", f1(s.bedF) + "°");
-  show("co2", s.co2 == null ? "--" : String(Math.round(s.co2)), s.co2 == null);
-  show("out", s.outF == null ? "--" : f1(s.outF) + "°", s.outF == null);
+  const lo = st.mode === "sleep" ? K.LO : K.AW_LO, hi = st.mode === "sleep" ? K.HI : K.AW_HI;
+  show("t-desk", s.deskF == null ? "--" : f1(s.deskF) + "\u00B0", s.deskF == null, s.deskF == null ? "" : roomColor(s.deskF, lo, hi));
+  show("t-bed", f1(s.bedF) + "\u00B0", false, roomColor(s.bedF, lo, hi));
+  show("co2", s.co2 == null ? "--" : String(Math.round(s.co2)), s.co2 == null, s.co2 == null ? "" : s.co2 < 800 ? C.good : s.co2 < 1000 ? C.fair : s.co2 < 1400 ? C.warm : C.bad);
+  show("out", s.outF == null ? "--" : f1(s.outF) + "\u00B0", s.outF == null, s.outF == null ? "" : s.outF <= 32 ? C.ice : s.outF < 50 ? C.cold : s.outF < 68 ? C.good : s.outF < 80 ? C.fair : C.warm);
   onGood();
 }
 
