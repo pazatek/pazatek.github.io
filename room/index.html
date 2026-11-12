@@ -10,6 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Room">
+<link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-512.png">
 <title>Room Coach</title>
@@ -41,6 +42,7 @@ dd { margin: 0; font: 600 clamp(16px, 4.3vh, 34px)/1 var(--display); letter-spac
 .foot { flex: none; margin: 0; color: var(--ink); font-size: 13px }
 .foot:has(> [hidden]:only-child) { display: none }
 .key { display: flex; gap: 8px } .key input { flex: 1; min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--ink); border-radius: 6px; padding: 8px; font: inherit }
+.rowbtn { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 0.15em }
 .link { background: none; border: 0; padding: 0; color: var(--ink); font-weight: 700; font-size: 13px; text-decoration: underline }
 </style>
 </head>
@@ -66,6 +68,7 @@ dd { margin: 0; font: 600 clamp(16px, 4.3vh, 34px)/1 var(--display); letter-spac
     <div class="r"><dt>Why</dt><dd id="tag" class="off">--</dd></div>
     <div class="r"><dt>Confidence</dt><dd id="conf" class="off">--</dd></div>
     <div class="r"><dt>Updated</dt><dd id="updated" class="off">--</dd></div>
+    <div class="r"><dt>Alerts</dt><dd><button id="alerts" class="rowbtn" type="button">Turn on</button></dd></div>
   </dl>
   <p class="foot" id="why">Reading your sensors.</p>
   <form class="foot key" id="keyform" hidden><input id="key" type="password" autocomplete="off" aria-label="App key" placeholder="App key"><button class="link" type="submit">Save</button></form>
@@ -133,6 +136,7 @@ function advise(s) {
 }
 
 const ENDPOINT = "https://hxaftcofwrffwjxtjeoj.supabase.co/functions/v1/room";
+const VAPID = "BO8s0WNjBYLWpIvpkIMxvAm4niN7hTg2DxQX5d_jbOBNM4QqMW-GCL961mCG4EC68jUebZ_3LvEzdfnSBfO4yt8";
 const $ = id => document.getElementById(id);
 const st = { mode: "awake", phase: null };
 let snap = null, snapAt = 0, busy = false, key = "";
@@ -204,6 +208,36 @@ const fromHash = new URLSearchParams(location.hash.slice(1)).get("k");
 try { key = fromHash || localStorage.getItem("room-coach-key") || ""; if (fromHash) localStorage.setItem("room-coach-key", fromHash); } catch (e) { key = fromHash || ""; }
 render();
 load();
+
+const alertsBtn = $("alerts");
+const pushOk = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+function keyBytes(s) {
+  const p = s.replace(/-/g, "+").replace(/_/g, "/"), raw = atob(p + "=".repeat((4 - p.length % 4) % 4));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+async function post(body) {
+  const r = await fetch(ENDPOINT, { method: "POST", headers: { "x-room-key": key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error("http " + r.status);
+  return r.json();
+}
+async function alertsState() {
+  if (!pushOk) { alertsBtn.textContent = "Install first"; alertsBtn.disabled = true; return; }
+  const reg = await navigator.serviceWorker.register("sw.js"), sub = await reg.pushManager.getSubscription();
+  alertsBtn.textContent = Notification.permission === "denied" ? "Blocked" : sub && Notification.permission === "granted" ? "On" : "Turn on";
+}
+alertsBtn.addEventListener("click", async () => {
+  if (!pushOk || !key) return;
+  try {
+    // iOS only shows the permission prompt if this is the first thing awaited after the tap.
+    if (await Notification.requestPermission() !== "granted") { alertsBtn.textContent = "Blocked"; return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID) });
+    await post({ action: "subscribe", sub: sub.toJSON() });
+    const sent = await post({ action: "test" });
+    alertsBtn.textContent = sent.sent > 0 ? "On" : "Failed";
+  } catch (e) { alertsBtn.textContent = "Failed"; }
+});
+alertsState().catch(() => {});
 </script>
 </body>
 </html>
