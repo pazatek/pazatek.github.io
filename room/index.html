@@ -168,7 +168,7 @@ function inputs() {
 }
 function onBlank(askKey) { $("keyform").hidden = !askKey; }
 function onGood() { $("keyform").hidden = true; $("why").hidden = true; }
-const STEPS = [[0, "Closed"], [3.25, "Eighth"], [6.5, "Quarter"], [13, "Half"], [26, "Full"]];
+const STEPS = [[0, "Closed"], [3.25, "1/8"], [6.5, "1/4"], [13, "1/2"], [26, "Full"]];
 function snapW(inches) {
   if (inches < 1.6) return STEPS[0];
   return STEPS.slice(1).reduce((best, s) => (Math.abs(Math.log(inches / s[0])) < Math.abs(Math.log(inches / best[0])) ? s : best));
@@ -265,11 +265,11 @@ const viz = (() => {
     { x: 0.27, z: 2.08, s: [0, 0.55, 1.605, 2.565, 0.5], draw() {
       for (const [lx, lz] of [[0.02, 2.5], [0.48, 2.5], [0.02, 1.62], [0.48, 1.62]]) box(lx, lx + 0.05, 0, 0.68, lz, lz + 0.05, "#2a2a2e");
       box(0, 0.55, 0.68, 0.76, 1.605, 2.565, "#1d1d21");
-      box(0.03, 0.07, 0.76, 1.14, 1.66, 1.70, "#8e8e93");
-      seg([0.05, 1.12, 1.68], [0.11, 1.09, 2.05], "#8e8e93", 3);
-      box(0.10, 0.135, 0.9, 1.28, 1.74, 2.36, "#101014");
-      box(0.28, 0.42, 0.76, 0.78, 1.88, 2.26, WHITE);
       box(0.30, 0.37, 0.76, 0.79, 2.36, 2.42, WHITE);
+      box(0.28, 0.42, 0.76, 0.78, 1.88, 2.26, WHITE);
+      box(0.10, 0.135, 0.9, 1.28, 1.74, 2.36, "#101014");
+      seg([0.05, 1.12, 1.68], [0.10, 1.09, 2.05], "#8e8e93", 3);
+      box(0.03, 0.07, 0.76, 1.14, 1.66, 1.70, "#8e8e93");
     } },
     { x: 2.55, z: 1.05, s: [1.80, 3.30, 0.065, 2.035, 0.75], draw() {
       box(1.80, 3.30, 0.12, 0.34, 0.065, 2.035, "#5e5a57");
@@ -324,7 +324,6 @@ const viz = (() => {
       tri([a, 0.04, cz], [b, 0.04, cz], [b, 2.0, cz], "#c4e0ee"); tri([a, 0.04, cz], [b, 2.0, cz], [a, 2.0, cz], "#e3f2f9");
       tri([a, 0.04, cz], [a + 0.25, 0.04, cz], [a, 0.5, cz], "#f3fafd");
     }
-    box(0, 0.025, 1.38, 1.85, 1.75, 2.5, "#101014");
     const px = W - 0.002, py0 = 1.14, py1 = 2.05;
     [[2.305, "#1aa39a", "#1aa39a"], [1.425, "#f2c230", "#1e5a3a"], [0.555, "#1b3a7a", "#1b3a7a"]].forEach(([cz0, upper, lower]) => {
       const rect = (m, fill) => poly([[px, py0 + m, cz0 + 0.305 - m], [px, py0 + m, cz0 - 0.305 + m], [px, py1 - m, cz0 - 0.305 + m], [px, py1 - m, cz0 + 0.305 - m]], fill, fill, 0.5);
