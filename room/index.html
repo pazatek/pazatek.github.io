@@ -198,19 +198,29 @@ function render() {
 
 const viz = (() => {
   const cv = $("room"), ctx = cv.getContext("2d");
-  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, FULL_M = 0.70, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
+  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, CUT = 1.2, YAW = 0.5, FULL_M = 0.70, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
   const want = { gap: 0, door: 0, fan: "off" }, cur = { gap: 0, door: 0, speed: 0 };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let w = 0, h = 0, yaw = 0.36, spin = 0, last = performance.now(), sc = 1;
+  let w = 0, h = 0, yaw = YAW, spin = 0, last = performance.now(), sc = 1, ox = 0, oy = 0;
   function size() {
     const r = cv.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1);
     w = r.width; h = r.height; cv.width = Math.max(1, Math.round(w * d)); cv.height = Math.max(1, Math.round(h * d));
-    ctx.setTransform(d, 0, 0, d, 0, 0); sc = Math.min(w / 4.7, h / 4.25);
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    sc = 1; ox = 0; oy = 0;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const a of [YAW - 0.07, YAW + 0.07]) {
+      yaw = a;
+      for (const [x, z] of [[0, 0], [W, 0], [W, DM], [NX, DM], [NX, D], [0, D]]) for (const y of [0, 2.15]) {
+        const p = P(x, y, z); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]);
+      }
+    }
+    yaw = YAW; sc = Math.min(w * 0.96 / (x1 - x0), h * 0.96 / (y1 - y0));
+    ox = w / 2 - sc * (x0 + x1) / 2; oy = h / 2 - sc * (y0 + y1) / 2;
   }
   function P(x, y, z) {
-    const cx = x - W / 2, cy = y - H / 2, cz = z - D / 2, c = Math.cos(yaw), s = Math.sin(yaw), ph = 0.6;
+    const cx = x - W / 2, cy = y - H / 2, cz = z - D / 2, c = Math.cos(yaw), s = Math.sin(yaw), ph = 0.8;
     const x1 = cx * c - cz * s, z1 = cx * s + cz * c, y1 = cy * Math.cos(ph) + z1 * Math.sin(ph), z2 = -cy * Math.sin(ph) + z1 * Math.cos(ph), k = 12 / (12 + z2);
-    return [w / 2 + x1 * k * sc, h * 0.5 - y1 * k * sc];
+    return [ox + x1 * k * sc, oy - y1 * k * sc];
   }
   function poly(pts, fill, stroke, lw) {
     ctx.beginPath();
@@ -220,8 +230,8 @@ const viz = (() => {
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
   }
   function seg(a, b, stroke, lw) { const p = P(a[0], a[1], a[2]), q = P(b[0], b[1], b[2]); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
-  const wallZ = (z, x0, x1, fill, stroke) => poly([[x0, 0, z], [x1, 0, z], [x1, H, z], [x0, H, z]], fill, stroke);
-  const wallX = (x, z0, z1, fill, stroke) => poly([[x, 0, z0], [x, 0, z1], [x, H, z1], [x, H, z0]], fill, stroke);
+  const wallZ = (z, x0, x1, fill, stroke) => poly([[x0, 0, z], [x1, 0, z], [x1, CUT, z], [x0, CUT, z]], fill, stroke);
+  const wallX = (x, z0, z1, fill, stroke) => poly([[x, 0, z0], [x, 0, z1], [x, CUT, z1], [x, CUT, z0]], fill, stroke);
   function box(x0, x1, y0, y1, z0, z1) {
     const side = "#1a1a1c", top = "#27272a", line = "#48484a";
     poly([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], side, line);
@@ -230,7 +240,7 @@ const viz = (() => {
   }
   function draw(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    if (!still) yaw = 0.36 + 0.07 * Math.sin(now / 3200);
+    if (!still) yaw = YAW + 0.07 * Math.sin(now / 3200);
     const ease = still ? 1 : Math.min(1, dt * 5);
     cur.gap += (want.gap - cur.gap) * ease; cur.door += (want.door - cur.door) * ease; cur.speed += (SPEED[want.fan] - cur.speed) * ease;
     spin += cur.speed * dt;
@@ -256,8 +266,8 @@ const viz = (() => {
     }
 
     const cz = DM - 0.001;
-    poly([[1.85, 0, cz], [3.2, 0, cz], [3.2, 2.0, cz], [1.85, 2.0, cz]], "#1c1c1e", line);
-    seg([2.525, 0, cz], [2.525, 2.0, cz], line, 1);
+    poly([[1.85, 0, cz], [3.2, 0, cz], [3.2, CUT, cz], [1.85, CUT, cz]], "#1c1c1e", line);
+    seg([2.525, 0, cz], [2.525, CUT, cz], line, 1);
     poly([[0.001, 1.05, 1.75], [0.001, 1.05, 2.5], [0.001, 1.55, 2.5], [0.001, 1.55, 1.75]], "#1c1c1e", line);
 
     box(2.75, 3.30, 0, 0.7, 2.185, 2.785);
@@ -275,11 +285,11 @@ const viz = (() => {
       poly([[dx0, 0, 0], [lx, 0, lz], [lx, dh, lz], [dx0, dh, 0]], "rgba(255,255,255,0.14)", white, 1.5);
     }
 
-    poly([[0, H, 0], [W, H, 0], [W, H, DM], [NX, H, DM], [NX, H, D], [0, H, D]], null, soft);
-    seg([0, 0, 0], [0, H, 0], soft, 1); seg([0, 0, D], [0, H, D], soft, 1); seg([W, 0, 0], [W, H, 0], soft, 1);
+    seg([0, CUT, D], [0, CUT, 0], soft, 1); seg([0, CUT, 0], [0.03, CUT, 0], soft, 1); seg([0.80, CUT, 0], [W, CUT, 0], soft, 1);
+    seg([0, 0, 0], [0, CUT, 0], soft, 1); seg([W, 0, 0], [W, CUT, 0], soft, 1);
 
     const fx = 1.665, fy = 2.1, fz = 1.435, on = cur.speed > 0.05, R = 0.66;
-    seg([fx, H, fz], [fx, fy, fz], grey, 1.5);
+    seg([fx, fy + 0.28, fz], [fx, fy, fz], grey, 1.5);
     if (cur.speed > 1) { ctx.globalAlpha = Math.min(0.16, cur.speed * 0.02); const ring = []; for (let i = 0; i < 28; i++) { const t = i / 28 * Math.PI * 2; ring.push([fx + R * Math.cos(t), fy, fz + R * Math.sin(t)]); } poly(ring, white, null); ctx.globalAlpha = 1; }
     for (let i = 0; i < 5; i++) {
       const t = spin + i * Math.PI * 2 / 5, c = Math.cos(t), s = Math.sin(t), hw = 0.075;
