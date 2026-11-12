@@ -327,9 +327,10 @@ const viz = (() => {
     box(0, 0.025, 1.38, 1.85, 1.75, 2.5, "#101014");
     const px = W - 0.002, py0 = 1.14, py1 = 2.05;
     [[2.305, "#1aa39a", "#1aa39a"], [1.425, "#f2c230", "#1e5a3a"], [0.555, "#1b3a7a", "#1b3a7a"]].forEach(([cz0, upper, lower]) => {
-      const zl = cz0 + 0.305, zr = cz0 - 0.305;
-      tri([px, py1, zl], [px, py1, zr], [px, py0, zl], upper); tri([px, py1, zr], [px, py0, zr], [px, py0, zl], lower);
-      poly([[px, py0, zl], [px, py0, zr], [px, py1, zr], [px, py1, zl]], null, INK, 1.5);
+      const rect = (m, fill) => poly([[px, py0 + m, cz0 + 0.305 - m], [px, py0 + m, cz0 - 0.305 + m], [px, py1 - m, cz0 - 0.305 + m], [px, py1 - m, cz0 + 0.305 - m]], fill, fill, 0.5);
+      rect(0, "#d9b98a"); rect(0.03, "#f7f5f0");
+      const m = 0.1, zl = cz0 + 0.305 - m, zr = cz0 - 0.305 + m, yb = py0 + m, yt = py1 - m;
+      tri([px, yt, zl], [px, yt, zr], [px, yb, zl], upper); tri([px, yt, zr], [px, yb, zr], [px, yb, zl], lower);
     });
 
     const c = Math.cos(yaw), sn = Math.sin(yaw);
