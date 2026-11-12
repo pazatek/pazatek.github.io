@@ -204,7 +204,7 @@ function render() {
 
 const viz = (() => {
   const cv = $("room"), ctx = cv.getContext("2d");
-  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, CUT = 2.4, YAW = Math.PI / 4, FULL_M = 0.70, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
+  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, CUT = 2.4, YAW = Math.PI / 4, FULL_M = 0.66, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
   const want = { gap: 0, door: 0, fan: "off" }, cur = { gap: 0, door: 0, speed: 0 };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let w = 0, h = 0, yaw = YAW, spin = 0, last = performance.now(), sc = 1, ox = 0, oy = 0;
@@ -315,12 +315,17 @@ const viz = (() => {
     box(NX + T, W + T, 0, CUT, DM, DM + T, WALL);
     box(W, W + T, 0, CUT, 0, DM, WALL);
 
-    const wx0 = 0.10, wx1 = 1.50, wm = (wx0 + wx1) / 2, wy0 = 0.95, wy1 = 1.95, g = cur.gap * FULL_M, z = D - 0.001, glass = "rgba(120,180,230,0.6)";
-    tri([wx0, wy0, z], [wm, wy0, z], [wm, wy1, z], glass); tri([wx0, wy0, z], [wm, wy1, z], [wx0, wy1, z], "rgba(150,200,240,0.6)");
-    if (g > 0.004) poly([[wx1 - g, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx1 - g, wy1, z]], "#ffffff", null);
-    poly([[wm - g, wy0, z], [wx1 - g, wy0, z], [wx1 - g, wy1, z], [wm - g, wy1, z]], glass, "#ffffff", 2.5);
-    poly([[wx0, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx0, wy1, z]], null, "#ffffff", 3.5);
-    seg([wm, wy0, z], [wm, wy1, z], "#ffffff", 2);
+    const wx0 = 0.14, wx1 = 1.46, wm = (wx0 + wx1) / 2, wy0 = 0.92, wy1 = 2.0, g = cur.gap * FULL_M, z = D - 0.002, zs = D - 0.03;
+    const pane = (a, b, zz, k) => { tri([a, wy0, zz], [b, wy0, zz], [b, wy1, zz], tone("#5f8fc4", k)); tri([a, wy0, zz], [b, wy1, zz], [a, wy1, zz], tone("#7fb0de", k)); };
+    poly([[wx0, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx0, wy1, z]], "#0a1220", null);
+    pane(wx0, wm, z, 0.9);
+    poly([[wx0, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx0, wy1, z]], null, "#ffffff", 4);
+    seg([wm, wy0, z], [wm, wy1, z], "#ffffff", 2.5);
+    pane(wm - g, wx1 - g, zs, 1.05);
+    poly([[wm - g, wy0, zs], [wx1 - g, wy0, zs], [wx1 - g, wy1, zs], [wm - g, wy1, zs]], null, "#ffffff", 3);
+    if (g > 0.004) poly([[wx1 - g, wy0, z], [wx1, wy0, z], [wx1, wy1, z], [wx1 - g, wy1, z]], null, "#64d2ff", 2);
+    box(wx0 - 0.06, wx1 + 0.06, wy0 - 0.05, wy0, D - 0.07, D, "#f4f4f8");
+    box(wx0 - 0.06, wx1 + 0.06, wy1, wy1 + 0.13, D - 0.09, D, "#f4f4f8");
 
     const cz = DM - 0.002;
     for (const [a, b] of [[1.85, 2.585], [2.595, W]]) {
