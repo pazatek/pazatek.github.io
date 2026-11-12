@@ -34,7 +34,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .seg button[aria-pressed="true"] { background: var(--raised); font-weight: 600 }
 .head { flex: none; display: flex; flex-direction: column; gap: 2px; padding: 2px 4px 0 }
 .head h1 { margin: 0; font: 700 clamp(24px, 4vh, 32px)/1.1 var(--display); letter-spacing: -0.02em }
-.head p { margin: 0; color: var(--dim); font-size: 14px }
 .hero { flex: 1 1 0; min-height: 80px }
 .hero canvas { display: block; width: 100%; height: 100% }
 .tiles { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
@@ -172,7 +171,7 @@ function onGood() { $("keyform").hidden = true; $("why").hidden = true; }
 function show(id, text, off) { const el = $(id); el.textContent = text; el.className = off ? "v off" : "v"; }
 function blank(msg, extra) {
   for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out"]) show(id, "--", true);
-  $("tag").textContent = "Paused"; $("why").hidden = false; $("why").textContent = msg; $("sub").textContent = " "; onBlank(extra);
+  $("tag").textContent = "Paused"; $("why").hidden = false; $("why").textContent = msg; onBlank(extra);
 }
 function render() {
   for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.mode === st.mode));
@@ -191,7 +190,6 @@ function render() {
   show("t-bed", f1(s.bedF) + "°");
   show("co2", s.co2 == null ? "--" : String(Math.round(s.co2)), s.co2 == null);
   show("out", s.outF == null ? "--" : f1(s.outF) + "°", s.outF == null);
-  $("sub").textContent = a.conf + " · " + new Date(Date.parse(snap.bed.ts)).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   onGood();
 }
 
