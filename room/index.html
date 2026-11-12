@@ -201,7 +201,7 @@ function render() {
 
 const viz = (() => {
   const cv = $("room"), ctx = cv.getContext("2d");
-  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, CUT = 1.2, YAW = 0.5, FULL_M = 0.70, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
+  const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, CUT = 1.2, YAW = Math.PI / 4, FULL_M = 0.70, SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
   const want = { gap: 0, door: 0, fan: "off" }, cur = { gap: 0, door: 0, speed: 0 };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let w = 0, h = 0, yaw = YAW, spin = 0, last = performance.now(), sc = 1, ox = 0, oy = 0;
@@ -211,7 +211,7 @@ const viz = (() => {
     ctx.setTransform(d, 0, 0, d, 0, 0);
     sc = 1; ox = 0; oy = 0;
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const a of [YAW - 0.07, YAW + 0.07]) {
+    for (const a of [YAW]) {
       yaw = a;
       for (const [x, z] of [[0, 0], [W + 0.09, 0], [W + 0.09, DM + 0.09], [NX, D + 0.09], [0, D + 0.09]]) for (const y of [-0.16, 2.15]) {
         const p = P(x, y, z); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]);
@@ -221,8 +221,8 @@ const viz = (() => {
     ox = w / 2 - sc * (x0 + x1) / 2; oy = h / 2 - sc * (y0 + y1) / 2;
   }
   function P(x, y, z) {
-    const cx = x - W / 2, cy = y - H / 2, cz = z - D / 2, c = Math.cos(yaw), s = Math.sin(yaw), ph = 0.8;
-    const x1 = cx * c - cz * s, z1 = cx * s + cz * c, y1 = cy * Math.cos(ph) + z1 * Math.sin(ph), z2 = -cy * Math.sin(ph) + z1 * Math.cos(ph), k = 12 / (12 + z2);
+    const cx = x - W / 2, cy = y - H / 2, cz = z - D / 2, c = Math.cos(yaw), s = Math.sin(yaw), ph = 0.6155;
+    const x1 = cx * c - cz * s, z1 = cx * s + cz * c, y1 = cy * Math.cos(ph) + z1 * Math.sin(ph), z2 = -cy * Math.sin(ph) + z1 * Math.cos(ph), k = 1;
     return [ox + x1 * k * sc, oy - y1 * k * sc];
   }
   function poly(pts, fill, stroke, lw) {
@@ -290,7 +290,6 @@ const viz = (() => {
   ];
   function draw(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    if (!still) yaw = YAW + 0.07 * Math.sin(now / 3200);
     const ease = still ? 1 : Math.min(1, dt * 5);
     cur.gap += (want.gap - cur.gap) * ease; cur.door += (want.door - cur.door) * ease; cur.speed += (SPEED[want.fan] - cur.speed) * ease;
     spin += cur.speed * dt;
