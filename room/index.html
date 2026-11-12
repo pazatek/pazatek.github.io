@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Room">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+<title>Room Coach</title>
+<style>
+:root {
+  --bg: #000000; --ink: #ffffff; color-scheme: dark;
+  --display: -apple-system, "SF Pro Display", BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+  --body: -apple-system, "SF Pro Text", BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { margin: 0 }
+html, body { height: 100%; overflow: hidden }
+body { background: var(--bg); color: var(--ink); font: 14px/1.3 var(--body) }
+.wrap { height: 100%; max-width: 440px; margin: 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + clamp(8px, 1.8vh, 18px)); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(8px, 1.8vh, 18px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: clamp(6px, 1.8vh, 18px) }
+button { font: inherit; color: inherit; cursor: pointer }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px }
+.seg { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--ink); border-radius: 9px; padding: 3px; gap: 3px }
+.seg button { border: 0; background: var(--bg); border-radius: 6px; padding: clamp(4px, 1vh, 8px) 4px; color: var(--ink); font-weight: 500 }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 700 }
+dl { margin: 0; display: flex; flex-direction: column; min-height: 0; flex: 3 1 0 }
+dl.four { flex-grow: 4 }
+.r { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--ink) }
+.r:first-child { border-top: 1px solid var(--ink) }
+dt { font-size: clamp(10px, 1.7vh, 13px); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink) }
+dd { margin: 0; font: 600 clamp(16px, 4.3vh, 34px)/1 var(--display); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; text-align: right; color: var(--ink) }
+.foot { flex: none; margin: 0; color: var(--ink); font-size: 13px }
+.foot:has(> [hidden]:only-child) { display: none }
+.key { display: flex; gap: 8px } .key input { flex: 1; min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--ink); border-radius: 6px; padding: 8px; font: inherit }
+.link { background: none; border: 0; padding: 0; color: var(--ink); font-weight: 700; font-size: 13px; text-decoration: underline }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="seg" role="group" aria-label="What you are doing">
+    <button type="button" id="mode-awake" data-mode="awake" aria-pressed="true">Awake</button>
+    <button type="button" id="mode-sleep" data-mode="sleep" aria-pressed="false">Sleeping</button>
+    <button type="button" id="mode-away" data-mode="away" aria-pressed="false">Away</button>
+  </div>
+  <dl aria-live="polite">
+    <div class="r"><dt>Door</dt><dd id="door" class="off">--</dd></div>
+    <div class="r"><dt>Window</dt><dd id="window" class="off">--</dd></div>
+    <div class="r"><dt>Fan</dt><dd id="fan" class="off">--</dd></div>
+  </dl>
+  <dl class="four">
+    <div class="r"><dt>Desk</dt><dd id="t-desk" class="off">--</dd></div>
+    <div class="r"><dt>Bed</dt><dd id="t-bed" class="off">--</dd></div>
+    <div class="r"><dt>CO2</dt><dd id="co2" class="off">--</dd></div>
+    <div class="r"><dt>Outside</dt><dd id="out" class="off">--</dd></div>
+  </dl>
+  <dl>
+    <div class="r"><dt>Why</dt><dd id="tag" class="off">--</dd></div>
+    <div class="r"><dt>Confidence</dt><dd id="conf" class="off">--</dd></div>
+    <div class="r"><dt>Updated</dt><dd id="updated" class="off">--</dd></div>
+  </dl>
+  <p class="foot" id="why">Reading your sensors.</p>
+  <form class="foot key" id="keyform" hidden><input id="key" type="password" autocomplete="off" aria-label="App key" placeholder="App key"><button class="link" type="submit">Save</button></form>
+</div>
+
+<script>
+
+const K = { TARGET: 66.5, LO: 65, HI: 68, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, BSHORT: 180, TAU: 43, PC_IDLE: 100,
+            AW_LO: 68, AW_HI: 72, AW_AIM: 70, CO2_HI: 1000 };
+const cToF = c => (c == null ? null : c * 9 / 5 + 32);
+function holdWidth(target, out, watts, people) {
+  const d = target - out; if (d < 3) return null;
+  return Math.max(0, (watts + K.PERSON * people + K.B * (K.TBLDG - target)) / (K.KW * Math.pow(d, 1.5)));
+}
+function co2Width(people, inF, outF) { const dK = (inF - outF) * 5 / 9; return dK < 1 ? null : 13.7 * people / (1.05 * Math.sqrt(dK)); }
+function fullOpenFloor(out, watts, people) {
+  let lo = out + 0.1, hi = 90;
+  const f = T => K.BSHORT * (K.TBLDG - T) + watts + K.PERSON * people - K.KW * K.FULL * Math.pow(T - out, 1.5);
+  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (f(m) > 0) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+const clampW = w => Math.max(0, Math.min(K.FULL, Math.round(w)));
+const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
+
+function advise(s) {
+  if (s.ageMin == null || s.bedF == null) return { error: "No sensor readings yet." };
+  if (s.ageMin > 10) return { error: "Sensor data is " + Math.round(s.ageMin) + " min old. No advice until a fresh reading arrives." };
+  if (s.mode === "away") return { door: "open", window: 0, fan: "off", conf: "Certain", phase: null, why: "Nobody is in the room, so keep the heat in." };
+  if (s.outF == null) return { error: "No outdoor reading yet. It refreshes every 10 minutes." };
+  const out = s.outF, n = 1;
+  if (s.mode === "sleep") {
+    const outEff = s.lowF == null ? out : (out + s.lowF) / 2, H = holdWidth(K.TARGET, outEff, s.watts, n), wc = co2Width(n, s.bedF, out);
+    if (H == null) return { door: "closed", window: K.FULL, fan: "low", conf: "Estimate", phase: null, why: "Too mild outside (" + f1(outEff) + "°F) for the window alone to hold 66.5°F." };
+    let phase = s.phase === "precool" || s.phase === "warm" ? s.phase : null;
+    if (s.bedF > K.HI + 0.5) phase = "precool"; else if (phase === "precool" && s.bedF <= 67) phase = null;
+    if (s.bedF < K.LO) phase = "warm"; else if (phase === "warm" && s.bedF >= 66) phase = null;
+    if (phase === "precool") {
+      const floor = fullOpenFloor(out, s.watts, n), eta = floor < 66.7 ? K.TAU * Math.log((s.bedF - floor) / (67 - floor)) : null;
+      return { door: "closed", window: K.FULL, fan: "high", conf: "Measured", phase,
+        why: "Bed is " + f1(s.bedF) + "°F. Cooling to 67" + (eta > 0 ? ", about " + Math.max(5, Math.round(eta / 5) * 5) + " min" : "") + ". Then this changes to " + clampW(H) + " in, fan off." };
+    }
+    if (phase === "warm") return { door: "closed", window: 0, fan: "off", conf: "Measured", phase,
+        why: "Bed is " + f1(s.bedF) + "°F, too cold. At 66 this changes to " + clampW(Math.max(1, H - 2)) + " in." };
+    let w = H, trim = "";
+    if (s.slope != null && s.bedF > 67.5 && s.slope >= 0) { w += 2; trim = " Plus 2 in, it is warm and not falling."; }
+    if (s.slope != null && s.bedF < 65.8 && s.slope <= 0) { w -= 2; trim = " Minus 2 in, it is cool and not rising."; }
+    let win = clampW(w), conf = "Measured", why = "Bed is " + f1(s.bedF) + "°F. This holds 66.5 with " + f1(outEff) + "°F outside tonight." + trim;
+    if (s.co2 != null && s.co2 >= K.CO2_HI && wc != null && win < Math.ceil(wc)) { win = clampW(Math.ceil(wc)); conf = "Estimate"; why += " Raised for CO2 at " + Math.round(s.co2) + " ppm."; }
+    return { door: "closed", window: win, fan: "off", conf, phase: null, why };
+  }
+  const t = s.deskF != null ? s.deskF : s.bedF, wc = co2Width(n, t, out), co2 = s.co2 == null ? "?" : Math.round(s.co2);
+  let phase = s.phase === "cold" ? "cold" : null;
+  if (t < K.AW_LO) phase = "cold"; else if (t > 69) phase = null;
+  if (t > K.AW_HI) {
+    const W = holdWidth(K.AW_AIM, out, s.watts, n);
+    return { door: "closed", window: W == null ? K.FULL : clampW(Math.max(W, wc || 0, 1)), fan: "low", conf: "Estimate", phase: null, why: "Desk is " + f1(t) + "°F, above 72. This should bring it to about 70." };
+  }
+  if (phase === "cold") {
+    const high = s.co2 != null && s.co2 >= 1200;
+    return { door: "open", window: high ? 2 : 0, fan: "off", conf: "Estimate", phase,
+      why: "Desk is " + f1(t) + "°F, below 68. The open door brings in warmth and fresh air from the apartment" + (high ? ", and CO2 is " + co2 + " ppm so keep a small gap." : ".") };
+  }
+  return { door: "closed", window: wc == null ? 2 : clampW(Math.ceil(wc)), fan: "off", conf: "Estimate", phase: null,
+    why: "Desk is " + f1(t) + "°F, CO2 " + co2 + " ppm. This gap keeps CO2 near 800 without wasting heat." };
+}
+
+const ENDPOINT = "https://hxaftcofwrffwjxtjeoj.supabase.co/functions/v1/room";
+const $ = id => document.getElementById(id);
+const st = { mode: "awake", phase: null };
+let snap = null, snapAt = 0, busy = false, key = "";
+try { Object.assign(st, JSON.parse(localStorage.getItem("room-coach-min") || "{}")); } catch (e) {}
+const keep = () => { try { localStorage.setItem("room-coach-min", JSON.stringify(st)); } catch (e) {} };
+
+function inputs() {
+  const now = Date.parse(snap.now), bed = snap.bed, desk = snap.desk, o = snap.outdoor, pc = snap.pc;
+  const avgNow = snap.bed_now && snap.bed_now.n > 0 ? snap.bed_now : null, prev = snap.bed_prev && snap.bed_prev.n > 0 ? snap.bed_prev : null;
+  const bedF = cToF(avgNow ? Number(avgNow.temp_c) : bed ? Number(bed.temp_c) : null);
+  return { mode: st.mode, phase: st.phase, bedF,
+    deskF: desk && (now - Date.parse(desk.ts)) < 15 * 60000 ? cToF(Number(desk.temp_c)) : null,
+    co2: bed && bed.co2 != null ? Number(bed.co2) : null,
+    outF: o && o.temp_c != null ? cToF(Number(o.temp_c)) : null, lowF: o && o.low_next10h_c != null ? cToF(Number(o.low_next10h_c)) : null,
+    watts: pc && pc.n > 0 && pc.watts != null ? Number(pc.watts) : K.PC_IDLE,
+    slope: avgNow && prev && bedF != null ? bedF - cToF(Number(prev.temp_c)) : null,
+    ageMin: bed ? (now - Date.parse(bed.ts)) / 60000 + (performance.now() - snapAt) / 60000 : null };
+}
+function show(id, text, off) { const el = $(id); el.textContent = text; el.className = off ? "off" : ""; }
+function blank(msg, askKey) {
+  for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out", "tag", "conf", "updated"]) show(id, "--", true);
+  $("why").hidden = false; $("why").className = "foot bad"; $("why").textContent = msg; $("keyform").hidden = !askKey;
+}
+function render() {
+  for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.mode === st.mode));
+  if (!snap) return;
+  const s = inputs(), a = advise(s);
+  if (a.error) { blank(a.error); return; }
+  if (a.phase !== st.phase) { st.phase = a.phase; keep(); }
+  show("door", a.door === "open" ? "Open" : "Closed");
+  show("window", a.window <= 0 ? "Closed" : a.window >= K.FULL ? "Full, 26 in" : a.window + " in");
+  show("fan", a.fan.charAt(0).toUpperCase() + a.fan.slice(1), a.fan === "off");
+  $("why").hidden = true;
+  const tag = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
+    ? (a.phase === "precool" ? "Cooling to 67" : a.phase === "warm" ? "Warming to 66" : a.fan === "low" ? "Mild night" : "Holding 66.5")
+    : (a.fan === "low" ? "Desk above 72" : a.phase === "cold" ? "Desk below 68" : "Holding CO2");
+  show("tag", tag); show("conf", a.conf, a.conf === "Estimate");
+  show("co2", s.co2 == null ? "--" : Math.round(s.co2) + " ppm", s.co2 == null);
+  show("out", s.outF == null ? "--" : f1(s.outF) + "°F", s.outF == null);
+  $("keyform").hidden = true;
+  show("t-desk", s.deskF == null ? "--" : f1(s.deskF) + "°F", s.deskF == null);
+  show("t-bed", f1(s.bedF) + "°F");
+  const t = new Date(Date.parse(snap.bed.ts)).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  show("updated", t);
+}
+
+function stale(msg) { $("why").hidden = false; $("why").textContent = msg; }
+function load() {
+  if (busy) return;
+  if (!key) { blank("Enter the app key Claude gave you.", true); return; }
+  busy = true;
+  fetch(ENDPOINT, { headers: { "x-room-key": key }, cache: "no-store" })
+    .then(res => {
+      if (res.status === 401) { key = ""; try { localStorage.removeItem("room-coach-key"); } catch (e) {} snap = null; blank("That app key was not accepted.", true); return null; }
+      if (!res.ok) throw new Error("http " + res.status);
+      return res.json();
+    })
+    .then(v => { busy = false; if (v && v.now) { snap = v; snapAt = performance.now(); render(); } })
+    .catch(() => { busy = false; if (snap) stale("Couldn't refresh. Showing the last reading."); else blank("Couldn't reach the sensors. Retrying."); });
+}
+
+for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", () => { st.mode = b.dataset.mode; st.phase = null; keep(); render(); });
+$("keyform").addEventListener("submit", e => { e.preventDefault(); key = $("key").value.trim(); try { localStorage.setItem("room-coach-key", key); } catch (err) {} $("key").value = ""; load(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+setInterval(() => { if (!document.hidden) { load(); render(); } }, 10000);
+
+// iOS gives a home screen app its own storage, so the key has to ride in the saved URL's hash as well as localStorage.
+const fromHash = new URLSearchParams(location.hash.slice(1)).get("k");
+try { key = fromHash || localStorage.getItem("room-coach-key") || ""; if (fromHash) localStorage.setItem("room-coach-key", fromHash); } catch (e) { key = fromHash || ""; }
+render();
+load();
+</script>
+</body>
+</html>
