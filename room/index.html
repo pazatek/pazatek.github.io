@@ -88,7 +88,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 </div>
 <script>
 const K = { TARGET: 66.5, LO: 65, HI: 68, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, BSHORT: 180, TAU: 43, PC_IDLE: 100,
-            AW_LO: 68, AW_HI: 72, AW_AIM: 70, CO2_HI: 1000 };
+            AW_LO: 70, AW_HI: 73, AW_AIM: 71.5, CO2_HI: 1000 };
 const cToF = c => (c == null ? null : c * 9 / 5 + 32);
 function holdWidth(target, out, watts, people) {
   const d = target - out; if (d < 3) return null;
@@ -132,15 +132,15 @@ function advise(s) {
   }
   const t = s.deskF != null ? s.deskF : s.bedF, wc = co2Width(n, t, out), co2 = s.co2 == null ? "?" : Math.round(s.co2);
   let phase = s.phase === "cold" ? "cold" : null;
-  if (t < K.AW_LO) phase = "cold"; else if (t > 69) phase = null;
+  if (t < K.AW_LO) phase = "cold"; else if (t > 71) phase = null;
   if (t > K.AW_HI) {
     const W = holdWidth(K.AW_AIM, out, s.watts, n);
-    return { door: "closed", window: W == null ? K.FULL : clampW(Math.max(W, wc || 0, 1)), fan: "low", conf: "Estimate", phase: null, why: "Desk is " + f1(t) + "°F, above 72. This should bring it to about 70." };
+    return { door: "closed", window: W == null ? K.FULL : clampW(Math.max(W, wc || 0, 1)), fan: "low", conf: "Estimate", phase: null, why: "Desk is " + f1(t) + "°F, above 73. This should bring it to about 71.5." };
   }
   if (phase === "cold") {
     const high = s.co2 != null && s.co2 >= 1200;
     return { door: "open", window: high ? 2 : 0, fan: "off", conf: "Estimate", phase,
-      why: "Desk is " + f1(t) + "°F, below 68. The open door brings in warmth and fresh air from the apartment" + (high ? ", and CO2 is " + co2 + " ppm so keep a small gap." : ".") };
+      why: "Desk is " + f1(t) + "°F, below 70. The open door brings in warmth and fresh air from the apartment" + (high ? ", and CO2 is " + co2 + " ppm so keep a small gap." : ".") };
   }
   return { door: "closed", window: wc == null ? 2 : clampW(Math.ceil(wc)), fan: "off", conf: "Estimate", phase: null,
     why: "Desk is " + f1(t) + "°F, CO2 " + co2 + " ppm. This gap keeps CO2 near 800 without wasting heat." };
@@ -193,7 +193,7 @@ function render() {
   viz.set(step[0], a.door === "open", a.fan);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
-    : (a.fan === "low" ? "Desk above 72°" : a.phase === "cold" ? "Desk below 68°" : "Holding CO2");
+    : (a.fan === "low" ? "Desk above 73°" : a.phase === "cold" ? "Desk below 70°" : "Holding CO2");
   const lo = st.mode === "sleep" ? K.LO : K.AW_LO, hi = st.mode === "sleep" ? K.HI : K.AW_HI;
   show("t-desk", s.deskF == null ? "--" : f1(s.deskF) + "\u00B0", s.deskF == null, s.deskF == null ? "" : roomColor(s.deskF, lo, hi));
   show("t-bed", f1(s.bedF) + "\u00B0", false, roomColor(s.bedF, lo, hi));
