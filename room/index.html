@@ -527,17 +527,31 @@ const viz = (() => {
     if (front && w > 0 && h > 0) ctx.drawImage(front, 0, 0, w, h);
 
     const g = cur.gap * FULL_M;
-    if (g > 0.004 && !still) {
-      const n = 7 + Math.round(cur.gap * 9);
-      for (let i = 0; i < n; i++) {
-        const head = (now / 2200 + rnd(i, 3)) % 1, x0 = WX1 - g * (0.15 + 0.7 * rnd(i, 11)), y0 = WY0 + 0.08 + (WY1 - WY0 - 0.16) * ((i + 0.5) / n), drift = (rnd(i, 23) - 0.3) * 0.5;
-        const at = u => [x0 + drift * u * u, y0 - (y0 - 0.22) * Math.pow(u, 1.7), D - 1.7 * u];
+    if (g > 0.004) {
+      const FLOOR = 0.1, xm = WX1 - g / 2;
+      const at = (u, x0, y0, drift) => [x0 + drift * Math.pow(u, 1.5), FLOOR + (y0 - FLOOR) * Math.exp(-Math.pow(u / 0.2, 2)), D - 2.9 * u];
+      const wash = (pathA, pathB, u0, u1, alpha) => {
         const pts = [];
-        for (let k = 0; k <= 8; k++) { const u = head - 0.22 * (1 - k / 8); if (u >= 0) pts.push(P(...at(u))); }
-        if (pts.length < 2) continue;
-        const a = pts[0], b = pts[pts.length - 1], fade = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
-        fade.addColorStop(0, "rgba(100,210,255,0)"); fade.addColorStop(1, "rgba(100,210,255," + Math.min(1, 1.7 * (1 - head)).toFixed(3) + ")");
-        ctx.strokeStyle = fade; ctx.lineWidth = 2.6; ctx.beginPath(); pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
+        for (let k = 0; k <= 24; k++) pts.push(P(...pathA(u0 + (u1 - u0) * k / 24)));
+        for (let k = 24; k >= 0; k--) pts.push(P(...pathB(u0 + (u1 - u0) * k / 24)));
+        const a = P(...pathA(u0)), b = P(...pathA(u1)), fade = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
+        fade.addColorStop(0, "rgba(100,210,255," + alpha.toFixed(3) + ")"); fade.addColorStop(1, "rgba(100,210,255,0)");
+        ctx.fillStyle = fade; ctx.beginPath(); pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); ctx.fill();
+      };
+      const strength = 0.16 + 0.22 * cur.gap;
+      wash(u => at(u, xm, WY1, 0.4), u => at(u, xm, WY0, 0.4), 0, 0.42, strength);
+      wash(u => at(u, xm, FLOOR, -0.25), u => at(u, xm, FLOOR, 1.15), 0.12, 0.95, strength * 0.8);
+      if (!still) {
+        const n = 12 + Math.round(cur.gap * 14);
+        for (let i = 0; i < n; i++) {
+          const head = (now / 2600 + rnd(i, 3)) % 1, x0 = WX1 - g * (0.15 + 0.7 * rnd(i, 11)), y0 = WY0 + 0.06 + (WY1 - WY0 - 0.12) * ((i * 7 % n + 0.5) / n), drift = -0.25 + 1.4 * rnd(i, 23);
+          const pts = [];
+          for (let k = 0; k <= 10; k++) { const u = head - 0.16 * (1 - k / 10); if (u >= 0) pts.push(P(...at(u, x0, y0, drift))); }
+          if (pts.length < 2) continue;
+          const a = pts[0], b = pts[pts.length - 1], fade = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
+          fade.addColorStop(0, "rgba(150,228,255,0)"); fade.addColorStop(1, "rgba(150,228,255," + Math.min(1, 2.2 * (1 - head)).toFixed(3) + ")");
+          ctx.strokeStyle = fade; ctx.lineWidth = 2.4; ctx.beginPath(); pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
+        }
       }
     }
 
