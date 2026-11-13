@@ -433,22 +433,43 @@ const viz = (() => {
   }
   function miniLamp() {
     const [cx, y0, cz] = MINI, on = lampOn.little, hub = [cx, y0 + 0.15, cz];
-    for (const a of [0.5, 2.6, 4.7]) litLine([cx + 0.08 * Math.cos(a), y0, cz + 0.08 * Math.sin(a)], [cx + 0.025 * Math.cos(a), y0 + 0.14, cz + 0.025 * Math.sin(a)], "#c9a67a", VIEW, 2.4, on ? 0.45 : 0.05);
+    for (const a of [0.5, 2.6, 4.7]) litLine([cx + 0.09 * Math.cos(a), y0, cz + 0.09 * Math.sin(a)], [cx + 0.02 * Math.cos(a), y0 + 0.14, cz + 0.02 * Math.sin(a)], "#c9a67a", VIEW, 2.4, on ? 0.45 : 0.05);
     if (on) halo(P(cx, y0 + 0.22, cz), 0.62 * sc, 0.42);
     const drum = on ? ["#fff3d9", "#ffe9bd", "#fffaf0"] : [shade("#ebe8e1", hub, VIEW), shade("#dedad1", hub, VIEW), shade("#f1eee8", hub, UP)];
-    const top = cone([cx, y0 + 0.13, cz], 0.085, [cx, y0 + 0.29, cz], 0.085, (q, i) => { const f = drum[i % 2 ? 0 : 1]; poly(q, f, f, 0.6); })[1];
+    const top = cone([cx, y0 + 0.13, cz], 0.09, [cx, y0 + 0.30, cz], 0.075, (q, i) => { const f = drum[i % 2 ? 0 : 1]; poly(q, f, f, 0.6); })[1];
     poly(top, drum[2], drum[2], 0.6);
   }
   function chair() {
-    const cx = 0.86, cz = 2.08, FRAME = "#f2f2f4", MESH = "#5b5e64";
-    for (let k = 0; k < 5; k++) { const a = 0.4 + k * 2 * Math.PI / 5; litLine([cx, 0.07, cz], [cx + 0.27 * Math.cos(a), 0.03, cz + 0.27 * Math.sin(a)], "#b9bec6", UP, 2.6, 0.1); }
-    litLine([cx, 0.07, cz], [cx, 0.43, cz], "#8d9199", VIEW, 3.2, 0.1);
-    box(0.62, 1.08, 0.43, 0.52, 1.84, 2.32, "#8794a8", { boost: 0.12 });
-    for (const z of [1.80, 2.30]) { box(0.95, 0.99, 0.5, 0.68, z + 0.01, z + 0.05, FRAME); box(0.74, 1.0, 0.68, 0.71, z, z + 0.06, "#b5b8be"); }
-    for (const z of [1.9, 2.22]) box(1.06, 1.10, 0.5, 1.12, z, z + 0.04, FRAME);
-    box(1.07, 1.09, 0.62, 1.12, 1.94, 2.22, MESH);
-    box(1.085, 1.105, 1.1, 1.2, 2.06, 2.10, FRAME);
-    box(1.08, 1.11, 1.18, 1.36, 1.98, 2.18, MESH);
+    const cx = 0.86, cz = 2.08, FRAME = "#f2f2f4", MESH = "#8a8f98", PAD = "#aeb2b9";
+    for (let k = 0; k < 5; k++) {
+      const a = 0.4 + k * 2 * Math.PI / 5, tip = [cx + 0.29 * Math.cos(a), 0.05, cz + 0.29 * Math.sin(a)], w = P(tip[0], 0.025, tip[2]);
+      litLine([cx, 0.09, cz], tip, "#d9dce2", UP, 2.8, 0.1);
+      ctx.fillStyle = "#2b2c31"; ctx.beginPath(); ctx.arc(w[0], w[1], 2.1, 0, 6.3); ctx.fill();
+    }
+    litLine([cx, 0.09, cz], [cx, 0.4, cz], "#8d9199", VIEW, 3.2, 0.1);
+    const lean = y => 1.03 + (y - 0.5) * 0.13;
+    const panel = (rows, dx, hex, boost) => {
+      const pts = [];
+      for (const [y, hw] of rows) pts.push([lean(y) - dx, y, cz - hw]);
+      for (const [y, hw] of rows.slice().reverse()) pts.push([lean(y) - dx, y, cz + hw]);
+      const f = shade(hex, [lean(0.85), 0.85, cz], LEFT, boost); poly(pts, f, f, 0.7);
+    };
+    panel([[0.52, 0.11], [0.62, 0.17], [0.80, 0.21], [1.0, 0.2], [1.16, 0.13]], 0, FRAME, 0.35);
+    panel([[0.61, 0.13], [0.80, 0.175], [1.0, 0.165], [1.12, 0.115]], 0.004, MESH, 0.15);
+    litLine([lean(1.14), 1.14, cz], [lean(1.22), 1.22, cz], FRAME, VIEW, 3.4, 0.2);
+    panel([[1.2, 0.09], [1.25, 0.125], [1.35, 0.125], [1.4, 0.085]], 0.015, FRAME, 0.35);
+    panel([[1.235, 0.08], [1.265, 0.095], [1.335, 0.095], [1.365, 0.07]], 0.019, MESH, 0.15);
+    const arm = zs => {
+      for (const x of [0.87, 1.01]) litLine([x, 0.46, zs], [0.93, 0.67, zs], FRAME, VIEW, 2.4, 0.05);
+      box(0.75, 1.0, 0.67, 0.70, zs - 0.045, zs + 0.045, PAD);
+    };
+    arm(cz + 0.27);
+    box(0.76, 0.98, 0.37, 0.455, cz - 0.09, cz + 0.09, "#4a4d54");
+    box(0.63, 1.05, 0.455, 0.5, cz - 0.23, cz + 0.23, FRAME);
+    const c = 0.06, m = 0.025, x0 = 0.63 + m, x1 = 1.05 - m, z0 = cz - 0.23 + m, z1 = cz + 0.23 - m;
+    const seat = shade("#93a0b3", [cx, 0.5, cz], UP, 0.1);
+    poly([[x0 + c, 0.501, z0], [x1 - c, 0.501, z0], [x1, 0.501, z0 + c], [x1, 0.501, z1 - c], [x1 - c, 0.501, z1], [x0 + c, 0.501, z1], [x0, 0.501, z1 - c], [x0, 0.501, z0 + c]], seat, seat, 0.7);
+    arm(cz - 0.27);
   }
   function swords() {
     box(0.98, 1.60, 0.95, 0.975, 0.03, 0.13, "#141416");
