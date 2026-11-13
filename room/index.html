@@ -432,33 +432,33 @@ const viz = (() => {
   ].sort((a, b) => (b.x + b.z) - (a.x + a.z));
 
   function drawBack() {
-    // The lawn has no hard outline: stacked copies of its outer edge, each a little further in, build up to solid turf.
-    const turf = shade("#4f9a4c", [0.8, 0, D + T + 1.6], UP, 0.2), edge = LAWN.slice(0, 10).map(([x, dz]) => P(x, 0, D + T + dz)), inside = P(1.0, 0, D + T + 1.5), band = 0.34 * sc, steps = 12;
-    const inward = edge.map((q, i) => {
-      const a = edge[Math.max(0, i - 1)], b = edge[Math.min(edge.length - 1, i + 1)], l = Math.hypot(b[1] - a[1], a[0] - b[0]) || 1, n = [(b[1] - a[1]) / l, (a[0] - b[0]) / l];
-      return n[0] * (inside[0] - q[0]) + n[1] * (inside[1] - q[1]) < 0 ? [-n[0], -n[1]] : n;
-    });
-    const hidden = [P(3.7, 0, D + T + 2.3), P(3.7, 0, D + T)];
-    ctx.fillStyle = turf;
-    for (let k = 1, before = 0; k <= steps; k++) {
-      const u = k / steps, solid = u * u * (3 - 2 * u), off = (u - 0.12) * band;
-      ctx.globalAlpha = k === steps ? 1 : 1 - (1 - solid) / (1 - before);
-      before = solid;
-      ctx.beginPath();
-      edge.forEach((q, i) => { const X = q[0] + inward[i][0] * off, Y = q[1] + inward[i][1] * off; if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
-      hidden.forEach(q => ctx.lineTo(q[0], q[1]));
-      ctx.closePath(); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    // The lawn is drawn hard-edged on its own layer, then a mask worked out per pixel (at half resolution, filtered up) fades its outer edge smoothly.
+    const turf = shade("#4f9a4c", [0.8, 0, D + T + 1.6], UP, 0.2), edge = LAWN.slice(0, 10).map(([x, dz]) => P(x, 0, D + T + dz));
+    const outline = edge.concat([P(3.7, 0, D + T + 2.3), P(3.7, 0, D + T)]), band = 0.2 * sc, half = 0.5;
     const reach = (p, a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(p[0] - a[0] - vx * t, p[1] - a[1] - vy * t); };
-    for (const t of TUFT) {
-      const p = P(t[0], 0, t[1]);
+    const solid = p => {
+      let inside = false;
+      for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) { const a = outline[i], b = outline[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside; }
+      if (!inside) return 0;
       let d = Infinity;
       for (let i = 1; i < edge.length; i++) d = Math.min(d, reach(p, edge[i - 1], edge[i]));
-      const u = Math.max(0, Math.min(1, (d - 0.05 * sc) / (0.36 * sc)));
-      t[3] = u * u * (3 - 2 * u);
-    }
-    grass(FAR, true);
+      const u = Math.min(1, d / band);
+      return u * u * (3 - 2 * u);
+    };
+    for (const t of TUFT) t[3] = solid(P(t[0], 0, t[1]));
+    const target = ctx, lawn = document.createElement("canvas"), mask = document.createElement("canvas");
+    lawn.width = cv.width; lawn.height = cv.height;
+    ctx = lawn.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.fillStyle = turf; ctx.beginPath(); outline.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); ctx.fill();
+    grass(FAR, false);
+    mask.width = Math.max(1, Math.ceil(w * half)); mask.height = Math.max(1, Math.ceil(h * half));
+    const mctx = mask.getContext("2d"), img = mctx.createImageData(mask.width, mask.height);
+    for (let y = 0, k = 3; y < mask.height; y++) for (let x = 0; x < mask.width; x++, k += 4) img.data[k] = 255 * solid([(x + 0.5) / half, (y + 0.5) / half]);
+    mctx.putImageData(img, 0, 0);
+    ctx.globalCompositeOperation = "destination-in"; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(mask, 0, 0, mask.width / half, mask.height / half);
+    ctx = target;
+    ctx.drawImage(lawn, 0, 0, w, h);
     box(0, W + T, -SLAB, 0, 0, D + T, "#6f6a66");
     for (let z0 = 0, k = 0; z0 < D - 0.001; z0 += 0.21, k++) {
       const z1 = Math.min(D, z0 + 0.21), hex = k % 2 ? "#a49c92" : "#978f85";
