@@ -57,12 +57,16 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .key input { flex: 1; min-width: 0; background: var(--card); color: var(--ink); border: 0; border-radius: 10px; padding: 10px 12px; font: inherit }
 .link { background: none; border: 0; padding: 0 4px; font-weight: 600; font-size: 15px }
 @media (prefers-reduced-motion: reduce) { .switch::after { transition: none } }
-.row { display: flex; align-items: center; gap: 4px; min-width: 0 }
+.vrow { display: flex; align-items: center; gap: 4px; min-width: 0 }
 .tr { flex: none; width: 11px; height: 11px; background: var(--ink); opacity: 0.75; transition: transform 0.3s;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6h9M6.5 2l4 4-4 4' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6h9M6.5 2l4 4-4 4' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat }
 .tr[data-d="up"] { transform: rotate(-90deg) }
 .tr[data-d="down"] { transform: rotate(90deg) }
+.list .row + .row { border-top: 0.5px solid var(--sep) }
+.pick { flex: none; display: flex; gap: 2px; background: var(--bg); border-radius: 9px; padding: 2px }
+.pick button { border: 0; background: none; color: inherit; border-radius: 7px; padding: 5px 12px; font-size: 13px; font-weight: 500 }
+.pick button[aria-pressed="true"] { background: var(--raised); font-weight: 600 }
 .foot:has(> [hidden]:only-child) { display: none }
 </style>
 </head>
@@ -83,12 +87,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     <div class="tile"><span class="k">Fan</span><span class="v off" id="fan">--</span></div>
   </div>
   <div class="tiles four">
-    <div class="tile"><span class="k">Desk</span><span class="row"><span class="v off" id="t-desk">--</span><i class="tr" id="tr-t-desk" hidden></i></span></div>
-    <div class="tile"><span class="k">Bed</span><span class="row"><span class="v off" id="t-bed">--</span><i class="tr" id="tr-t-bed" hidden></i></span></div>
-    <div class="tile"><span class="k">CO2 ppm</span><span class="row"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span></div>
-    <div class="tile"><span class="k">Outside</span><span class="row"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span></div>
+    <div class="tile"><span class="k">Desk</span><span class="vrow"><span class="v off" id="t-desk">--</span><i class="tr" id="tr-t-desk" hidden></i></span></div>
+    <div class="tile"><span class="k">Bed</span><span class="vrow"><span class="v off" id="t-bed">--</span><i class="tr" id="tr-t-bed" hidden></i></span></div>
+    <div class="tile"><span class="k">CO2 ppm</span><span class="vrow"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span></div>
+    <div class="tile"><span class="k">Outside</span><span class="vrow"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span></div>
   </div>
-  <div class="list"><div class="row"><span>Alerts</span><span class="note" id="alerts-note"></span><button class="switch" id="alerts" type="button" role="switch" aria-checked="false" aria-label="Alerts"></button></div></div>
+  <div class="list"><div class="row"><span>Blind</span><div class="pick" id="blind"><button type="button" data-p="0" aria-pressed="false">Up</button><button type="button" data-p="50" aria-pressed="false">Half</button><button type="button" data-p="100" aria-pressed="false">Down</button></div></div>
+  <div class="row"><span>Alerts</span><span class="note" id="alerts-note"></span><button class="switch" id="alerts" type="button" role="switch" aria-checked="false" aria-label="Alerts"></button></div></div>
   <p class="foot" id="why" hidden></p>
   <form class="foot key" id="keyform" hidden><input id="key" type="password" autocomplete="off" aria-label="App key" placeholder="App key"><button class="link" type="submit">Save</button></form>
 </div>
@@ -174,6 +179,7 @@ function inputs() {
 }
 function onBlank(askKey) { $("keyform").hidden = !askKey; }
 function onGood() { $("keyform").hidden = true; $("why").hidden = true; }
+function onBlind(p) { for (const b of document.querySelectorAll("#blind button")) b.setAttribute("aria-pressed", String(p != null && Math.abs(p - Number(b.dataset.p)) <= 12)); }
 const STEPS = [[0, "Closed"], [3.25, "1/8"], [6.5, "1/4"], [13, "1/2"], [26, "Full"]];
 function snapW(inches) {
   if (inches < 1.6) return STEPS[0];
@@ -187,6 +193,7 @@ function trend(id, delta, steady, what) {
   el.hidden = d == null;
   if (d) { el.dataset.d = d; el.setAttribute("role", "img"); el.setAttribute("aria-label", what + (d === "up" ? " rising" : d === "down" ? " falling" : " steady")); }
 }
+let blindPct = null, blindHold = 0;
 function blank(msg, extra) {
   for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out"]) show(id, "--", true);
   for (const id of ["t-desk", "t-bed", "co2", "out"]) trend(id, null);
@@ -202,7 +209,9 @@ function render() {
   const step = snapW(a.window);
   show("window", step[1]);
   show("fan", a.fan.charAt(0).toUpperCase() + a.fan.slice(1), a.fan === "off");
-  viz.set(step[0], a.door === "open", a.fan);
+  if (performance.now() >= blindHold) blindPct = snap.blind && snap.blind.percent != null ? Number(snap.blind.percent) : null;
+  onBlind(blindPct);
+  viz.set(step[0], a.door === "open", a.fan, (blindPct || 0) / 100);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
     : (a.fan === "low" ? "Desk above 73°" : a.phase === "cold" ? "Desk below 70°" : "Holding CO2");
@@ -223,7 +232,7 @@ const viz = (() => {
   const cv = $("room"), main = cv.getContext("2d");
   const W = 3.33, D = 3.685, DM = 2.865, NX = 1.65, H = 2.4, T = 0.09, SLAB = 0.16, FULL_M = 0.66;
   const SPEED = { off: 0, low: 2.2, med: 4.5, high: 8 };
-  const want = { gap: 0, door: 0, fan: "off" }, cur = { gap: 0, door: 0, speed: 0 };
+  const want = { gap: 0, door: 0, fan: "off", blind: 0 }, cur = { gap: 0, door: 0, speed: 0, blind: 0 };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const R2 = Math.SQRT1_2, CP = Math.cos(0.6155), SP = Math.sin(0.6155), VIEW = [-0.577, 0.577, -0.577];
   let ctx = main, w = 0, h = 0, dpr = 1, sc = 1, ox = 0, oy = 0, spin = 0, last = performance.now(), back = null, front = null, frameCol = "#ffffff";
@@ -530,7 +539,7 @@ const viz = (() => {
   function draw(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const ease = still ? 1 : Math.min(1, dt * 5);
-    cur.gap += (want.gap - cur.gap) * ease; cur.door += (want.door - cur.door) * ease; cur.speed += (SPEED[want.fan] - cur.speed) * ease;
+    cur.gap += (want.gap - cur.gap) * ease; cur.blind += (want.blind - cur.blind) * ease; cur.door += (want.door - cur.door) * ease; cur.speed += (SPEED[want.fan] - cur.speed) * ease;
     spin += cur.speed * dt;
     ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
     if (back && w > 0 && h > 0) ctx.drawImage(back, 0, 0, w, h);
@@ -541,6 +550,11 @@ const viz = (() => {
     grass(NEAR);
     ctx.restore();
     drawWindow(now);
+    if (cur.blind > 0.01) {
+      const yb = WY1 - cur.blind * (WY1 - WY0 + 0.04), zb = D - 0.06, xa = WX0 - 0.03, xb = WX1 + 0.03;
+      poly([[xa, yb, zb], [xb, yb, zb], [xb, WY1, zb], [xa, WY1, zb]], shade("#e6e2d8", [0.8, (yb + WY1) / 2, zb], [0, 0, -1]), null);
+      seg([xa, yb, zb], [xb, yb, zb], shade("#b9b5ac", [0.8, yb, zb], [0, 0, -1]), 2.5);
+    }
     if (front && w > 0 && h > 0) ctx.drawImage(front, 0, 0, w, h);
 
     const g = cur.gap * FULL_M;
@@ -594,7 +608,7 @@ const viz = (() => {
   if (window.ResizeObserver) new ResizeObserver(() => { size(); if (still) kick(); }).observe(cv); else addEventListener("resize", size);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) kick(); });
   size(); kick();
-  return { set(inchesOpen, doorOpen, fan) { want.gap = Math.max(0, Math.min(1, inchesOpen / 26)); want.door = doorOpen ? 1 : 0; want.fan = SPEED[fan] == null ? "off" : fan; if (still) kick(); } };
+  return { set(inchesOpen, doorOpen, fan, blindDown) { want.blind = Math.max(0, Math.min(1, blindDown || 0)); want.gap = Math.max(0, Math.min(1, inchesOpen / 26)); want.door = doorOpen ? 1 : 0; want.fan = SPEED[fan] == null ? "off" : fan; if (still) kick(); } };
 })();
 function stale(msg) { $("why").hidden = false; $("why").textContent = msg; }
 function load() {
@@ -658,6 +672,19 @@ alertsBtn.addEventListener("click", async () => {
   } catch (e) { alertsShow(false, "Couldn't turn on"); }
 });
 alertsState().catch(() => {});
+
+const BLIND = ENDPOINT.replace(/room$/, "blind");
+for (const b of document.querySelectorAll("#blind button")) b.addEventListener("click", () => {
+  if (!key) return;
+  // The motor takes up to half a minute to travel; until then the stored position is the old one, so show the target.
+  blindPct = Number(b.dataset.p); blindHold = performance.now() + 40000; render();
+  fetch(BLIND, { method: "POST", headers: { "x-room-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ percent: blindPct }) })
+    .then(r => { if (!r.ok) throw new Error("http " + r.status); })
+    .catch(() => { blindHold = 0; stale("Couldn't reach the blind."); });
+});
+// Reading the blind is what records its position for the snapshot, so manual moves show up too.
+const blindPoll = () => { if (key && !document.hidden) fetch(BLIND, { headers: { "x-room-key": key }, cache: "no-store" }).catch(() => {}); };
+setInterval(blindPoll, 15000); blindPoll();
 </script>
 </body>
 </html>
