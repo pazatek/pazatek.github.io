@@ -486,7 +486,7 @@ const viz = (() => {
     seg([wm, WY0, z], [wm, WY1, z], frameCol, 2.5);
     pane(wm - g, WX1 - g, zs);
     poly([[wm - g, WY0, zs], [WX1 - g, WY0, zs], [WX1 - g, WY1, zs], [wm - g, WY1, zs]], null, frameCol, 3);
-    if (g > 0.004) poly([[WX1 - g, WY0, z], [WX1, WY0, z], [WX1, WY1, z], [WX1 - g, WY1, z]], "rgba(100,210,255,0.22)", "#64d2ff", 2);
+    if (g > 0.004) poly([[WX1 - g, WY0, z], [WX1, WY0, z], [WX1, WY1, z], [WX1 - g, WY1, z]], "rgba(100,210,255,0.6)", null);
   }
 
   function bake() {
