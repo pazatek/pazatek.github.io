@@ -240,10 +240,13 @@ const viz = (() => {
     }
     return s;
   }
+  function lightRGB(c, n, boost) {
+    const s = lightAt(c, n) + (boost || 0), form = 0.7 + 0.3 * Math.max(0, n[1]) + 0.14 * Math.max(0, -n[2]);
+    return [AMBIENT[0] * form + s * WARM[0], AMBIENT[1] * form + s * WARM[1], AMBIENT[2] * form + s * WARM[2]];
+  }
   function shade(hex, c, n, boost) {
-    const v = parseInt(hex.slice(1), 16), s = lightAt(c, n) + (boost || 0), form = 0.7 + 0.3 * Math.max(0, n[1]) + 0.14 * Math.max(0, -n[2]);
-    const f = (ch, a, wm) => Math.round(Math.min(255, ch * (a * form + s * wm)));
-    return "rgb(" + f(v >> 16, AMBIENT[0], WARM[0]) + "," + f(v >> 8 & 255, AMBIENT[1], WARM[1]) + "," + f(v & 255, AMBIENT[2], WARM[2]) + ")";
+    const v = parseInt(hex.slice(1), 16), m = lightRGB(c, n, boost), f = (ch, k) => Math.round(Math.min(255, ch * k));
+    return "rgb(" + f(v >> 16, m[0]) + "," + f(v >> 8 & 255, m[1]) + "," + f(v & 255, m[2]) + ")";
   }
   const centroid = pts => { const c = [0, 0, 0]; for (const p of pts) { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; } return [c[0] / pts.length, c[1] / pts.length, c[2] / pts.length]; };
   function facing(pts) { let n = norm(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0]))); if (dot(n, VIEW) < 0) n = [-n[0], -n[1], -n[2]]; return n; }
@@ -256,26 +259,40 @@ const viz = (() => {
     if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
   }
   function seg(a, b, stroke, lw) { const p = P(a[0], a[1], a[2]), q = P(b[0], b[1], b[2]); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
-  const lit = (pts, hex, boost) => { const f = shade(hex, centroid(pts), facing(pts), boost); poly(pts, f, f, 0.7); };
-  const litLine = (a, b, hex, n, lw, boost) => seg(a, b, shade(hex, mix(a, b, 0.5), n, boost), lw);
-  function face(a, b, c, d, hex, nu, nv, boost) {
-    const at = (u, v) => mix(mix(a, b, u), mix(d, c, u), v);
-    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
-      const p00 = at(i / nu, j / nv), p10 = at((i + 1) / nu, j / nv), p11 = at((i + 1) / nu, (j + 1) / nv), p01 = at(i / nu, (j + 1) / nv);
-      if ((i + j) % 2) { lit([p00, p10, p11], hex, boost); lit([p00, p11, p01], hex, boost); } else { lit([p00, p10, p01], hex, boost); lit([p10, p11, p01], hex, boost); }
+  // Light is smooth across a face: each flat face gets a small light map (one texel per TEX metres), stretched onto it with filtering.
+  const TEX = 0.035, scratch = document.createElement("canvas"), sctx = scratch.getContext("2d");
+  function lit(pts, hex, boost) {
+    const n = facing(pts);
+    const a = pts[0], b = pts[1], d = pts[pts.length - 1], U = sub(b, a), V = sub(d, a), lu = Math.hypot(U[0], U[1], U[2]), lv = Math.hypot(V[0], V[1], V[2]);
+    const flatShape = pts.length === 3 || (pts.length === 4 && Math.hypot(pts[2][0] - b[0] - V[0], pts[2][1] - b[1] - V[1], pts[2][2] - b[2] - V[2]) < 1e-6);
+    if (!flatShape || Math.max(lu, lv) < 0.14) { const flat = shade(hex, centroid(pts), n, boost); poly(pts, flat, flat, 0.7); return; }
+    const nu = Math.min(110, Math.max(1, Math.ceil(lu / TEX))), nv = Math.min(110, Math.max(1, Math.ceil(lv / TEX)));
+    scratch.width = nu + 2; scratch.height = nv + 2;
+    const img = sctx.createImageData(nu + 2, nv + 2), px = img.data, v = parseInt(hex.slice(1), 16), r = v >> 16, g = v >> 8 & 255, bl = v & 255;
+    for (let jj = 0, k = 0; jj < nv + 2; jj++) for (let ii = 0; ii < nu + 2; ii++, k += 4) {
+      const u = (ii - 0.5) / nu, t = (jj - 0.5) / nv, m = lightRGB([a[0] + U[0] * u + V[0] * t, a[1] + U[1] * u + V[1] * t, a[2] + U[2] * u + V[2] * t], n, boost);
+      px[k] = r * m[0]; px[k + 1] = g * m[1]; px[k + 2] = bl * m[2]; px[k + 3] = 255;
     }
+    sctx.putImageData(img, 0, 0);
+    const pa = P(a[0], a[1], a[2]), pb = P(b[0], b[1], b[2]), pd = P(d[0], d[1], d[2]);
+    const ux = (pb[0] - pa[0]) / nu, uy = (pb[1] - pa[1]) / nu, vx = (pd[0] - pa[0]) / nv, vy = (pd[1] - pa[1]) / nv;
+    // Neighbouring faces overlap by a fraction of a pixel, otherwise their antialiased edges leave hairline seams.
+    const qs = pts.map(p => P(p[0], p[1], p[2])), mx = qs.reduce((t, q) => t + q[0], 0) / qs.length, my = qs.reduce((t, q) => t + q[1], 0) / qs.length;
+    ctx.save();
+    ctx.beginPath();
+    qs.forEach((q, k) => { const dx = q[0] - mx, dy = q[1] - my, l = Math.hypot(dx, dy) || 1, X = q[0] + dx / l * 0.7, Y = q[1] + dy / l * 0.7; if (k) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+    ctx.closePath(); ctx.clip();
+    ctx.transform(ux, uy, vx, vy, pa[0] - ux - vx, pa[1] - uy - vy);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(scratch, 0, 0);
+    ctx.restore();
   }
+  const litLine = (a, b, hex, n, lw, boost) => seg(a, b, shade(hex, mix(a, b, 0.5), n, boost), lw);
   function box(x0, x1, y0, y1, z0, z1, hex, o) {
     o = o || {};
-    const n = v => Math.max(1, Math.ceil(v / (o.cell || 0.45) - 0.01));
-    face([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], hex, n(z1 - z0), n(y1 - y0), o.boost);
-    face([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], hex, n(x1 - x0), n(y1 - y0), o.boost);
-    face([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], hex, n(x1 - x0), n(z1 - z0), o.boost);
-    if (o.edge) {
-      poly([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], null, o.edge, 1.2);
-      poly([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], null, o.edge, 1.2);
-      poly([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], null, o.edge, 1.2);
-    }
+    const faces = [[[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]];
+    for (const f of faces) lit(f, hex, o.boost);
+    if (o.edge) for (const f of faces) poly(f, null, o.edge, 1.2);
   }
   function halo(p, r, alpha) {
     const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], r);
@@ -298,6 +315,7 @@ const viz = (() => {
   }
 
   const WHITE = "#f4f4f8", BLUE = "#4f86e8", INK = "#17171a", WALL = "#dcdad6", WOOD = "#dba968", SILVER = "#d5dae1", UP = [0, 1, 0], LEFT = [-1, 0, 0];
+  const LAWN_X = -0.6, LAWN_D = 0.9;
   const TUFTS = [[0.06, 0.6, 1], [0.14, 0.88, 0], [0.5, 0.2, 1], [0.58, 0.66, 0], [0.66, 0.36, 1], [0.74, 0.84, 1], [0.82, 0.14, 0], [0.9, 0.52, 1], [0.95, 0.9, 0], [0.44, 0.92, 1], [0.34, 0.74, 0]];
   function squirrel(p, u, now) {
     const shape = (pts, fill) => {
@@ -307,13 +325,13 @@ const viz = (() => {
     };
     const a = still ? 0 : 0.1 * Math.sin(now / 420), ca = Math.cos(a), sa = Math.sin(a), bx = -0.16, by = 0.14;
     const wag = pts => pts.map(q => [bx + (q[0] - bx) * ca - (q[1] - by) * sa, by + (q[0] - bx) * sa + (q[1] - by) * ca]);
-    shape(wag([[-0.14, 0.1], [-0.46, 0.22], [-0.64, 0.58], [-0.52, 0.98], [-0.24, 1.02], [-0.1, 0.8], [-0.3, 0.72], [-0.34, 0.46], [-0.1, 0.32]]), "#b4622a");
-    shape(wag([[-0.46, 0.22], [-0.64, 0.58], [-0.52, 0.98], [-0.42, 0.6]]), "#d18a48");
-    shape([[-0.22, 0], [0.24, 0], [0.3, 0.3], [0.2, 0.56], [0, 0.62], [-0.2, 0.4]], "#96501e");
-    shape([[0.1, 0.04], [0.24, 0], [0.3, 0.3], [0.2, 0.52], [0.1, 0.3]], "#e6c9a0");
-    shape([[0.04, 0.56], [0.3, 0.52], [0.46, 0.66], [0.36, 0.84], [0.14, 0.88], [0.02, 0.72]], "#a85c24");
-    shape([[0.1, 0.84], [0.15, 1.04], [0.26, 0.86]], "#96501e");
-    shape([[0.24, 0.36], [0.4, 0.42], [0.36, 0.5], [0.22, 0.46]], "#a85c24");
+    shape(wag([[-0.14, 0.1], [-0.46, 0.22], [-0.64, 0.58], [-0.52, 0.98], [-0.24, 1.02], [-0.1, 0.8], [-0.3, 0.72], [-0.34, 0.46], [-0.1, 0.32]]), "#8f4e22");
+    shape(wag([[-0.46, 0.22], [-0.64, 0.58], [-0.52, 0.98], [-0.42, 0.6]]), "#a76d39");
+    shape([[-0.22, 0], [0.24, 0], [0.3, 0.3], [0.2, 0.56], [0, 0.62], [-0.2, 0.4]], "#77401a");
+    shape([[0.1, 0.04], [0.24, 0], [0.3, 0.3], [0.2, 0.52], [0.1, 0.3]], "#b9a181");
+    shape([[0.04, 0.56], [0.3, 0.52], [0.46, 0.66], [0.36, 0.84], [0.14, 0.88], [0.02, 0.72]], "#86491d");
+    shape([[0.1, 0.84], [0.15, 1.04], [0.26, 0.86]], "#77401a");
+    shape([[0.24, 0.36], [0.4, 0.42], [0.36, 0.5], [0.22, 0.46]], "#86491d");
     ctx.fillStyle = "#1a1208"; ctx.beginPath(); ctx.arc(p[0] + 0.3 * u, p[1] - 0.72 * u, Math.max(0.8, 0.04 * u), 0, 6.3); ctx.fill();
   }
 
@@ -362,8 +380,8 @@ const viz = (() => {
     { x: 2.55, z: 1.05, foot: [1.80, 3.30, 0.065, 2.035], draw() {
       box(1.80, 3.30, 0.12, 0.34, 0.065, 2.035, "#5e5a57");
       box(1.80, 3.30, 0.34, 0.75, 0.065, 2.035, "#ffffff", { cell: 0.4 });
-      for (let x = 1.85; x < 3.28; x += 0.075) for (let k = 0; k < 4; k++) litLine([x, 0.752, 0.08 + k * 0.485], [x, 0.752, 0.08 + (k + 1) * 0.485], BLUE, UP, 0.9);
-      for (let y = 0.39; y < 0.74; y += 0.075) for (let k = 0; k < 4; k++) litLine([1.799, y, 0.08 + k * 0.485], [1.799, y, 0.08 + (k + 1) * 0.485], BLUE, LEFT, 0.9);
+      for (let x = 1.85; x < 3.28; x += 0.075) for (let k = 0; k < 10; k++) litLine([x, 0.752, 0.08 + k * 0.194], [x, 0.752, 0.08 + (k + 1) * 0.194], BLUE, UP, 0.9);
+      for (let y = 0.39; y < 0.74; y += 0.075) for (let k = 0; k < 10; k++) litLine([1.799, y, 0.08 + k * 0.194], [1.799, y, 0.08 + (k + 1) * 0.194], BLUE, LEFT, 0.9);
       for (const px of [1.9, 2.6]) {
         const a = [px, 0.75, 0.12], b = [px + 0.6, 0.75, 0.12], c = [px + 0.6, 0.75, 0.52], d = [px, 0.75, 0.52], top = [px + 0.3, 0.9, 0.3];
         lit([d, a, top], "#ffffff"); lit([a, b, top], "#ffffff"); lit([b, c, top], "#ffffff"); lit([c, d, top], "#ffffff");
@@ -379,12 +397,17 @@ const viz = (() => {
   ].sort((a, b) => (b.x + b.z) - (a.x + a.z));
 
   function drawBack() {
-    box(0, W + T, -SLAB, 0, 0, D + T, "#6f6a66", { cell: 0.9 });
+    box(LAWN_X, NX, -SLAB, 0, D + T, D + T + LAWN_D, "#4f9a4c", { boost: 0.2 });
+    for (const [x, dz, dark] of [[-0.5, 0.14, 1], [-0.42, 0.62, 0], [-0.12, 0.2, 0], [-0.5, 0.8, 1], [0.08, 0.5, 1], [0.3, 0.8, 0], [-0.05, 0.74, 1], [0.5, 0.72, 0], [-0.3, 0.36, 1], [0.22, 0.34, 0]]) {
+      const q = P(x, 0, D + T + dz), u = sc * 0.05;
+      ctx.fillStyle = shade(dark ? "#3c8240" : "#78c46c", [x, 0, D + T + dz], UP, 0.2);
+      ctx.beginPath(); ctx.moveTo(q[0] - u, q[1]); ctx.lineTo(q[0] - u * 0.3, q[1] - u * 1.6); ctx.lineTo(q[0], q[1]); ctx.lineTo(q[0] + u * 0.5, q[1] - u * 1.9); ctx.lineTo(q[0] + u, q[1]); ctx.closePath(); ctx.fill();
+    }
+    box(0, W + T, -SLAB, 0, 0, D + T, "#6f6a66");
     for (let z0 = 0, k = 0; z0 < D - 0.001; z0 += 0.21, k++) {
       const z1 = Math.min(D, z0 + 0.21), hex = k % 2 ? "#a49c92" : "#978f85";
       const strip = (za, zb, xe) => {
-        const nx = Math.ceil(xe / 0.37);
-        for (let i = 0; i < nx; i++) { const xa = xe * i / nx, xb = xe * (i + 1) / nx; lit([[xa, 0.001, za], [xb, 0.001, za], [xb, 0.001, zb]], hex); lit([[xa, 0.001, za], [xb, 0.001, zb], [xa, 0.001, zb]], hex); }
+        lit([[0, 0.001, za], [xe, 0.001, za], [xe, 0.001, zb], [0, 0.001, zb]], hex);
       };
       if (z1 <= DM) strip(z0, z1, W); else if (z0 >= DM) strip(z0, z1, NX); else { strip(z0, DM, W); strip(DM, z1, NX); }
     }
@@ -396,7 +419,7 @@ const viz = (() => {
 
     const cz = DM - 0.002;
     for (const [a, b] of [[1.85, 2.585], [2.595, W]]) {
-      face([a, 0.04, cz], [b, 0.04, cz], [b, 2.0, cz], [a, 2.0, cz], "#cfe6f2", 2, 4, 0.05);
+      lit([[a, 0.04, cz], [b, 0.04, cz], [b, 2.0, cz], [a, 2.0, cz]], "#cfe6f2", 0.05);
       lit([[a, 0.04, cz], [a + 0.25, 0.04, cz], [a, 0.5, cz]], "#f3fafd", 0.1);
     }
     const px = W - 0.002, py0 = 1.14, py1 = 2.05;
@@ -404,7 +427,8 @@ const viz = (() => {
       const rect = (m, hex) => lit([[px, py0 + m, pz + 0.305 - m], [px, py0 + m, pz - 0.305 + m], [px, py1 - m, pz - 0.305 + m], [px, py1 - m, pz + 0.305 - m]], hex);
       rect(0, "#d9b98a"); rect(0.03, "#f7f5f0");
       const m = 0.1, zl = pz + 0.305 - m, zr = pz - 0.305 + m, yb = py0 + m, yt = py1 - m;
-      lit([[px, yt, zl], [px, yt, zr], [px, yb, zl]], upper); lit([[px, yt, zr], [px, yb, zr], [px, yb, zl]], lower);
+      if (upper === lower) lit([[px, yb, zl], [px, yb, zr], [px, yt, zr], [px, yt, zl]], upper);
+      else { lit([[px, yt, zl], [px, yt, zr], [px, yb, zl]], upper); lit([[px, yt, zr], [px, yb, zr], [px, yb, zl]], lower); }
     });
   }
   function drawFront() {
@@ -425,7 +449,6 @@ const viz = (() => {
       ctx.fillStyle = dark ? "#3c8240" : "#78c46c";
       ctx.beginPath(); ctx.moveTo(q[0] - u, q[1]); ctx.lineTo(q[0] - u * 0.3, q[1] - u * 1.6); ctx.lineTo(q[0], q[1]); ctx.lineTo(q[0] + u * 0.5, q[1] - u * 1.9); ctx.lineTo(q[0] + u, q[1]); ctx.closePath(); ctx.fill();
     }
-    squirrel(P(WX0 + 0.27 * (WX1 - WX0), WY0 + 0.12 * (WY1 - WY0), z), sc * 0.34, now);
     poly(hole, "rgba(10,14,34,0.2)", null);
     ctx.restore();
     const pane = (a, b, zz) => {
@@ -454,7 +477,7 @@ const viz = (() => {
     dpr = Math.min(3, window.devicePixelRatio || 1); w = r.width; h = r.height;
     cv.width = Math.max(1, Math.round(w * dpr)); cv.height = Math.max(1, Math.round(h * dpr));
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (const [x, z] of [[0, 0], [W + T, 0], [W + T, D + T], [0, D + T]]) for (const y of [-SLAB, H]) {
+    for (const [x, z, top] of [[0, 0, H], [W + T, 0, H], [W + T, D + T, H], [0, D + T, H], [LAWN_X, D + T, 0.35], [LAWN_X, D + T + LAWN_D, 0.35]]) for (const y of [-SLAB, top]) {
       const p = raw(x, y, z); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]);
     }
     sc = Math.min(w * 0.96 / (x1 - x0), h * 0.96 / (y1 - y0));
@@ -468,6 +491,7 @@ const viz = (() => {
     spin += cur.speed * dt;
     ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
     if (back && w > 0 && h > 0) ctx.drawImage(back, 0, 0, w, h);
+    squirrel(P(-0.27, 0, D + T + 0.44), sc * 0.3, now);
     drawWindow(now);
     if (front && w > 0 && h > 0) ctx.drawImage(front, 0, 0, w, h);
 
