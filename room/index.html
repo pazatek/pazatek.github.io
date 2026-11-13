@@ -315,24 +315,52 @@ const viz = (() => {
   }
 
   const WHITE = "#f4f4f8", BLUE = "#4f86e8", INK = "#17171a", WALL = "#dcdad6", WOOD = "#dba968", SILVER = "#d5dae1", UP = [0, 1, 0], LEFT = [-1, 0, 0];
-  const LAWN = [[0, 0], [0.02, 0.5], [0.08, 0.9], [0.36, 1.36], [0.62, 1.66], [0.84, 2.12], [1.08, 2.42], [1.5, 2.6], [2.0, 2.52], [2.3, 2.3], [3.0, 2.2], [3.0, 0]];
-  const TUFTS = [[0.06, 0.6, 1], [0.14, 0.88, 0], [0.5, 0.2, 1], [0.58, 0.66, 0], [0.66, 0.36, 1], [0.74, 0.84, 1], [0.82, 0.14, 0], [0.9, 0.52, 1], [0.95, 0.9, 0], [0.44, 0.92, 1], [0.34, 0.74, 0]];
-  function squirrel(p, u, now) {
-    const shape = (pts, fill) => {
-      ctx.beginPath();
-      pts.forEach((q, i) => { const X = p[0] + q[0] * u, Y = p[1] - q[1] * u; if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
-      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
-    };
-    const a = still ? 0 : 0.1 * Math.sin(now / 420), ca = Math.cos(a), sa = Math.sin(a), bx = -0.16, by = 0.14;
-    const wag = pts => pts.map(q => [bx + (q[0] - bx) * ca - (q[1] - by) * sa, by + (q[0] - bx) * sa + (q[1] - by) * ca]);
-    shape(wag([[-0.14, 0.1], [-0.46, 0.22], [-0.64, 0.58], [-0.52, 0.98], [-0.24, 1.02], [-0.1, 0.8], [-0.3, 0.72], [-0.34, 0.46], [-0.1, 0.32]]), "#8f4e22");
-    shape(wag([[-0.46, 0.22], [-0.64, 0.58], [-0.52, 0.98], [-0.42, 0.6]]), "#a76d39");
-    shape([[-0.22, 0], [0.24, 0], [0.3, 0.3], [0.2, 0.56], [0, 0.62], [-0.2, 0.4]], "#77401a");
-    shape([[0.1, 0.04], [0.24, 0], [0.3, 0.3], [0.2, 0.52], [0.1, 0.3]], "#b9a181");
-    shape([[0.04, 0.56], [0.3, 0.52], [0.46, 0.66], [0.36, 0.84], [0.14, 0.88], [0.02, 0.72]], "#86491d");
-    shape([[0.1, 0.84], [0.15, 1.04], [0.26, 0.86]], "#77401a");
-    shape([[0.24, 0.36], [0.4, 0.42], [0.36, 0.5], [0.22, 0.46]], "#86491d");
-    ctx.fillStyle = "#1a1208"; ctx.beginPath(); ctx.arc(p[0] + 0.3 * u, p[1] - 0.72 * u, Math.max(0.8, 0.04 * u), 0, 6.3); ctx.fill();
+  const LAWN = [[0, 0], [0.02, 0.5], [0.08, 0.9], [0.36, 1.36], [0.62, 1.66], [0.84, 2.12], [1.08, 2.42], [1.5, 2.6], [2.0, 2.52], [2.3, 2.3], [3.7, 2.3], [3.7, 0]];
+  const SQ = [1.05, 0, D + T + 1.74], GREENS = ["#3c8240", "#5fae58", "#78c46c"];
+  const rnd = (i, j) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
+  const inLawn = (x, dz) => {
+    let inside = false;
+    for (let i = 0, j = LAWN.length - 1; i < LAWN.length; j = i++) { const a = LAWN[i], b = LAWN[j]; if ((a[1] > dz) !== (b[1] > dz) && x < (b[0] - a[0]) * (dz - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside; }
+    return inside;
+  };
+  const TUFT = [];
+  for (let i = 0; i < 18; i++) for (let j = 0; j < 13; j++) {
+    const x = 0.08 + i * 0.21 + (rnd(i, j) - 0.5) * 0.14, dz = 0.1 + j * 0.21 + (rnd(j, i + 7) - 0.5) * 0.14;
+    if (inLawn(x, dz) && inLawn(x - 0.06, dz) && inLawn(x - 0.04, dz + 0.06) && Math.hypot(x - SQ[0], D + T + dz - SQ[2]) > 0.13) TUFT.push([x, D + T + dz, rnd(i + 3, j + 5)]);
+  }
+  TUFT.sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
+  // Blades drawn after the squirrel each frame; ones close to the wall's edge stay baked so the wall still covers them.
+  const inFront = t => t[0] + t[1] < SQ[0] + SQ[2] && Math.hypot(t[0] - SQ[0], t[1] - SQ[2]) < 0.5 && t[0] - (t[1] - D - T) < -0.12;
+  const NEAR = TUFT.filter(inFront), FAR = TUFT.filter(t => !inFront(t));
+  function grass(list) {
+    for (const t of list) for (let k = 0; k < 3; k++) {
+      const th = t[2] * 6.28 + k * 2.1, hgt = 0.09 + 0.07 * rnd(t[2] * 50 + k, k), w = 0.024, bx = t[0] + 0.025 * Math.cos(th * 1.7), bz = t[1] + 0.025 * Math.sin(th * 1.7);
+      const tip = [bx + 0.035 * Math.cos(th + 1.2), hgt, bz + 0.035 * Math.sin(th + 1.2)], f = shade(GREENS[(k + Math.floor(t[2] * 3)) % 3], tip, UP, 0.2);
+      poly([[bx - w * Math.cos(th), 0, bz - w * Math.sin(th)], [bx + w * Math.cos(th), 0, bz + w * Math.sin(th)], tip], f, f, 0.5);
+    }
+  }
+  function squirrel(now) {
+    const k = 1.15, sway = still ? 0 : Math.sin(now / 420), o = { boost: 0.24 };
+    const at = (x, y, z) => [SQ[0] + x * k, y * k, SQ[2] + z * k];
+    const b = (x0, x1, y0, y1, z0, z1, hex, dx) => box(SQ[0] + (x0 + (dx || 0)) * k, SQ[0] + (x1 + (dx || 0)) * k, y0 * k, y1 * k, SQ[2] + z0 * k, SQ[2] + z1 * k, hex, o);
+    const FUR = "#a85c24", DARK = "#8a4a1c", TAIL = "#c0702f", CREAM = "#ecd2aa", INKY = "#1a1208";
+    b(-0.04, 0.04, 0.02, 0.13, 0.07, 0.15, TAIL);
+    b(-0.05, 0.05, 0.1, 0.28, 0.12, 0.22, TAIL, 0.012 * sway);
+    b(-0.045, 0.045, 0.26, 0.37, 0.07, 0.2, "#d48a46", 0.026 * sway);
+    b(-0.07, 0.07, 0.02, 0.2, -0.06, 0.08, FUR);
+    lit([at(-0.04, 0.04, -0.0605), at(0.04, 0.04, -0.0605), at(0.04, 0.17, -0.0605), at(-0.04, 0.17, -0.0605)], CREAM, 0.24);
+    b(0.03, 0.075, 0, 0.03, -0.12, -0.06, DARK);
+    b(-0.075, -0.03, 0, 0.03, -0.12, -0.06, DARK);
+    b(0.035, 0.06, 0.11, 0.14, -0.1, -0.06, DARK);
+    b(-0.02, 0.02, 0.1, 0.145, -0.115, -0.075, "#b98f4e");
+    b(-0.06, -0.035, 0.11, 0.14, -0.1, -0.06, DARK);
+    b(-0.06, 0.06, 0.2, 0.31, -0.12, 0.02, FUR);
+    b(-0.03, 0.03, 0.21, 0.255, -0.15, -0.12, CREAM);
+    poly([at(-0.012, 0.236, -0.1505), at(0.012, 0.236, -0.1505), at(0.012, 0.255, -0.1505), at(-0.012, 0.255, -0.1505)], INKY, null);
+    b(0.03, 0.058, 0.31, 0.355, -0.05, -0.02, DARK);
+    b(-0.058, -0.03, 0.31, 0.355, -0.05, -0.02, DARK);
+    poly([at(-0.0605, 0.258, -0.09), at(-0.0605, 0.258, -0.062), at(-0.0605, 0.284, -0.062), at(-0.0605, 0.284, -0.09)], INKY, null);
+    for (const x of [-0.046, 0.024]) poly([at(x, 0.262, -0.1205), at(x + 0.022, 0.262, -0.1205), at(x + 0.022, 0.284, -0.1205), at(x, 0.284, -0.1205)], INKY, null);
   }
 
   function armLamp() {
@@ -400,12 +428,7 @@ const viz = (() => {
     const lawn = LAWN.map(([x, dz]) => [x, 0, D + T + dz]), turf = shade("#4f9a4c", [0.8, 0, D + T + 1.6], UP, 0.2);
     for (const [p, q] of [[lawn[0], lawn[1]], [lawn[1], lawn[2]], [lawn[2], lawn[3]]]) lit([[p[0], -SLAB, p[2]], [q[0], -SLAB, q[2]], q, p], "#3f7a3d", 0.2);
     poly(lawn, turf, turf, 0.7);
-    for (const [x, dz, dark] of [[0.15, 0.36, 1], [0.22, 0.62, 0], [0.14, 0.8, 1], [0.34, 0.9, 0], [0.26, 1.08, 1], [0.55, 1.14, 0], [0.5, 1.4, 1], [0.8, 1.34, 0], [0.72, 1.62, 0], [1.0, 1.5, 1],
-      [0.9, 1.95, 1], [1.35, 1.98, 0], [1.15, 2.2, 0], [1.55, 2.22, 1], [1.32, 2.4, 1], [1.8, 2.32, 0], [1.72, 2.48, 0], [2.02, 2.38, 1], [1.5, 1.8, 0]]) {
-      const q = P(x, 0, D + T + dz), u = sc * 0.05;
-      ctx.fillStyle = shade(dark ? "#3c8240" : "#78c46c", [x, 0, D + T + dz], UP, 0.2);
-      ctx.beginPath(); ctx.moveTo(q[0] - u, q[1]); ctx.lineTo(q[0] - u * 0.3, q[1] - u * 1.6); ctx.lineTo(q[0], q[1]); ctx.lineTo(q[0] + u * 0.5, q[1] - u * 1.9); ctx.lineTo(q[0] + u, q[1]); ctx.closePath(); ctx.fill();
-    }
+    grass(FAR);
     box(0, W + T, -SLAB, 0, 0, D + T, "#6f6a66");
     for (let z0 = 0, k = 0; z0 < D - 0.001; z0 += 0.21, k++) {
       const z1 = Math.min(D, z0 + 0.21), hex = k % 2 ? "#a49c92" : "#978f85";
@@ -419,6 +442,16 @@ const viz = (() => {
     box(0, NX, 0, H, D, D + T, WALL, { cell: 0.42 });
     box(NX, W + T, 0, H, DM, D + T, WALL, { cell: 0.42 });
     box(W, W + T, 0, H, 0, DM, WALL, { cell: 0.42 });
+
+    const wz = D - 0.002, hole = [[WX0, WY0, wz], [WX1, WY0, wz], [WX1, WY1, wz], [WX0, WY1, wz]], ground = (x, y) => [x + y, 0, wz + y];
+    ctx.save();
+    ctx.beginPath();
+    hole.forEach((p, i) => { const q = P(p[0], p[1], p[2]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+    ctx.closePath(); ctx.clip();
+    lit([ground(WX0, WY0), ground(WX1, WY0), ground(WX1, WY1), ground(WX0, WY1)], "#4f9a4c", 0.2);
+    grass(TUFT);
+    poly(hole, "rgba(10,14,34,0.16)", null);
+    ctx.restore();
 
     const cz = DM - 0.002;
     for (const [a, b] of [[1.85, 2.585], [2.595, W]]) {
@@ -442,18 +475,6 @@ const viz = (() => {
   function drawWindow(now) {
     const wm = (WX0 + WX1) / 2, g = cur.gap * FULL_M, z = D - 0.002, zs = D - 0.03;
     const hole = [[WX0, WY0, z], [WX1, WY0, z], [WX1, WY1, z], [WX0, WY1, z]];
-    ctx.save();
-    ctx.beginPath();
-    hole.forEach((p, i) => { const q = P(p[0], p[1], p[2]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-    ctx.closePath(); ctx.clip();
-    poly([hole[0], hole[1], hole[2]], "#4b9949", "#4b9949", 0.7); poly([hole[0], hole[2], hole[3]], "#5aab55", "#5aab55", 0.7);
-    for (const [a, b, dark] of TUFTS) {
-      const q = P(WX0 + a * (WX1 - WX0), WY0 + b * (WY1 - WY0), z), u = sc * 0.05;
-      ctx.fillStyle = dark ? "#3c8240" : "#78c46c";
-      ctx.beginPath(); ctx.moveTo(q[0] - u, q[1]); ctx.lineTo(q[0] - u * 0.3, q[1] - u * 1.6); ctx.lineTo(q[0], q[1]); ctx.lineTo(q[0] + u * 0.5, q[1] - u * 1.9); ctx.lineTo(q[0] + u, q[1]); ctx.closePath(); ctx.fill();
-    }
-    poly(hole, "rgba(10,14,34,0.2)", null);
-    ctx.restore();
     const pane = (a, b, zz) => {
       poly([[a, WY0, zz], [b, WY0, zz], [b, WY1, zz]], "rgba(150,200,245,0.18)", null);
       poly([[a, WY0, zz], [b, WY1, zz], [a, WY1, zz]], "rgba(200,230,255,0.28)", null);
@@ -494,7 +515,8 @@ const viz = (() => {
     spin += cur.speed * dt;
     ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
     if (back && w > 0 && h > 0) ctx.drawImage(back, 0, 0, w, h);
-    squirrel(P(1.05, 0, D + T + 1.74), sc * 0.3, now);
+    squirrel(now);
+    grass(NEAR);
     drawWindow(now);
     if (front && w > 0 && h > 0) ctx.drawImage(front, 0, 0, w, h);
 
