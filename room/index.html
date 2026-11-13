@@ -316,7 +316,7 @@ const viz = (() => {
 
   const WHITE = "#f4f4f8", BLUE = "#4f86e8", INK = "#17171a", WALL = "#dcdad6", WOOD = "#dba968", SILVER = "#d5dae1", UP = [0, 1, 0], LEFT = [-1, 0, 0];
   const LAWN = [[0, 0], [0.02, 0.5], [0.08, 0.9], [0.36, 1.36], [0.62, 1.66], [0.84, 2.12], [1.08, 2.42], [1.5, 2.6], [2.0, 2.52], [2.3, 2.3], [3.7, 2.3], [3.7, 0]];
-  const SQ = [1.05, 0, D + T + 1.74], GREENS = ["#3c8240", "#5fae58", "#78c46c"];
+  const SQ = [1.27, 0, D + T + 1.7], GREENS = ["#3c8240", "#5fae58", "#78c46c"];
   const rnd = (i, j) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
   const inLawn = (x, dz) => {
     let inside = false;
@@ -324,20 +324,27 @@ const viz = (() => {
     return inside;
   };
   const TUFT = [];
-  for (let i = 0; i < 18; i++) for (let j = 0; j < 13; j++) {
-    const x = 0.08 + i * 0.21 + (rnd(i, j) - 0.5) * 0.14, dz = 0.1 + j * 0.21 + (rnd(j, i + 7) - 0.5) * 0.14;
+  for (let i = 0; i < 24; i++) for (let j = 0; j < 17; j++) {
+    const x = 0.08 + i * 0.16 + (rnd(i, j) - 0.5) * 0.11, dz = 0.1 + j * 0.16 + (rnd(j, i + 7) - 0.5) * 0.11;
     if (inLawn(x, dz) && inLawn(x - 0.06, dz) && inLawn(x - 0.04, dz + 0.06) && Math.hypot(x - SQ[0], D + T + dz - SQ[2]) > 0.13) TUFT.push([x, D + T + dz, rnd(i + 3, j + 5)]);
   }
   TUFT.sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
   // Blades drawn after the squirrel each frame; ones close to the wall's edge stay baked so the wall still covers them.
   const inFront = t => t[0] + t[1] < SQ[0] + SQ[2] && Math.hypot(t[0] - SQ[0], t[1] - SQ[2]) < 0.5 && t[0] - (t[1] - D - T) < -0.24;
   const NEAR = TUFT.filter(inFront), FAR = TUFT.filter(t => !inFront(t));
-  function grass(list) {
-    for (const t of list) for (let k = 0; k < 3; k++) {
-      const th = t[2] * 6.28 + k * 2.1, hgt = 0.09 + 0.07 * rnd(t[2] * 50 + k, k), w = 0.024, bx = t[0] + 0.025 * Math.cos(th * 1.7), bz = t[1] + 0.025 * Math.sin(th * 1.7);
-      const tip = [bx + 0.035 * Math.cos(th + 1.2), hgt, bz + 0.035 * Math.sin(th + 1.2)], f = shade(GREENS[(k + Math.floor(t[2] * 3)) % 3], tip, UP, 0.2);
-      poly([[bx - w * Math.cos(th), 0, bz - w * Math.sin(th)], [bx + w * Math.cos(th), 0, bz + w * Math.sin(th)], tip], f, f, 0.5);
+  // t[3] is how solid a tuft is: it thins out toward the lawn's outer edge (set when the lawn is drawn).
+  function grass(list, faded) {
+    for (const t of list) {
+      const alpha = faded ? t[3] : 1;
+      if (alpha < 0.04) continue;
+      ctx.globalAlpha = alpha;
+      for (let k = 0; k < 3; k++) {
+        const th = t[2] * 6.28 + k * 2.1, hgt = 0.045 + 0.04 * rnd(t[2] * 50 + k, k), w = 0.014, bx = t[0] + 0.02 * Math.cos(th * 1.7), bz = t[1] + 0.02 * Math.sin(th * 1.7);
+        const tip = [bx + 0.02 * Math.cos(th + 1.2), hgt, bz + 0.02 * Math.sin(th + 1.2)], f = shade(GREENS[(k + Math.floor(t[2] * 3)) % 3], tip, UP, 0.2);
+        poly([[bx - w * Math.cos(th), 0, bz - w * Math.sin(th)], [bx + w * Math.cos(th), 0, bz + w * Math.sin(th)], tip], f, f, 0.4);
+      }
     }
+    ctx.globalAlpha = 1;
   }
   function squirrel(now) {
     const k = 1.15, sway = still ? 0 : Math.sin(now / 420), o = { boost: 0.24 };
@@ -425,10 +432,33 @@ const viz = (() => {
   ].sort((a, b) => (b.x + b.z) - (a.x + a.z));
 
   function drawBack() {
-    const lawn = LAWN.map(([x, dz]) => [x, 0, D + T + dz]), turf = shade("#4f9a4c", [0.8, 0, D + T + 1.6], UP, 0.2);
-    for (const [p, q] of [[lawn[0], lawn[1]], [lawn[1], lawn[2]], [lawn[2], lawn[3]]]) lit([[p[0], -SLAB, p[2]], [q[0], -SLAB, q[2]], q, p], "#3f7a3d", 0.2);
-    poly(lawn, turf, turf, 0.7);
-    grass(FAR);
+    // The lawn has no hard outline: stacked copies of its outer edge, each a little further in, build up to solid turf.
+    const turf = shade("#4f9a4c", [0.8, 0, D + T + 1.6], UP, 0.2), edge = LAWN.slice(0, 10).map(([x, dz]) => P(x, 0, D + T + dz)), inside = P(1.0, 0, D + T + 1.5), band = 0.34 * sc, steps = 12;
+    const inward = edge.map((q, i) => {
+      const a = edge[Math.max(0, i - 1)], b = edge[Math.min(edge.length - 1, i + 1)], l = Math.hypot(b[1] - a[1], a[0] - b[0]) || 1, n = [(b[1] - a[1]) / l, (a[0] - b[0]) / l];
+      return n[0] * (inside[0] - q[0]) + n[1] * (inside[1] - q[1]) < 0 ? [-n[0], -n[1]] : n;
+    });
+    const hidden = [P(3.7, 0, D + T + 2.3), P(3.7, 0, D + T)];
+    ctx.fillStyle = turf;
+    for (let k = 1, before = 0; k <= steps; k++) {
+      const u = k / steps, solid = u * u * (3 - 2 * u), off = (u - 0.12) * band;
+      ctx.globalAlpha = k === steps ? 1 : 1 - (1 - solid) / (1 - before);
+      before = solid;
+      ctx.beginPath();
+      edge.forEach((q, i) => { const X = q[0] + inward[i][0] * off, Y = q[1] + inward[i][1] * off; if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+      hidden.forEach(q => ctx.lineTo(q[0], q[1]));
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const reach = (p, a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(p[0] - a[0] - vx * t, p[1] - a[1] - vy * t); };
+    for (const t of TUFT) {
+      const p = P(t[0], 0, t[1]);
+      let d = Infinity;
+      for (let i = 1; i < edge.length; i++) d = Math.min(d, reach(p, edge[i - 1], edge[i]));
+      const u = Math.max(0, Math.min(1, (d - 0.05 * sc) / (0.36 * sc)));
+      t[3] = u * u * (3 - 2 * u);
+    }
+    grass(FAR, true);
     box(0, W + T, -SLAB, 0, 0, D + T, "#6f6a66");
     for (let z0 = 0, k = 0; z0 < D - 0.001; z0 += 0.21, k++) {
       const z1 = Math.min(D, z0 + 0.21), hex = k % 2 ? "#a49c92" : "#978f85";
@@ -449,7 +479,7 @@ const viz = (() => {
     hole.forEach((p, i) => { const q = P(p[0], p[1], p[2]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
     ctx.closePath(); ctx.clip();
     lit([ground(WX0, WY0), ground(WX1, WY0), ground(WX1, WY1), ground(WX0, WY1)], "#4f9a4c", 0.2);
-    grass(TUFT);
+    grass(TUFT, false);
     poly(hole, "rgba(10,14,34,0.16)", null);
     ctx.restore();
 
@@ -516,7 +546,7 @@ const viz = (() => {
     ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
     if (back && w > 0 && h > 0) ctx.drawImage(back, 0, 0, w, h);
     squirrel(now);
-    grass(NEAR);
+    grass(NEAR, true);
     drawWindow(now);
     if (front && w > 0 && h > 0) ctx.drawImage(front, 0, 0, w, h);
 
