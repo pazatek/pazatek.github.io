@@ -66,7 +66,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .tr[data-d="down"] { transform: rotate(90deg) }
 .list .row + .row { border-top: 0.5px solid var(--sep) }
 .pick { flex: none; display: flex; gap: 2px; background: var(--bg); border-radius: 9px; padding: 2px }
-.pick button { border: 0; background: none; color: inherit; border-radius: 7px; padding: 5px 12px; font-size: 13px; font-weight: 500 }
+.pick button { border: 0; background: none; color: inherit; border-radius: 7px; padding: 5px 10px; font-size: 13px; font-weight: 500 }
 .pick button[aria-pressed="true"] { background: var(--raised); font-weight: 600 }
 .foot:has(> [hidden]:only-child) { display: none }
 </style>
@@ -94,7 +94,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     <div class="tile"><span class="k">CO2 ppm</span><span class="vrow"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span></div>
     <div class="tile"><span class="k">Outside</span><span class="vrow"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span></div>
   </div>
-  <div class="list"><div class="row"><span>Blind</span><div class="pick" id="blind"><button type="button" data-p="0" aria-pressed="false">Up</button><button type="button" data-p="50" aria-pressed="false">Half</button><button type="button" data-p="100" aria-pressed="false">Down</button></div></div>
+  <div class="list"><div class="row"><span>Blind</span><div class="pick" id="blind"><button type="button" data-p="0" aria-pressed="false">Up</button><button type="button" data-p="50" aria-pressed="false">Half</button><button type="button" data-p="100" aria-pressed="false">Down</button><button type="button" data-p="auto" aria-pressed="false">Auto</button></div></div>
   <div class="row"><span>Alerts</span><span class="note" id="alerts-note"></span><button class="switch" id="alerts" type="button" role="switch" aria-checked="false" aria-label="Alerts"></button></div></div>
   <p class="foot" id="why" hidden></p>
   <form class="foot key" id="keyform" hidden><input id="key" type="password" autocomplete="off" aria-label="App key" placeholder="App key"><button class="link" type="submit">Save</button></form>
@@ -123,6 +123,15 @@ function advise(s) {
   if (s.mode === "away") return { door: "open", window: 0, fan: "off", conf: "Certain", phase: null, why: "Nobody is in the room, so keep the heat in." };
   if (s.outF == null) return { error: "No outdoor reading yet. It refreshes every 10 minutes." };
   const out = s.outF, n = 1;
+  if (s.blind) {
+    // After dark the blind does the fine control, so the window stays at a quarter. It only changes when the blind has run out of travel.
+    const sleep = s.mode === "sleep", t = sleep ? s.bedF : (s.deskF != null ? s.deskF : s.bedF), aim = sleep ? K.TARGET : K.AW_AIM;
+    let phase = s.phase === "wide" || s.phase === "narrow" ? s.phase : null;
+    if (s.blind.percent <= 3 && t > aim + 1) phase = "wide"; else if (phase === "wide" && s.blind.percent >= 60) phase = null;
+    if (s.blind.percent >= 97 && t < aim - 1) phase = "narrow"; else if (phase === "narrow" && s.blind.percent <= 40) phase = null;
+    return { door: "closed", window: phase === "wide" ? 13 : phase === "narrow" ? 3.25 : 6.5, fan: "off", conf: "Measured", phase, aim,
+      why: phase === "wide" ? "The blind is fully up and it is still " + f1(t) + "°F, so the window needs to open more." : phase === "narrow" ? "The blind is fully down and it is still " + f1(t) + "°F, so the window needs to close some." : "The blind is holding " + f1(aim) + "°F." };
+  }
   if (s.mode === "sleep") {
     const outEff = s.lowF == null ? out : (out + s.lowF) / 2, H = holdWidth(K.TARGET, outEff, s.watts, n), wc = co2Width(n, s.bedF, out);
     if (H == null) return { door: "closed", window: K.FULL, fan: "low", conf: "Estimate", phase: null, why: "Too mild outside (" + f1(outEff) + "°F) for the window alone to hold 66.5°F." };
@@ -177,11 +186,12 @@ function inputs() {
     outF: o && o.temp_c != null ? cToF(Number(o.temp_c)) : null, lowF: o && o.low_next10h_c != null ? cToF(Number(o.low_next10h_c)) : null,
     watts: pc && pc.n > 0 && pc.watts != null ? Number(pc.watts) : K.PC_IDLE,
     slope: avgNow && prev && bedF != null ? bedF - cToF(Number(prev.temp_c)) : null,
+    blind: snap.blind && snap.blind.steering && snap.blind.percent != null ? { percent: Number(snap.blind.percent) } : null,
     ageMin: bed ? (now - Date.parse(bed.ts)) / 60000 + (performance.now() - snapAt) / 60000 : null };
 }
 function onBlank(askKey) { $("keyform").hidden = !askKey; }
 function onGood() { $("keyform").hidden = true; $("why").hidden = true; }
-function onBlind(p) { for (const b of document.querySelectorAll("#blind button")) b.setAttribute("aria-pressed", String(p != null && Math.abs(p - Number(b.dataset.p)) <= 12)); }
+function onBlind(p, steering) { for (const b of document.querySelectorAll("#blind button")) b.setAttribute("aria-pressed", String(b.dataset.p === "auto" ? steering : !steering && p != null && Math.abs(p - Number(b.dataset.p)) <= 12)); }
 const STEPS = [[0, "Closed"], [3.25, "1/8"], [6.5, "1/4"], [13, "1/2"], [26, "Full"]];
 function snapW(inches) {
   if (inches < 1.6) return STEPS[0];
@@ -212,9 +222,9 @@ function render() {
   show("window", step[1]);
   show("fan", a.fan.charAt(0).toUpperCase() + a.fan.slice(1), a.fan === "off");
   if (performance.now() >= blindHold) blindPct = snap.blind && snap.blind.percent != null ? Number(snap.blind.percent) : null;
-  onBlind(blindPct);
+  onBlind(blindPct, !!(snap.blind && snap.blind.steering) && performance.now() >= blindHold);
   viz.set(step[0], a.door === "open", a.fan, (blindPct || 0) / 100);
-  $("tag").textContent = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
+  $("tag").textContent = st.mode === "away" ? "Nobody home" : a.aim ? (a.phase === "wide" ? "Blind maxed, still warm" : a.phase === "narrow" ? "Blind maxed, still cool" : "Blind holding " + a.aim + "°") : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
     : (a.fan === "low" ? "Desk above 73°" : a.phase === "cold" ? "Desk below 70°" : "Holding CO2");
   const lo = st.mode === "sleep" ? K.LO : K.AW_LO, hi = st.mode === "sleep" ? K.HI : K.AW_HI;
@@ -761,8 +771,9 @@ const BLIND = ENDPOINT.replace(/room$/, "blind");
 for (const b of document.querySelectorAll("#blind button")) b.addEventListener("click", () => {
   if (!key) return;
   // The motor takes up to half a minute to travel; until then the stored position is the old one, so show the target.
-  blindPct = Number(b.dataset.p); blindHold = performance.now() + 40000; render();
-  fetch(BLIND, { method: "POST", headers: { "x-room-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ percent: blindPct }) })
+  const auto = b.dataset.p === "auto";
+  if (!auto) { blindPct = Number(b.dataset.p); blindHold = performance.now() + 40000; render(); }
+  fetch(BLIND, { method: "POST", headers: { "x-room-key": key, "Content-Type": "application/json" }, body: JSON.stringify(auto ? { auto: true } : { percent: blindPct }) })
     .then(r => { if (!r.ok) throw new Error("http " + r.status); })
     .catch(() => { blindHold = 0; stale("Couldn't reach the blind."); });
 });
