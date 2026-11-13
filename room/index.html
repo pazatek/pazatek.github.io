@@ -330,7 +330,7 @@ const viz = (() => {
   }
   TUFT.sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
   // Blades drawn after the squirrel each frame; ones close to the wall's edge stay baked so the wall still covers them.
-  const inFront = t => t[0] + t[1] < SQ[0] + SQ[2] && Math.hypot(t[0] - SQ[0], t[1] - SQ[2]) < 0.5 && t[0] - (t[1] - D - T) < -0.12;
+  const inFront = t => t[0] + t[1] < SQ[0] + SQ[2] && Math.hypot(t[0] - SQ[0], t[1] - SQ[2]) < 0.5 && t[0] - (t[1] - D - T) < -0.24;
   const NEAR = TUFT.filter(inFront), FAR = TUFT.filter(t => !inFront(t));
   function grass(list) {
     for (const t of list) for (let k = 0; k < 3; k++) {
