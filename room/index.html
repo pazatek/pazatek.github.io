@@ -259,8 +259,8 @@ const viz = (() => {
   const along = (p, d, t) => [p[0] + d[0] * t, p[1] + d[1] * t, p[2] + d[2] * t];
 
   // The only light in the room: the silver arm lamp aimed at the window, what bounces back off that wall, and the small tripod lamp.
-  const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.3, 0.9, 3.12], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.2);
-  const MINI = [1.56, 0.95, 0.22];
+  const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.3, 0.68, 3.1], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.15);
+  const MINI = [1.56, 0.95, 0.27];
   const LIGHTS = [
     { lamp: "pixar", p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
     { lamp: "pixar", p: BULB, power: 0.34, r: 0.8 },
@@ -411,23 +411,24 @@ const viz = (() => {
 
   function armLamp() {
     if (lampOn.pixar) {
-      const beam = cone(along(JOINT, AIMDIR, 0.02), 0.05, along(JOINT, AIMDIR, 0.24), 0.14, () => {})[1].map(p => P(p[0], p[1], p[2]));
+      const beam = cone(along(JOINT, AIMDIR, 0.02), 0.035, along(JOINT, AIMDIR, 0.18), 0.1, () => {})[1].map(p => P(p[0], p[1], p[2]));
       for (let i = 0; i < 14; i++) { const a = i / 14 * 2 * Math.PI; beam.push(P(AIM[0] + 0.6 * Math.cos(a), AIM[1] + 0.6 * Math.sin(a), D - 0.003)); }
       const from = P(BULB[0], BULB[1], BULB[2]), to = P(AIM[0], AIM[1], AIM[2]), g = ctx.createLinearGradient(from[0], from[1], to[0], to[1]);
       g.addColorStop(0, "rgba(255,226,170,0.26)"); g.addColorStop(1, "rgba(255,226,170,0.05)");
       ctx.fillStyle = g; ctx.beginPath(); hull(beam).forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill();
-      halo(P(BULB[0] + AIMDIR[0] * 0.06, BULB[1] + AIMDIR[1] * 0.06, BULB[2] + AIMDIR[2] * 0.06), 0.46 * sc, 0.5);
+      halo(P(BULB[0] + AIMDIR[0] * 0.05, BULB[1] + AIMDIR[1] * 0.05, BULB[2] + AIMDIR[2] * 0.05), 0.38 * sc, 0.5);
     }
 
-    const base = [0.24, 0.035, 3.06], elbow = [0.24, 0.52, 2.9], glow = lampOn.pixar ? 0.36 : 0.04;
-    box(0.13, 0.35, 0, 0.035, 2.95, 3.17, SILVER, { boost: glow });
+    const base = [0.24, 0.028, 3.06], elbow = [0.24, 0.38, 2.94], glow = lampOn.pixar ? 0.36 : 0.04;
+    const foot = cone([0.24, 0, 3.06], 0.095, base, 0.085, q => lit(q, "#c3c9d2", glow))[1];
+    poly(foot, shade(SILVER, base, UP, glow), null);
     for (const [a, b] of [[base, elbow], [elbow, JOINT]]) {
-      litLine(a, b, "#9aa1ab", VIEW, 3.6, glow);
+      litLine(a, b, "#9aa1ab", VIEW, 3, glow);
       const p = P(a[0], a[1], a[2]), q = P(b[0], b[1], b[2]);
       ctx.beginPath(); ctx.moveTo(p[0] - 0.9, p[1] - 0.5); ctx.lineTo(q[0] - 0.9, q[1] - 0.5); ctx.strokeStyle = shade("#f2f4f7", mix(a, b, 0.5), VIEW, glow + 0.2); ctx.lineWidth = 1.1; ctx.stroke();
     }
     for (const j of [elbow, JOINT]) { const p = P(j[0], j[1], j[2]); ctx.fillStyle = shade("#7d848e", j, VIEW, glow); ctx.beginPath(); ctx.arc(p[0], p[1], 2.6, 0, 6.3); ctx.fill(); }
-    const rings = cone(along(JOINT, AIMDIR, 0.02), 0.05, along(JOINT, AIMDIR, 0.24), 0.14, (q, i) => lit(q, i % 2 ? SILVER : "#c3c9d2", glow));
+    const rings = cone(along(JOINT, AIMDIR, 0.02), 0.035, along(JOINT, AIMDIR, 0.18), 0.1, (q, i) => lit(q, i % 2 ? SILVER : "#c3c9d2", glow));
     lit(rings[0], "#aab0ba", glow);
   }
   function miniLamp() {
@@ -450,10 +451,10 @@ const viz = (() => {
     box(1.08, 1.11, 1.18, 1.36, 1.98, 2.18, MESH);
   }
   function swords() {
-    box(0.98, 1.60, 0.95, 0.975, 0.30, 0.40, "#141416");
-    for (const x of [1.0, 1.55]) box(x, x + 0.03, 0.975, 1.27, 0.33, 0.37, "#141416");
+    box(0.98, 1.60, 0.95, 0.975, 0.03, 0.13, "#141416");
+    for (const x of [1.0, 1.55]) box(x, x + 0.03, 0.975, 1.27, 0.06, 0.10, "#141416");
     for (const y of [1.08, 1.21]) {
-      const at = u => [0.86 + 0.86 * u, y + 0.03 * Math.sin(Math.PI * u), 0.35];
+      const at = u => [0.86 + 0.86 * u, y + 0.03 * Math.sin(Math.PI * u), 0.08];
       for (let k = 0; k < 8; k++) litLine(at(k / 8), at((k + 1) / 8), k < 2 ? "#3a3a42" : "#1b1b20", VIEW, k < 2 ? 3 : 2.4, 0.15);
       const guard = P(...at(0.25)); ctx.fillStyle = shade("#c9a44a", at(0.25), VIEW, 0.2); ctx.beginPath(); ctx.arc(guard[0], guard[1], 2.2, 0, 6.3); ctx.fill();
     }
@@ -464,7 +465,7 @@ const viz = (() => {
       box(0.35, 1.35, 0.28, 0.72, D - 0.24, D, "#e3d6b8");
       lit([[0.45, 0.721, D - 0.19], [1.25, 0.721, D - 0.19], [1.25, 0.721, D - 0.07], [0.45, 0.721, D - 0.07]], "#a99c7e");
     } },
-    { x: 0.24, z: 3.06, foot: [0.13, 0.35, 2.95, 3.17], draw: armLamp },
+    { x: 0.24, z: 3.06, foot: [0.15, 0.33, 2.97, 3.15], draw: armLamp },
     { x: 0.26, z: 2.72, foot: [0.05, 0.47, 2.585, 2.855], draw() {
       box(0.05, 0.47, 0, 0.38, 2.585, 2.855, "#eeedea");
       lit([[0.09, 0.05, 2.584], [0.43, 0.05, 2.584], [0.43, 0.33, 2.584], [0.09, 0.33, 2.584]], "#3a404b");
@@ -491,9 +492,9 @@ const viz = (() => {
     { x: 1.28, z: 0.22, foot: [0.80, 1.77, 0, 0.435], draw() {
       box(0.80, 1.77, 0, 0.95, 0, 0.435, WOOD, { edge: INK, cell: 0.33 });
       seg([0.799, 0.475, 0], [0.799, 0.475, 0.435], INK, 1.5); seg([0.80, 0.475, -0.001], [1.77, 0.475, -0.001], INK, 1.5);
-      swords();
-      box(1.2, 1.34, 0.95, 1.04, 0.16, 0.2, WHITE);
+      box(1.2, 1.34, 0.95, 1.04, 0.2, 0.24, WHITE);
       miniLamp();
+      swords();
     } },
     { x: 0.86, z: 2.08, foot: [0.62, 1.1, 1.82, 2.34], draw: chair },
     { x: 2.55, z: 0.03, draw() { box(1.80, 3.30, 0.12, 1.1, 0, 0.065, "#9b9ba3"); } },
