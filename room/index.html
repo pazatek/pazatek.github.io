@@ -316,7 +316,7 @@ const viz = (() => {
 
   const WHITE = "#f4f4f8", BLUE = "#4f86e8", INK = "#17171a", WALL = "#dcdad6", WOOD = "#dba968", SILVER = "#d5dae1", UP = [0, 1, 0], LEFT = [-1, 0, 0];
   const LAWN = [[0, 0], [0, 2.4], [3.7, 2.4], [3.7, 0]];
-  const SQ = [1.27, 0, D + T + 1.7], GREENS = ["#3c8240", "#5fae58", "#78c46c"];
+  const SQ = [0.7, 0, D + T + 1.5], GREENS = ["#3c8240", "#5fae58", "#78c46c"];
   const rnd = (i, j) => { const v = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return v - Math.floor(v); };
   const inLawn = (x, dz) => {
     let inside = false;
