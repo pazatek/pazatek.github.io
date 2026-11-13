@@ -57,6 +57,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .key input { flex: 1; min-width: 0; background: var(--card); color: var(--ink); border: 0; border-radius: 10px; padding: 10px 12px; font: inherit }
 .link { background: none; border: 0; padding: 0 4px; font-weight: 600; font-size: 15px }
 @media (prefers-reduced-motion: reduce) { .switch::after { transition: none } }
+.row { display: flex; align-items: center; gap: 4px; min-width: 0 }
+.tr { flex: none; width: 11px; height: 11px; background: var(--ink); opacity: 0.75; transition: transform 0.3s;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6h9M6.5 2l4 4-4 4' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6h9M6.5 2l4 4-4 4' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat }
+.tr[data-d="up"] { transform: rotate(-90deg) }
+.tr[data-d="down"] { transform: rotate(90deg) }
 .foot:has(> [hidden]:only-child) { display: none }
 </style>
 </head>
@@ -77,10 +83,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     <div class="tile"><span class="k">Fan</span><span class="v off" id="fan">--</span></div>
   </div>
   <div class="tiles four">
-    <div class="tile"><span class="k">Desk</span><span class="v off" id="t-desk">--</span></div>
-    <div class="tile"><span class="k">Bed</span><span class="v off" id="t-bed">--</span></div>
-    <div class="tile"><span class="k">CO2 ppm</span><span class="v off" id="co2">--</span></div>
-    <div class="tile"><span class="k">Outside</span><span class="v off" id="out">--</span></div>
+    <div class="tile"><span class="k">Desk</span><span class="row"><span class="v off" id="t-desk">--</span><i class="tr" id="tr-t-desk" hidden></i></span></div>
+    <div class="tile"><span class="k">Bed</span><span class="row"><span class="v off" id="t-bed">--</span><i class="tr" id="tr-t-bed" hidden></i></span></div>
+    <div class="tile"><span class="k">CO2 ppm</span><span class="row"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span></div>
+    <div class="tile"><span class="k">Outside</span><span class="row"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span></div>
   </div>
   <div class="list"><div class="row"><span>Alerts</span><span class="note" id="alerts-note"></span><button class="switch" id="alerts" type="button" role="switch" aria-checked="false" aria-label="Alerts"></button></div></div>
   <p class="foot" id="why" hidden></p>
@@ -176,8 +182,14 @@ function snapW(inches) {
 function show(id, text, off, color) { const el = $(id); el.textContent = text; el.className = off ? "v off" : "v"; el.style.color = off || !color ? "" : color; }
 const C = { cold: "#64d2ff", good: "#30d158", fair: "#ffd60a", warm: "#ff9f0a", bad: "#ff453a", ice: "#5e9eff" };
 function roomColor(t, lo, hi) { return t < lo ? C.cold : t <= hi ? C.good : t <= hi + 3 ? C.warm : C.bad; }
+function trend(id, delta, steady, what) {
+  const el = $("tr-" + id), d = delta == null ? null : delta > steady ? "up" : delta < -steady ? "down" : "flat";
+  el.hidden = d == null;
+  if (d) { el.dataset.d = d; el.setAttribute("role", "img"); el.setAttribute("aria-label", what + (d === "up" ? " rising" : d === "down" ? " falling" : " steady")); }
+}
 function blank(msg, extra) {
   for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out"]) show(id, "--", true);
+  for (const id of ["t-desk", "t-bed", "co2", "out"]) trend(id, null);
   $("tag").textContent = "Paused"; $("why").hidden = false; $("why").textContent = msg; onBlank(extra);
 }
 function render() {
@@ -199,6 +211,11 @@ function render() {
   show("t-bed", f1(s.bedF) + "\u00B0", false, roomColor(s.bedF, lo, hi));
   show("co2", s.co2 == null ? "--" : String(Math.round(s.co2)), s.co2 == null, s.co2 == null ? "" : s.co2 < 800 ? C.good : s.co2 < 1000 ? C.fair : s.co2 < 1400 ? C.warm : C.bad);
   show("out", s.outF == null ? "--" : f1(s.outF) + "\u00B0", s.outF == null, s.outF == null ? "" : s.outF <= 32 ? C.ice : s.outF < 50 ? C.cold : s.outF < 68 ? C.good : s.outF < 80 ? C.fair : C.warm);
+  const tr = snap.trend || {}, num = v => (v == null ? null : Number(v));
+  trend("t-desk", s.deskF == null ? null : num(tr.desk_c), 0.12, "Desk");
+  trend("t-bed", num(tr.bed_c), 0.12, "Bed");
+  trend("co2", s.co2 == null ? null : num(tr.co2), 20, "CO2");
+  trend("out", s.outF == null ? null : num(tr.out_c), 0.3, "Outside");
   onGood();
 }
 
