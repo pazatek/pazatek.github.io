@@ -2,8 +2,8 @@
   "name": "Room Coach",
   "short_name": "Room",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#1c1c1e",
+  "theme_color": "#1c1c1e",
   "icons": [
     {
       "src": "icon-180.png",
