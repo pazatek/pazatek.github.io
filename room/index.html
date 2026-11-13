@@ -237,7 +237,7 @@ const viz = (() => {
   const want = { gap: 0, door: 0, fan: "off", blind: 0 }, cur = { gap: 0, door: 0, speed: 0, blind: 0 };
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const R2 = Math.SQRT1_2, CP = Math.cos(0.6155), SP = Math.sin(0.6155), VIEW = [-0.577, 0.577, -0.577];
-  let ctx = main, w = 0, h = 0, dpr = 1, sc = 1, ox = 0, oy = 0, spin = 0, last = performance.now(), back = null, front = null, rest = null, whole = false, frameCol = "#ffffff";
+  let ctx = main, w = 0, h = 0, dpr = 1, sc = 1, ox = 0, oy = 0, spin = 0, last = performance.now(), back = null, front = null, rest = null, whole = false, bakeTimer = 0, frameCol = "#ffffff";
 
   const raw = (x, y, z) => { const cx = x - W / 2, cz = z - D / 2; return [(cx - cz) * R2, -((y - H / 2) * CP + (cx + cz) * R2 * SP)]; };
   const P = (x, y, z) => { const r = raw(x, y, z); return [ox + r[0] * sc, oy + r[1] * sc]; };
@@ -252,15 +252,17 @@ const viz = (() => {
   const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.3, 0.9, 3.12], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.2);
   const MINI = [1.56, 0.95, 0.22];
   const LIGHTS = [
-    { p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
-    { p: BULB, power: 0.34, r: 0.8 },
-    { p: [0.8, 1.45, D - 0.3], power: 0.62, r: 1.5, dir: [0, 0, -1], c0: -0.1, c1: 0.4 },
-    { p: [MINI[0], MINI[1] + 0.24, MINI[2]], power: 1.2, r: 0.95 },
+    { lamp: "pixar", p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
+    { lamp: "pixar", p: BULB, power: 0.34, r: 0.8 },
+    { lamp: "pixar", p: [0.8, 1.45, D - 0.3], power: 0.62, r: 1.5, dir: [0, 0, -1], c0: -0.1, c1: 0.4 },
+    { lamp: "little", p: [MINI[0], MINI[1] + 0.24, MINI[2]], power: 1.2, r: 0.95 },
   ];
+  const lampOn = { pixar: true, little: true };
   const AMBIENT = [0.39, 0.41, 0.51], WARM = [1.0, 0.85, 0.63];
   function lightAt(c, n) {
     let s = 0;
     for (const L of LIGHTS) {
+      if (!lampOn[L.lamp]) continue;
       const v = sub(L.p, c), d2 = dot(v, v), d = Math.sqrt(d2) || 1e-6;
       let k = Math.max(0, dot(n, v) / d * 0.75 + 0.25) * L.power / (1 + d2 / (L.r * L.r));
       if (L.dir) k *= Math.max(0, Math.min(1, (-dot(v, L.dir) / d - L.c0) / (L.c1 - L.c0)));
@@ -398,14 +400,16 @@ const viz = (() => {
   }
 
   function armLamp() {
-    const beam = cone(along(JOINT, AIMDIR, 0.02), 0.05, along(JOINT, AIMDIR, 0.24), 0.14, () => {})[1].map(p => P(p[0], p[1], p[2]));
-    for (let i = 0; i < 14; i++) { const a = i / 14 * 2 * Math.PI; beam.push(P(AIM[0] + 0.6 * Math.cos(a), AIM[1] + 0.6 * Math.sin(a), D - 0.003)); }
-    const from = P(BULB[0], BULB[1], BULB[2]), to = P(AIM[0], AIM[1], AIM[2]), g = ctx.createLinearGradient(from[0], from[1], to[0], to[1]);
-    g.addColorStop(0, "rgba(255,226,170,0.26)"); g.addColorStop(1, "rgba(255,226,170,0.05)");
-    ctx.fillStyle = g; ctx.beginPath(); hull(beam).forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill();
-    halo(P(BULB[0] + AIMDIR[0] * 0.06, BULB[1] + AIMDIR[1] * 0.06, BULB[2] + AIMDIR[2] * 0.06), 0.46 * sc, 0.5);
+    if (lampOn.pixar) {
+      const beam = cone(along(JOINT, AIMDIR, 0.02), 0.05, along(JOINT, AIMDIR, 0.24), 0.14, () => {})[1].map(p => P(p[0], p[1], p[2]));
+      for (let i = 0; i < 14; i++) { const a = i / 14 * 2 * Math.PI; beam.push(P(AIM[0] + 0.6 * Math.cos(a), AIM[1] + 0.6 * Math.sin(a), D - 0.003)); }
+      const from = P(BULB[0], BULB[1], BULB[2]), to = P(AIM[0], AIM[1], AIM[2]), g = ctx.createLinearGradient(from[0], from[1], to[0], to[1]);
+      g.addColorStop(0, "rgba(255,226,170,0.26)"); g.addColorStop(1, "rgba(255,226,170,0.05)");
+      ctx.fillStyle = g; ctx.beginPath(); hull(beam).forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill();
+      halo(P(BULB[0] + AIMDIR[0] * 0.06, BULB[1] + AIMDIR[1] * 0.06, BULB[2] + AIMDIR[2] * 0.06), 0.46 * sc, 0.5);
+    }
 
-    const base = [0.24, 0.035, 3.06], elbow = [0.24, 0.52, 2.9], glow = 0.36;
+    const base = [0.24, 0.035, 3.06], elbow = [0.24, 0.52, 2.9], glow = lampOn.pixar ? 0.36 : 0.04;
     box(0.13, 0.35, 0, 0.035, 2.95, 3.17, SILVER, { boost: glow });
     for (const [a, b] of [[base, elbow], [elbow, JOINT]]) {
       litLine(a, b, "#9aa1ab", VIEW, 3.6, glow);
@@ -418,10 +422,11 @@ const viz = (() => {
   }
   function miniLamp() {
     const [cx, y0, cz] = MINI, hub = [cx, y0 + 0.15, cz];
-    for (const a of [0.5, 2.6, 4.7]) litLine([cx + 0.085 * Math.cos(a), y0, cz + 0.085 * Math.sin(a)], hub, "#d9b98a", VIEW, 2, 0.45);
-    halo(P(cx, y0 + 0.23, cz), 0.62 * sc, 0.42);
-    const top = cone([cx, y0 + 0.15, cz], 0.088, [cx, y0 + 0.3, cz], 0.058, (q, i) => { const f = i % 2 ? "#fff1d2" : "#ffe4b0"; poly(q, f, f, 0.6); })[1];
-    poly(top, "#fff9ec", "#fff9ec", 0.6);
+    for (const a of [0.5, 2.6, 4.7]) litLine([cx + 0.085 * Math.cos(a), y0, cz + 0.085 * Math.sin(a)], hub, "#d9b98a", VIEW, 2, lampOn.little ? 0.45 : 0.05);
+    if (lampOn.little) halo(P(cx, y0 + 0.23, cz), 0.62 * sc, 0.42);
+    const glass = lampOn.little ? ["#fff1d2", "#ffe4b0", "#fff9ec"] : [shade("#d9d2c2", hub, VIEW), shade("#cdc5b4", hub, VIEW), shade("#e2dccf", hub, UP)];
+    const top = cone([cx, y0 + 0.15, cz], 0.088, [cx, y0 + 0.3, cz], 0.058, (q, i) => { const f = glass[i % 2 ? 0 : 1]; poly(q, f, f, 0.6); })[1];
+    poly(top, glass[2], glass[2], 0.6);
   }
 
   const items = [
@@ -553,14 +558,29 @@ const viz = (() => {
     poly([[d[0][0], 0, d[0][1]], [d[1][0], 0, d[1][1]], [d[1][0], 2.0, d[1][1]], [d[0][0], 2.0, d[0][1]]], "rgba(244,244,248,0.22)", "#e5e5ea", 2);
     LIGHTS.push(...lamps);
   }
+  const baked = new Map();
   function bake() {
     const layer = paint => {
       const c = document.createElement("canvas"); c.width = cv.width; c.height = cv.height;
       ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineJoin = "round"; ctx.lineCap = "round";
       paint(); return c;
     };
-    frameCol = shade(WHITE, [0.8, 1.46, D], [0, 0, -1]);
-    back = layer(drawBack); front = layer(drawFront); rest = whole ? layer(drawRest) : null; ctx = main;
+    // Each combination of lamps on and off is a different bake; keeping them makes a lamp tap repaint at once.
+    const id = (lampOn.pixar ? "p" : "-") + (lampOn.little ? "l" : "-");
+    let set = baked.get(id);
+    if (!set) {
+      set = { frameCol: shade(WHITE, [0.8, 1.46, D], [0, 0, -1]) };
+      frameCol = set.frameCol; set.back = layer(drawBack); set.front = layer(drawFront);
+      baked.set(id, set);
+    }
+    ({ frameCol, back, front } = set);
+    if (whole && !baked.has("rest")) baked.set("rest", layer(drawRest));
+    rest = whole ? baked.get("rest") : null; ctx = main;
+  }
+  function bakeOthers() {
+    const now = { ...lampOn };
+    for (const [p, l] of [[true, true], [false, true], [true, false], [false, false]]) { lampOn.pixar = p; lampOn.little = l; bake(); }
+    Object.assign(lampOn, now); bake();
   }
   function size() {
     const r = cv.getBoundingClientRect();
@@ -572,7 +592,8 @@ const viz = (() => {
     }
     sc = Math.min(w * 0.96 / (x1 - x0), h * 0.96 / (y1 - y0));
     ox = w / 2 - sc * (x0 + x1) / 2; oy = h / 2 - sc * (y0 + y1) / 2;
-    bake();
+    baked.clear(); bake();
+    clearTimeout(bakeTimer); bakeTimer = setTimeout(bakeOthers, 600);
   }
   function draw(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
@@ -647,8 +668,22 @@ const viz = (() => {
   if (window.ResizeObserver) new ResizeObserver(() => { size(); if (still) kick(); }).observe(cv); else addEventListener("resize", size);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) kick(); });
   size(); kick();
-  return { view(all) { whole = !!all; size(); if (still) kick(); }, set(inchesOpen, doorOpen, fan, blindDown) { want.blind = Math.max(0, Math.min(1, blindDown || 0)); want.gap = Math.max(0, Math.min(1, inchesOpen / 26)); want.door = doorOpen ? 1 : 0; want.fan = SPEED[fan] == null ? "off" : fan; if (still) kick(); } };
+  return {
+    lamps(state) { lampOn.pixar = state.pixar !== false; lampOn.little = state.little !== false; bake(); if (still) kick(); },
+    // Which lamp a tap landed on, if any. The target is generous because the lamps are small on a phone.
+    hit(clientX, clientY) {
+      const r = cv.getBoundingClientRect(), x = clientX - r.left, y = clientY - r.top, reach = Math.max(26, 0.3 * sc);
+      let best = null, bestD = reach;
+      for (const [id, at] of [["pixar", mix(JOINT, BULB, 0.5)], ["little", [MINI[0], MINI[1] + 0.18, MINI[2]]]]) {
+        const p = P(at[0], at[1], at[2]), d = Math.hypot(p[0] - x, p[1] - y);
+        if (d < bestD) { best = id; bestD = d; }
+      }
+      return best;
+    },
+    view(all) { whole = !!all; size(); if (still) kick(); }, set(inchesOpen, doorOpen, fan, blindDown) { want.blind = Math.max(0, Math.min(1, blindDown || 0)); want.gap = Math.max(0, Math.min(1, inchesOpen / 26)); want.door = doorOpen ? 1 : 0; want.fan = SPEED[fan] == null ? "off" : fan; if (still) kick(); } };
 })();
+
+$("room").addEventListener("pointerdown", e => { const id = viz.hit(e.clientX, e.clientY); if (id) onLamp(id); });
 
 const scopeBtn = $("scope");
 function scope(all) {
@@ -734,6 +769,44 @@ for (const b of document.querySelectorAll("#blind button")) b.addEventListener("
 // Reading the blind is what records its position for the snapshot, so manual moves show up too.
 const blindPoll = () => { if (key && !document.hidden) fetch(BLIND, { headers: { "x-room-key": key }, cache: "no-store" }).catch(() => {}); };
 setInterval(blindPoll, 15000); blindPoll();
+
+// Lamps go through a relay on the PC at home, reached over a live channel: no request per tap, so a tap costs one websocket frame.
+const LIVE = "wss://hxaftcofwrffwjxtjeoj.supabase.co/realtime/v1/websocket?apikey=sb_publishable_4TJE66VMSen-hl22kWL-Rw_8RXH_UOH&vsn=1.0.0", TOPIC = "realtime:room-lights";
+const lamps = { pixar: true, little: true }, lampHold = {}, relays = new Set(), utf8 = new TextEncoder();
+let live = null, liveRef = 0, liveBeat = 0, signer = null;
+const liveSend = (topic, event, payload) => { if (live && live.readyState === 1) live.send(JSON.stringify({ topic, event, payload, ref: String(++liveRef) })); };
+const noteRelays = (map, add) => { for (const [id, v] of Object.entries(map || {})) if ((v.metas || []).some(m => m.relay)) add ? relays.add(id) : relays.delete(id); };
+function liveOpen() {
+  if (!key || document.hidden || (live && live.readyState < 2)) return;
+  live = new WebSocket(LIVE);
+  live.onopen = () => {
+    liveSend(TOPIC, "phx_join", { config: { broadcast: { self: false, ack: false }, presence: { key: "" }, private: false } });
+    liveSend(TOPIC, "broadcast", { type: "broadcast", event: "hello", payload: {} });
+    clearInterval(liveBeat); liveBeat = setInterval(() => liveSend("phoenix", "heartbeat", {}), 25000);
+  };
+  live.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.event === "presence_state") { relays.clear(); noteRelays(m.payload, true); }
+    else if (m.event === "presence_diff") { noteRelays(m.payload.leaves, false); noteRelays(m.payload.joins, true); }
+    else if (m.event === "broadcast" && m.payload && m.payload.event === "state") {
+      const s = m.payload.payload;
+      // Right after a tap the relay may still report the old state; the tap wins until the bulb has had time to answer.
+      if (s && s.lamp in lamps && performance.now() >= (lampHold[s.lamp] || 0) && lamps[s.lamp] !== !!s.on) { lamps[s.lamp] = !!s.on; viz.lamps(lamps); }
+    }
+  };
+  live.onclose = () => { clearInterval(liveBeat); relays.clear(); setTimeout(liveOpen, 2000); };
+}
+document.addEventListener("visibilitychange", liveOpen);
+liveOpen();
+async function onLamp(id) {
+  if (!key) return;
+  if (!relays.size) { stale("The lamp relay on the PC isn't connected."); return; }
+  const on = !lamps[id], t = Date.now();
+  lamps[id] = on; lampHold[id] = performance.now() + 1500; viz.lamps(lamps);
+  signer = signer || crypto.subtle.importKey("raw", utf8.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", await signer, utf8.encode([id, on, "", "", t].join("|")));
+  liveSend(TOPIC, "broadcast", { type: "broadcast", event: "cmd", payload: { lamp: id, on, t, sig: [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, "0")).join("") } });
+}
 </script>
 </body>
 </html>
