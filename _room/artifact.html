@@ -221,10 +221,11 @@ function render() {
   show("door", a.door === "open" ? "Open" : "Closed");
   const step = snapW(a.window);
   show("window", step[1]);
-  show("fan", a.fan.charAt(0).toUpperCase() + a.fan.slice(1), a.fan === "off");
+  const fan = a.fan === "off" && a.window > 0 && s.co2 != null && s.co2 >= K.CO2_HI ? "low" : a.fan;
+  show("fan", fan.charAt(0).toUpperCase() + fan.slice(1), fan === "off");
   if (performance.now() >= blindHold) blindPct = snap.blind && snap.blind.percent != null ? Number(snap.blind.percent) : null;
   onBlind(blindPct, !!(snap.blind && snap.blind.steering) && performance.now() >= blindHold);
-  viz.set(step[0], a.door === "open", a.fan, (blindPct || 0) / 100);
+  viz.set(step[0], a.door === "open", fan, (blindPct || 0) / 100);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : a.aim ? (a.phase === "wide" ? "Blind maxed, still warm" : a.phase === "narrow" ? "Blind maxed, still cool" : "Blind holding " + a.aim + "°") : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
     : (a.fan === "low" ? "Desk above 73°" : a.phase === "cold" ? "Desk below 70°" : "Holding CO2");
