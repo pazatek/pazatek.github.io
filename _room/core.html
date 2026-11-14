@@ -1,0 +1,24 @@
+<div class="wrap">
+  <div class="seg" role="group" aria-label="What you are doing">
+    <button type="button" id="mode-awake" data-mode="awake" aria-pressed="true">Awake</button>
+    <button type="button" id="mode-sleep" data-mode="sleep" aria-pressed="false">Sleeping</button>
+    <button type="button" id="mode-away" data-mode="away" aria-pressed="false">Away</button>
+  </div>
+  <div class="head" aria-live="polite">
+    <h1 id="tag">Reading sensors</h1>
+    <button class="link" id="scope" type="button" aria-label="Show the whole apartment">Apartment</button>
+  </div>
+  <div class="hero"><canvas id="room" role="img" aria-label="Your room, showing the window, door and fan as they should be set"></canvas></div>
+  <div class="tiles" aria-live="polite">
+    <div class="tile"><span class="k">Door</span><span class="v off" id="door">--</span></div>
+    <div class="tile"><span class="k">Window</span><span class="v off" id="window">--</span></div>
+    <div class="tile"><span class="k">Fan</span><span class="v off" id="fan">--</span></div>
+  </div>
+  <div class="tiles four">
+    <div class="tile"><span class="k">Desk</span><span class="vrow"><span class="v off" id="t-desk">--</span><i class="tr" id="tr-t-desk" hidden></i></span><span class="age" id="age-t-desk"></span></div>
+    <div class="tile"><span class="k">Bed</span><span class="vrow"><span class="v off" id="t-bed">--</span><i class="tr" id="tr-t-bed" hidden></i></span><span class="age" id="age-t-bed"></span></div>
+    <div class="tile"><span class="k">CO2 ppm</span><span class="vrow"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span><span class="age" id="age-co2"></span></div>
+    <div class="tile"><span class="k">Outside</span><span class="vrow"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span><span class="age" id="age-out"></span></div>
+  </div>
+EXTRA
+</div>

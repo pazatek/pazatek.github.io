@@ -10,6 +10,10 @@ Static personal site served by GitHub Pages from `main`. Plain HTML, CSS and JS:
 - `eyes`, `head`, `face`, `nose`, `swap`, `part`, `flip`, `ears`, `weight` and `pauseAfter` in `handwriting.json` point at strokes by index: pupils that follow the cursor, the strokes that move with the head, the features that tilt together as one face (the mouth moves less when the head looks down, so it stays off the jaw), then how each stroke becomes the drawing's mirror image as the head turns (the nose flips in place with its tip leading the turn, `swap` pairs trade places, `part` pairs do too but only partway, since those lines are the center part, not eyebrows, `flip` strokes also swap their ends, `ears` flatten onto the jaw while a mirrored copy opens out), strokes drawn at another weight, and extra milliseconds of replay pause after a stroke. `size` scales the whole drawing on the page and `offset` moves it, both in units of the heading's font size. The editor renumbers them when strokes are deleted; hand edits to the stroke list must too. Head strokes other than `eyes` render at one even pressure so the portrait keeps one line thickness; the editor's preview doesn't apply that.
 - Don't add Microsoft's Michelangelus font files: its EULA grants no redistribution rights.
 
+## Room Coach
+
+`room/index.html` is generated. Its sources, build, tests and background are in `_room/` (start with `_room/README.md`); edit there and rebuild, never edit `room/index.html` by hand.
+
 ## Comments
 
 Comments explain *why*, never *what*. Keep one only when deleting it would let someone plausibly break something (a browser quirk, a performance constraint, two places that must stay in sync). Don't label sections or restate the code.

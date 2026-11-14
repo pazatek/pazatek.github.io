@@ -1,0 +1,54 @@
+:root {
+  --bg: #1c1c1e; --card: #2c2c2e; --raised: #636366; --ink: #ffffff; --dim: #a1a1a8; --sep: #48484a; color-scheme: dark;
+  --display: -apple-system, "SF Pro Display", BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+  --body: -apple-system, "SF Pro Text", BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { height: 100%; overflow: hidden }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.25 var(--body); -webkit-font-smoothing: antialiased }
+.wrap { height: 100%; max-width: 440px; margin: 0 auto; PADBLOCK
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: clamp(8px, 1.5vh, 14px) }
+button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px }
+.seg { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card); border-radius: 9px; padding: 2px }
+.seg button { border: 0; background: none; border-radius: 7px; padding: 6px 4px; font-size: 13px; font-weight: 500 }
+.seg button[aria-pressed="true"] { background: var(--raised); font-weight: 600 }
+.head { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 2px 4px 0 }
+.head .link { flex: none; color: var(--dim) }
+.head h1 { margin: 0; font: 700 clamp(24px, 4vh, 32px)/1.1 var(--display); letter-spacing: -0.02em }
+.hero { flex: 1 1 0; min-height: 80px; margin-inline: -12px }
+.hero canvas { display: block; width: 100%; height: 100% }
+.tiles { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.tiles.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px }
+.tile { background: var(--card); border-radius: 16px; padding: clamp(9px, 1.5vh, 13px) 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0 }
+.tile .k { font-size: 12px; font-weight: 500; color: var(--dim) }
+.tile .v { font: 600 clamp(20px, 3.2vh, 26px)/1.05 var(--display); letter-spacing: -0.02em; white-space: nowrap; font-variant-numeric: tabular-nums }
+.four .tile { border-radius: 14px; padding-inline: 10px }
+.four .tile .v { font-size: clamp(17px, 2.6vh, 21px) }
+.v.off { color: var(--dim) }
+.tile .age { font-size: 11px; color: var(--dim); min-height: 13px; white-space: nowrap; font-variant-numeric: tabular-nums }
+.list { flex: none; background: var(--card); border-radius: 14px; padding: 0 12px 0 16px }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px }
+.row .note { color: var(--dim); font-size: 14px; margin-left: auto }
+.switch { flex: none; width: 51px; height: 31px; border-radius: 16px; border: 0; padding: 2px; background: var(--raised); display: flex }
+.switch::after { content: ""; width: 27px; height: 27px; border-radius: 50%; background: var(--ink); transition: transform .2s }
+.switch[aria-checked="true"] { background: var(--ink) }
+.switch[aria-checked="true"]::after { background: var(--bg); transform: translateX(20px) }
+.switch:disabled { opacity: .4 }
+.foot { flex: none; margin: 0; color: var(--dim); font-size: 13px; padding: 0 4px }
+.key { display: flex; gap: 8px }
+.key input { flex: 1; min-width: 0; background: var(--card); color: var(--ink); border: 0; border-radius: 10px; padding: 10px 12px; font: inherit }
+.link { background: none; border: 0; padding: 0 4px; font-weight: 600; font-size: 15px }
+@media (prefers-reduced-motion: reduce) { .switch::after { transition: none } }
+.vrow { display: flex; align-items: center; gap: 4px; min-width: 0 }
+.tr { flex: none; width: 11px; height: 11px; background: var(--ink); opacity: 0.75; transition: transform 0.3s;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6h9M6.5 2l4 4-4 4' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 6h9M6.5 2l4 4-4 4' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat }
+.tr[data-d="up"] { transform: rotate(-90deg) }
+.tr[data-d="down"] { transform: rotate(90deg) }
+.list .row + .row { border-top: 0.5px solid var(--sep) }
+.pick { flex: none; display: flex; gap: 2px; background: var(--bg); border-radius: 9px; padding: 2px }
+.pick button { border: 0; background: none; color: inherit; border-radius: 7px; padding: 5px 10px; font-size: 13px; font-weight: 500 }
+.pick button[aria-pressed="true"] { background: var(--raised); font-weight: 600 }

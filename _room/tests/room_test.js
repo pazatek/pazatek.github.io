@@ -1,0 +1,10 @@
+const { chromium } = require('playwright');
+(async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 393, height: 760 } });
+  p.on('pageerror', e => console.log('PAGEERROR', e.message));
+  const now = new Date().toISOString();
+  await p.route('**/functions/v1/room', r => r.request().headers()['x-room-key'] === 'testkeytestkeytestkey' ? r.fulfill({ json: { now, bed: { ts: now, temp_c: 20.2, humidity: 46, co2: 640 }, desk: { ts: now, temp_c: 23.0 }, bed_now: { temp_c: 20.2, co2: 640, n: 6 }, bed_prev: { temp_c: 20.1, n: 6 }, outdoor: { ts: now, temp_c: 7.4, low_next10h_c: 1.5 }, pc: { n: 0 }, state: null }, headers: { 'access-control-allow-origin': '*' } }) : r.fulfill({ status: 401, json: { error: 'key' }, headers: { 'access-control-allow-origin': '*' } }));
+  await p.goto('file://' + __dirname + '/../../room/index.html'); await p.waitForTimeout(300);
+  console.log('nokey:', await p.textContent('#why'), '| form hidden:', await p.getAttribute('#keyform', 'hidden'));
+  await p.goto('file://' + __dirname + '/../../room/index.html#k=testkeytestkeytestkey'); await p.reload(); await p.waitForTimeout(400);
+  console.log('key:', await p.textContent('#window'), await p.textContent('#t-desk'), await p.textContent('#tag'));
+  await p.screenshot({ path: __dirname + '/room_app.png' }); await b.close(); })();
