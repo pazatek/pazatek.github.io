@@ -45,6 +45,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .four .tile { border-radius: 14px; padding-inline: 10px }
 .four .tile .v { font-size: clamp(17px, 2.6vh, 21px) }
 .v.off { color: var(--dim) }
+.tile .age { font-size: 11px; color: var(--dim); min-height: 13px; white-space: nowrap; font-variant-numeric: tabular-nums }
 .list { flex: none; background: var(--card); border-radius: 14px; padding: 0 12px 0 16px }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px }
 .row .note { color: var(--dim); font-size: 14px; margin-left: auto }
@@ -89,10 +90,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
     <div class="tile"><span class="k">Fan</span><span class="v off" id="fan">--</span></div>
   </div>
   <div class="tiles four">
-    <div class="tile"><span class="k">Desk</span><span class="vrow"><span class="v off" id="t-desk">--</span><i class="tr" id="tr-t-desk" hidden></i></span></div>
-    <div class="tile"><span class="k">Bed</span><span class="vrow"><span class="v off" id="t-bed">--</span><i class="tr" id="tr-t-bed" hidden></i></span></div>
-    <div class="tile"><span class="k">CO2 ppm</span><span class="vrow"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span></div>
-    <div class="tile"><span class="k">Outside</span><span class="vrow"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span></div>
+    <div class="tile"><span class="k">Desk</span><span class="vrow"><span class="v off" id="t-desk">--</span><i class="tr" id="tr-t-desk" hidden></i></span><span class="age" id="age-t-desk"></span></div>
+    <div class="tile"><span class="k">Bed</span><span class="vrow"><span class="v off" id="t-bed">--</span><i class="tr" id="tr-t-bed" hidden></i></span><span class="age" id="age-t-bed"></span></div>
+    <div class="tile"><span class="k">CO2 ppm</span><span class="vrow"><span class="v off" id="co2">--</span><i class="tr" id="tr-co2" hidden></i></span><span class="age" id="age-co2"></span></div>
+    <div class="tile"><span class="k">Outside</span><span class="vrow"><span class="v off" id="out">--</span><i class="tr" id="tr-out" hidden></i></span><span class="age" id="age-out"></span></div>
   </div>
   <div class="list"><div class="row"><span>Blind</span><div class="pick" id="blind"><button type="button" data-p="0" aria-pressed="false">Up</button><button type="button" data-p="50" aria-pressed="false">Half</button><button type="button" data-p="100" aria-pressed="false">Down</button><button type="button" data-p="auto" aria-pressed="false">Auto</button></div></div>
   <div class="row"><span>Alerts</span><span class="note" id="alerts-note"></span><button class="switch" id="alerts" type="button" role="switch" aria-checked="false" aria-label="Alerts"></button></div></div>
@@ -206,10 +207,19 @@ function trend(id, delta, steady, what) {
   if (d) { el.dataset.d = d; el.setAttribute("role", "img"); el.setAttribute("aria-label", what + (d === "up" ? " rising" : d === "down" ? " falling" : " steady")); }
 }
 let blindPct = null, blindHold = 0;
+const AGES = { "t-desk": "desk_c", "t-bed": "bed_c", "co2": "co2", "out": "out_c" };
+function ages() {
+  const since = (snap && snap.since) || {}, now = snap ? Date.parse(snap.now) + performance.now() - snapAt : 0;
+  for (const id in AGES) {
+    const t = Date.parse(since[AGES[id]]), s = Math.max(0, Math.round((now - t) / 1000));
+    $("age-" + id).textContent = !(t > 0) || $(id).classList.contains("off") ? "" : s < 60 ? s + "s ago" : s < 3600 ? Math.floor(s / 60) + "m ago" : Math.floor(s / 3600) + "h ago";
+  }
+}
+setInterval(ages, 1000);
 function blank(msg, extra) {
   for (const id of ["door", "window", "fan", "t-desk", "t-bed", "co2", "out"]) show(id, "--", true);
   for (const id of ["t-desk", "t-bed", "co2", "out"]) trend(id, null);
-  $("tag").textContent = "Paused"; $("why").hidden = false; $("why").textContent = msg; onBlank(extra);
+  $("tag").textContent = "Paused"; $("why").hidden = false; $("why").textContent = msg; ages(); onBlank(extra);
 }
 function render() {
   for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.mode === st.mode));
@@ -237,6 +247,7 @@ function render() {
   trend("t-bed", num(tr.bed_c), 0.12, "Bed");
   trend("co2", s.co2 == null ? null : num(tr.co2), 20, "CO2");
   trend("out", s.outF == null ? null : num(tr.out_c), 0.3, "Outside");
+  ages();
   onGood();
 }
 
