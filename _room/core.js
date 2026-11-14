@@ -1,3 +1,9 @@
+function fillStandaloneScreen() {
+  const full = navigator.standalone && matchMedia("(orientation: portrait)").matches ? screen.height : 0, missing = full - innerHeight;
+  document.documentElement.style.setProperty("--screen", missing > 0 && missing < 90 ? full + "px" : "100dvh");
+}
+fillStandaloneScreen();
+addEventListener("resize", fillStandaloneScreen);
 const STEPS = [[0, "Closed"], [3.25, "1/8"], [6.5, "1/4"], [13, "1/2"], [26, "Full"]];
 function snapW(inches) {
   if (inches < 1.6) return STEPS[0];
