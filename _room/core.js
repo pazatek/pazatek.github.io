@@ -12,11 +12,11 @@ function trend(id, delta, steady, what) {
   if (d) { el.dataset.d = d; el.setAttribute("role", "img"); el.setAttribute("aria-label", what + (d === "up" ? " rising" : d === "down" ? " falling" : " steady")); }
 }
 let blindPct = null, blindHold = 0;
-const AGES = { "t-desk": "desk_c", "t-bed": "bed_c", "co2": "co2", "out": "out_c" };
+const AGES = { "t-desk": "desk", "t-bed": "bed", "co2": "bed", "out": "outdoor" };
 function ages() {
-  const since = (snap && snap.since) || {}, now = snap ? Date.parse(snap.now) + performance.now() - snapAt : 0;
+  const now = snap ? Date.parse(snap.now) + performance.now() - snapAt : 0;
   for (const id in AGES) {
-    const t = Date.parse(since[AGES[id]]), s = Math.max(0, Math.round((now - t) / 1000));
+    const t = Date.parse(snap && snap[AGES[id]] && snap[AGES[id]].ts), s = Math.max(0, Math.round((now - t) / 1000));
     $("age-" + id).textContent = !(t > 0) || $(id).classList.contains("off") ? "" : s < 60 ? s + "s ago" : s < 3600 ? Math.floor(s / 60) + "m ago" : Math.floor(s / 3600) + "h ago";
   }
 }
@@ -469,7 +469,7 @@ const viz = (() => {
     for (const [x, z, top] of whole ? [[0, D + T, H], [W + T, D + T, H], [3.42, -4.5, H], [-3.45, -5.4, 2.0], [-3.45, -1.5, 0.7], [-0.1, 3.7, 0.7]] : [[0, 0, H], [W + T, 0, H], [W + T, D + T, H], [0, D + T, H]]) for (const y of [-SLAB, top]) {
       const p = raw(x, y, z); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]);
     }
-    sc = Math.min(w * 0.985 / (x1 - x0), h * 0.985 / (y1 - y0));
+    sc = Math.min(w / (x1 - x0), h / (y1 - y0));
     ox = w / 2 - sc * (x0 + x1) / 2; oy = h / 2 - sc * (y0 + y1) / 2;
     baked.clear(); bake();
     clearTimeout(bakeTimer); bakeTimer = setTimeout(bakeOthers, 600);
