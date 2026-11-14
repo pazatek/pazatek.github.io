@@ -26,7 +26,7 @@ html, body { height: 100%; height: 100dvh; overflow: hidden }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.25 var(--body); -webkit-font-smoothing: antialiased }
 .wrap { height: 100%; max-width: 440px; margin: 0 auto; padding-top: calc(env(safe-area-inset-top, 0px) + clamp(8px, 1.8vh, 18px)); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(8px, 1.8vh, 18px));
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: clamp(8px, 1.5vh, 14px) }
+  display: flex; flex-direction: column; gap: clamp(6px, 1.1vh, 10px) }
 button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px }
 .seg { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card); border-radius: 9px; padding: 2px }
@@ -34,12 +34,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .seg button[aria-pressed="true"] { background: var(--raised); font-weight: 600 }
 .head { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 2px 4px 0 }
 .head .link { flex: none; color: var(--dim) }
-.head h1 { margin: 0; font: 700 clamp(24px, 4vh, 32px)/1.1 var(--display); letter-spacing: -0.02em }
+.head h1 { margin: 0; min-width: 0; font: 700 clamp(19px, 2.9vh, 22px)/1.1 var(--display); letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .hero { flex: 1 1 0; min-height: 80px; margin-inline: -16px }
 .hero canvas { display: block; width: 100%; height: 100% }
 .tiles { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
 .tiles.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px }
-.tile { background: var(--card); border-radius: 16px; padding: clamp(9px, 1.5vh, 13px) 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0 }
+.tile { background: var(--card); border-radius: 16px; padding: clamp(7px, 1.1vh, 10px) 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0 }
 .tile .k { font-size: 12px; font-weight: 500; color: var(--dim) }
 .tile .v { font: 600 clamp(20px, 3.2vh, 26px)/1.05 var(--display); letter-spacing: -0.02em; white-space: nowrap; font-variant-numeric: tabular-nums }
 .four .tile { border-radius: 14px; padding-inline: 10px }
