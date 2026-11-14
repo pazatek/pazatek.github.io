@@ -513,8 +513,8 @@ const viz = (() => {
     { x: 1.28, z: 0.22, foot: [0.80, 1.77, 0, 0.435], draw() {
       box(0.80, 1.77, 0, 0.95, 0, 0.435, WOOD, { edge: INK, cell: 0.33 });
       seg([0.799, 0.475, 0], [0.799, 0.475, 0.435], INK, 1.5); seg([0.80, 0.475, -0.001], [1.77, 0.475, -0.001], INK, 1.5);
-      const mc = [0.93, 0.33], h = 0.05, t = 0.014, corner = (a, b, y) => [mc[0] + a * h + b * t, y, mc[1] - a * h + b * t];
-      lit([corner(-1, -1, 0.95), corner(1, -1, 0.95), corner(1, -1, 1.04), corner(-1, -1, 1.04)], WHITE);
+      const mc = [0.93, 0.33], h = 0.05, t = 0.014, corner = (a, b, y) => [mc[0] + a * h + b * t, y, mc[1] + a * h - b * t];
+      lit([corner(-1, -1, 0.95), corner(-1, 1, 0.95), corner(-1, 1, 1.04), corner(-1, -1, 1.04)], WHITE);
       lit([corner(-1, -1, 1.04), corner(1, -1, 1.04), corner(1, 1, 1.04), corner(-1, 1, 1.04)], WHITE);
       miniLamp();
       swords();
