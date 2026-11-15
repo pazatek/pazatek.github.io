@@ -786,11 +786,27 @@ function load() {
       if (!res.ok) throw new Error("http " + res.status);
       return res.json();
     })
-    .then(v => { busy = false; if (v && v.now) { snap = v; snapAt = performance.now(); render(); } })
+    .then(v => {
+      busy = false;
+      if (!v || !v.now) return;
+      snap = v; snapAt = performance.now();
+      // The server's mode is the one steering the blind, so follow it (unless a tap is still on its way there).
+      const m = v.me === "asleep" ? "sleep" : v.me === "away" ? "away" : v.me === "home" ? "awake" : null;
+      if (m && m !== st.mode && performance.now() >= modeHold) { st.mode = m; st.phase = null; keep(); }
+      render();
+    })
     .catch(() => { busy = false; if (snap) stale("Couldn't refresh. Showing the last reading."); else blank("Couldn't reach the sensors. Retrying."); });
 }
 
-for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", () => { st.mode = b.dataset.mode; st.phase = null; keep(); render(); });
+let modeHold = 0;
+for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", () => {
+  st.mode = b.dataset.mode; st.phase = null; keep(); render();
+  if (!key) return;
+  modeHold = performance.now() + 30000;
+  fetch(ENDPOINT, { method: "POST", headers: { "x-room-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ action: "mode", mode: st.mode }) })
+    .then(r => { if (!r.ok) throw new Error("http " + r.status); })
+    .catch(() => { modeHold = 0; stale("Couldn't save the mode. The blind is still using the old one."); });
+});
 $("keyform").addEventListener("submit", e => { e.preventDefault(); key = $("key").value.trim(); try { localStorage.setItem("room-coach-key", key); } catch (err) {} $("key").value = ""; load(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
 setInterval(() => { if (!document.hidden) { load(); render(); } }, 10000);

@@ -19,7 +19,8 @@ Context from the long chat this project was built in, beyond what `README.md` co
 ## Night blind controller
 
 - An overnight test (window at a quarter, about 37°F outside) showed blind up settles near 64 to 65.5°F and 470 to 500 ppm, blind down near 68°F and 770 ppm; the blind cuts airflow by roughly 80%.
-- `steer()` in the `room` function runs each minute after dark: step = clamp(round(ahead × 1.5), ±3), deadband 0.25°F, ahead = temp + slope × 0.5 − aim; CO2 at or above 1,000 forces the blind up by 3. A manual blind command sets a 2 hour hold. In sleep mode it drops the blind fully at daylight, once.
+- `steer()` in the `room` function runs each minute after dark but moves at most once per 20 minutes: it jumps the blind by round(ahead × 25 / 5) × 5 percent (25% of travel per °F, from the 64 to 68°F measured range), deadband 0.5°F, ahead = temp + slope × 0.5 − aim; CO2 at or above 1,000 forces it up by at least 10. The last move time is `room_blind.steered_at`. A manual blind command sets a 2 hour hold. In sleep mode it drops the blind fully at daylight, once.
+- The app's Awake / Sleeping / Away switch now writes `lights_presence` (person me) through `POST {action:mode}` on the `room` function, and the app follows that row on every refresh. Before 2026-11-15 the switch only lived in the phone, so the server could steer for "awake" while the app said Sleeping.
 - No real night has been reviewed yet. Two defaults he may want changed: the sunrise drop, and steering also running in awake mode after dark.
 
 ## Lamps

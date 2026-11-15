@@ -5,6 +5,7 @@ import webpush from "npm:web-push@3.6.7";
 //   GET                      -> latest sensor snapshot
 //   POST {action:subscribe}  -> store this phone's Web Push subscription
 //   POST {action:test}       -> send a test notification
+//   POST {action:mode, mode: awake|sleep|away} -> set his presence (lights_presence 'me'), which picks the blind's target
 //   POST {action:tick}       -> (pg_cron, every minute) work out the advice and push when it changes; after dark, steer the blind
 // JWT verification is off because the app is a static page with no Supabase login; instead every
 // request must carry a private key in the x-room-key header, checked against hashes in public.room_keys.
@@ -112,16 +113,20 @@ async function push(subs: Sub[], body: string, vapidPrivate: string) {
   return { sent, errors };
 }
 
-// The night controller: once a minute, nudge the blind a few percent toward the temperature target.
+// The night controller: jump the blind straight to the height the error calls for, then let the room settle before judging again.
 // Up lets more outside air in (cooler); down cuts it (warmer). Measured 2026-11-13 with the window at a quarter
-// and 37°F outside: fully up settles near 64°F, fully down near 68°F, most of the change within 45 minutes.
-async function steer(blind: { percent: number }, sleep: boolean, base: { bedF: number; deskF: number | null; co2: number | null; slope: number | null }, key: string) {
+// and 37°F outside: fully up settles near 64°F, fully down near 68°F (so about 25% of travel per °F), most of the change within 45 minutes.
+const STEER = { PER_F: 25, DEAD: 0.5, SETTLE_MIN: 20 };
+async function steer(blind: { percent: number; steeredAt: number | null }, sleep: boolean, base: { bedF: number; deskF: number | null; co2: number | null; slope: number | null }, key: string, now: number) {
+  if (blind.steeredAt && now - blind.steeredAt < STEER.SETTLE_MIN * 60000) return null;
   const t = sleep ? base.bedF : (base.deskF ?? base.bedF), aim = sleep ? K.TARGET : K.AW_AIM;
-  // Where the room is heading in 15 minutes, from the last half hour's drift, so it eases off before overshooting.
+  // Where the room is heading in 15 minutes, from the last half hour's drift, so a room already on its way doesn't get pushed twice.
   const ahead = t + (base.slope ?? 0) * 0.5 - aim;
-  let step = Math.abs(ahead) < 0.25 ? 0 : Math.max(-3, Math.min(3, Math.round(ahead * 1.5) || Math.sign(ahead)));
-  if (base.co2 != null && base.co2 >= K.CO2_HI) step = Math.max(step, 3);
-  return await moveBlind(Math.max(0, Math.min(100, blind.percent - step)), blind.percent, key);
+  let step = Math.abs(ahead) < STEER.DEAD ? 0 : Math.round(ahead * STEER.PER_F / 5) * 5;
+  if (base.co2 != null && base.co2 >= K.CO2_HI) step = Math.max(step, 10);
+  const moved = await moveBlind(Math.max(0, Math.min(100, blind.percent - step)), blind.percent, key);
+  if (moved?.ok) await rest("room_blind?id=eq.1", "PATCH", { steered_at: new Date(now).toISOString() });
+  return moved;
 }
 async function moveBlind(to: number, from: number, key: string) {
   if (to === from) return null;
@@ -158,7 +163,11 @@ async function tick(key: string) {
   const blind = snap.blind && snap.blind.percent != null ? { percent: Number(snap.blind.percent) } : null;
   const held = snap.blind?.hold_until && Date.parse(snap.blind.hold_until) > now, steering = !!(blind && snap.blind.steering && mode !== "away");
   let moved = null;
-  if (steering) moved = await steer(blind!, mode === "sleep", base, key).catch(() => null);
+  if (steering) {
+    const at = await (await fetch(`${BASE}/rest/v1/room_blind?id=eq.1&select=steered_at`, { headers: dbHeaders })).json().catch(() => null);
+    const steeredAt = at?.[0]?.steered_at ? Date.parse(at[0].steered_at) : null;
+    moved = await steer({ ...blind!, steeredAt }, mode === "sleep", base, key, now).catch(() => null);
+  }
   // At sunrise the controller stops; if he is still asleep the blind goes fully down, since the window faces the bed.
   else if (blind && snap.blind.auto && !held && mode === "sleep" && Number(snap.outdoor.sun_wm2) > 5 && blind.percent < 100) moved = await moveBlind(100, blind.percent, key).catch(() => null);
   const steered = steering ? blind : null;
@@ -199,7 +208,11 @@ Deno.serve(async (req: Request) => {
   try {
     const label = await rpc("room_key_label", { p_key: key });
     if (!label) return reply({ error: "key" }, 401);
-    if (req.method === "GET") return reply(await rpc("room_snapshot"));
+    if (req.method === "GET") {
+      // The Awake / Sleeping / Away switch lives on the server (lights_presence), so the app shows what the controller is using.
+      const [snap, me] = await Promise.all([rpc("room_snapshot"), fetch(`${BASE}/rest/v1/lights_presence?person=eq.me&select=state`, { headers: dbHeaders }).then((r) => r.json()).catch(() => null)]);
+      return reply({ ...snap, me: me?.[0]?.state ?? null });
+    }
     if (req.method !== "POST") return reply({ error: "method" }, 405);
     const body = await req.json().catch(() => ({}));
     if (body.action === "tick") return label === "cron tick" ? reply(await tick(key)) : reply({ error: "key" }, 401);
@@ -210,6 +223,13 @@ Deno.serve(async (req: Request) => {
       if (!ok) return reply({ error: "bad subscription" }, 400);
       await rest("room_push_subs?on_conflict=endpoint", "POST", { endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth }, "resolution=merge-duplicates,return=minimal");
       return reply({ ok: true });
+    }
+    if (body.action === "mode") {
+      const state = ({ awake: "home", sleep: "asleep", away: "away" } as Record<string, string>)[body.mode];
+      if (!state) return reply({ error: "bad mode" }, 400);
+      await rest(`room_blind?id=eq.1`, "PATCH", { steered_at: null }); // a new mode means a new target: steer right away
+      await rest(`lights_presence?person=eq.me&state=neq.${state}`, "PATCH", { state, since: new Date().toISOString() });
+      return reply({ ok: true, state });
     }
     if (body.action === "test") {
       const d = await rpc("room_tick_data");
