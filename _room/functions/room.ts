@@ -26,7 +26,7 @@ async function rest(path: string, method: string, body?: unknown, prefer = "retu
 }
 
 // ---- the same model the app page uses; keep the two in step ----
-const K = { TARGET: 66.5, LO: 65, HI: 68, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, PC_IDLE: 100, AW_LO: 70, AW_HI: 73, AW_AIM: 71.5, CO2_HI: 1000 };
+const K = { TARGET: 66.5, LO: 65, HI: 68, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, PC_IDLE: 100, AW_LO: 72, AW_HI: 75, AW_AIM: 73.5, CO2_HI: 1000 };
 const cToF = (c: number | null | undefined) => (c == null ? null : Number(c) * 9 / 5 + 32);
 const hold = (target: number, out: number, watts: number) => {
   const d = target - out;
@@ -67,7 +67,7 @@ function advise(s: In): Advice {
   }
   const t = s.deskF != null ? s.deskF : s.bedF, wc = co2Width(t, s.outF);
   let phase = s.phase === "cold" ? "cold" : null;
-  if (t < K.AW_LO) phase = "cold"; else if (t > 71) phase = null;
+  if (t < K.AW_LO) phase = "cold"; else if (t > K.AW_LO + 1) phase = null;
   if (t > K.AW_HI) {
     const W = hold(K.AW_AIM, s.outF, s.watts);
     return { door: "closed", window: W == null ? K.FULL : clampW(Math.max(W, wc || 0, 1)), fan: "low", phase: null, what: `Desk is ${f1(t)}°F, too warm` };
