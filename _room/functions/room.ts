@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import webpush from "npm:web-push@3.6.7";
+import { CTL, decide, fit, samples, type Bucket } from "./model.ts";
 
 // Backend for the Room Coach home screen app at piotrzatek.com/room.
 //   GET                      -> latest sensor snapshot
@@ -113,18 +114,23 @@ async function push(subs: Sub[], body: string, vapidPrivate: string) {
   return { sent, errors };
 }
 
-// The night controller: jump the blind straight to the height the error calls for, then let the room settle before judging again.
-// Up lets more outside air in (cooler); down cuts it (warmer). Measured 2026-11-13 with the window at a quarter
-// and 37°F outside: fully up settles near 64°F, fully down near 68°F (so about 25% of travel per °F), most of the change within 45 minutes.
-const STEER = { PER_F: 25, DEAD: 0.5, SETTLE_MIN: 20 };
-async function steer(blind: { percent: number; steeredAt: number | null }, sleep: boolean, base: { bedF: number; deskF: number | null; co2: number | null; slope: number | null }, key: string, now: number) {
-  if (blind.steeredAt && now - blind.steeredAt < STEER.SETTLE_MIN * 60000) return null;
-  const t = sleep ? base.bedF : (base.deskF ?? base.bedF), aim = sleep ? K.TARGET : K.AW_AIM;
-  // Where the room is heading in 15 minutes, from the last half hour's drift, so a room already on its way doesn't get pushed twice.
-  const ahead = t + (base.slope ?? 0) * 0.5 - aim;
-  let step = Math.abs(ahead) < STEER.DEAD ? 0 : Math.round(ahead * STEER.PER_F / 5) * 5;
-  if (base.co2 != null && base.co2 >= K.CO2_HI) step = Math.max(step, 10);
-  const moved = await moveBlind(Math.max(0, Math.min(100, blind.percent - step)), blind.percent, key);
+// The night controller: puts the blind where the learned model (model.ts) says the room will settle at the target, then waits
+// for the room to get there instead of chasing every reading. It moves at most once per CTL.SETTLE_MIN minutes, and only when the
+// room's settling point at the current height is more than CTL.DEAD_F off the target.
+async function steer(blind: { percent: number; steeredAt: number | null }, sleep: boolean, base: { bedF: number; deskF: number | null; co2: number | null; outF: number; watts: number }, key: string, now: number) {
+  if (blind.steeredAt && now - blind.steeredAt < CTL.SETTLE_MIN * 60000) return null;
+  const sensor = sleep || base.deskF == null ? "bed" : "desk", aim = sleep ? K.TARGET : K.AW_AIM;
+  const rows = (await rpc("room_fit_rows")) as Record<string, string | number | null>[];
+  const bs: Bucket[] = rows.filter((r) => r[`${sensor}_f`] != null && r.percent != null && r.out_f != null)
+    .map((r) => ({ t: Date.parse(String(r.b)), p: Number(r.percent) / 100, T: Number(r[`${sensor}_f`]), out: Number(r.out_f), watts: Number(r.watts ?? K.PC_IDLE) }));
+  const ss = samples(bs), m = fit(ss, now);
+  const d = decide(m.theta, ss, now, aim, blind.percent, base.outF, base.watts);
+  let to = d.move ? d.pct! : blind.percent;
+  if (base.co2 != null && base.co2 >= K.CO2_HI) to = Math.min(to, blind.percent - 10); // stale air: let more in regardless
+  to = Math.max(0, Math.min(100, to));
+  await rest("room_model?on_conflict=sensor", "POST", { sensor, theta: m.theta, n: m.n, steps: m.steps, rmse: m.rmse, bias: d.bias, settle_now: d.eqNow, ideal_pct: d.pct, fitted_at: new Date(now).toISOString() },
+    "resolution=merge-duplicates,return=minimal").catch(() => {});
+  const moved = await moveBlind(to, blind.percent, key);
   if (moved?.ok) await rest("room_blind?id=eq.1", "PATCH", { steered_at: new Date(now).toISOString() });
   return moved;
 }
@@ -162,6 +168,7 @@ async function tick(key: string) {
   const sinceSent = d.last_sent ? now - Date.parse(d.last_sent) : Infinity;
   const blind = snap.blind && snap.blind.percent != null ? { percent: Number(snap.blind.percent) } : null;
   const held = snap.blind?.hold_until && Date.parse(snap.blind.hold_until) > now, steering = !!(blind && snap.blind.steering && mode !== "away");
+  await rest("room_log", "POST", { percent: blind?.percent ?? null, mode, steering, bed_f: bedF, desk_f: base.deskF, out_f: base.outF, watts: base.watts }).catch(() => {});
   let moved = null;
   if (steering) {
     const at = await (await fetch(`${BASE}/rest/v1/room_blind?id=eq.1&select=steered_at`, { headers: dbHeaders })).json().catch(() => null);
