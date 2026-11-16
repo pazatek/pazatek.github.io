@@ -29,13 +29,15 @@ LIP = 1.2            # lip over the lens face's long edges that holds the camera
 # its side, so its wide 90° axis runs up and down), which end of the cradle is open (+1 / -1 along the camera's long axis,
 # None = whichever end points down), and whether it's a two-wall corner mount or a single plate on the desk wall.
 # They match thermal_agent.py's pose in room terms:
-#   "window_side": 45 cm along the desk wall from the window corner, room yaw 115°, tilt -40°, on its side (the pick:
-#                  only 8% of the picture is wasted wall, and it sees the PC, the heat/AC unit, the floor, the bed and you)
+#   "above_pc":    on the desk wall 85 cm from the window corner, room yaw 100°, tilt -55°, upright (the pick: almost no
+#                  ceiling, and it sees the PC, the heat/AC unit, the floor, the desk, the bed and you)
+#   "window_side": 45 cm from the window corner, room yaw 115°, tilt -40°, on its side (less wasted side wall, but the
+#                  top of the picture is all far wall)
 #   "window":      in the window corner, room yaw 105°, tilt -50° (42% of the picture is the window wall, edge-on)
 #   "door":        in the door corner, room yaw 40°, tilt -33° (sees the glass head-on, not the PC)
 # The camera slides in from the open end with its USB-C plug sticking out of it; that end must not face a wall.
-SPOTS = {"window_side": (65.0, -40.0, 90.0, None, False), "window": (75.0, -50.0, 0.0, -1, True), "door": (40.0, -33.0, 0.0, +1, True)}
-SPOT = "window_side"
+SPOTS = {"above_pc": (80.0, -55.0, 0.0, None, False), "window_side": (65.0, -40.0, 90.0, None, False), "window": (75.0, -50.0, 0.0, -1, True), "door": (40.0, -33.0, 0.0, +1, True)}
+SPOT = "above_pc"
 YAW, TILT, ROLL, PLUG_END, CORNER = SPOTS[SPOT]
 # Where the lens sits (mm): out from the wall(s), and down from the top of the mount. On a single plate it sits mid-plate.
 
