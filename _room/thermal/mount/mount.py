@@ -102,66 +102,121 @@ def build():
     return part ^ keep
 
 
-# ---- the sleek single-plate version (used when the spot isn't a corner) ----
-SEG = 72                                    # facets per full circle: smooth on any printer
-# 3M Command Medium picture-hanging strips: 3/4" x 2-3/4" (19.05 x 69.85 mm). About the last 15 mm is the pull tab, which
-# must stay free, so the plate covers only the sticky part and the tabs hang out of the bottom.
-STRIP_W, STRIP_L, STRIP_TAB = 19.05, 69.85, 15.0
-STRIPS, STRIP_GAP, MARGIN = 2, 5.0, 2.5     # two side by side: the camera sticks out, and two strips resist peeling far better
-SLEEK_W = STRIPS * STRIP_W + (STRIPS - 1) * STRIP_GAP + 2 * MARGIN    # 48.1 mm along the wall
-SLEEK_H = STRIP_L - STRIP_TAB + 1.0                                   # 55.9 mm tall
-SLEEK_T = 4.0
-SLEEK_OUT, SLEEK_DOWN = 44.0, 30.0          # lens: out from the wall, and down from the top of the plate
-RECESS = 0.4                                # shallow pockets on the back that show where each strip goes
+# ---- the angular single-plate version (used when the spot isn't a corner) ----
+# All flat faces, no curves, no supports. It prints lying on the cradle's top face (PRINT_UP): every face of the hull was
+# tried as the bed face, and this one leaves the least overhang (a few mm²) with a big first layer. The only thing a printer
+# has to bridge is the 10 mm roof over the camera pocket. The plate's back then prints as a sloped top surface; its fine
+# layer steps are no problem for the strip's foam.
+#
+# One 3M Command Small picture-hanging strip pair (5/8" x 2-1/8", 16 x 54 mm, about 450 g a pair). The last ~13 mm is the
+# pull tab: the plate covers only the sticky part and the tab hangs free below it. Camera + mount + a bit of cable is about
+# 50 g, so one pair has roughly a 9x margin in shear. The camera is pulled in as close to the wall as its view allows, so
+# the lever that tries to peel the top of the strip off is as short as it can be.
+SM_W, SM_L, SM_TAB = 16.0, 54.0, 13.0
+STRIP_THICK = 4.0                          # an interlocked pair is about this thick; the plate sits this far off the wall
+PT = 2.4                                   # plate thickness: 12 layers at 0.2 mm, stiff enough for a strip this size
+RAIL, BED, LIPT, LIP = 1.6, 1.6, 1.2, 1.5  # cradle walls (4 perimeters at 0.4 mm), back, lip thickness, lip overlap
+CABLE = 4.2                                # clip channel for a USB-C cable up to about 4 mm thick
+PRINT_UP = None                            # filled in by build_angular(): the direction that's "up" on the print bed
+LENS_X = 0.0                               # lens offset from the camera's middle along its long side (measure on arrival)
 
 
-def rbox(x0, x1, y0, y1, z0, z1, r):
-    """A box with every edge and corner rounded to radius r."""
-    pts = [(x, y, z) for x in (x0 + r, x1 - r) for y in (y0 + r, y1 - r) for z in (z0 + r, z1 - r)]
-    return Manifold.batch_hull([Manifold.sphere(r, SEG).translate(p) for p in pts])
-
-
-def xdisc(x0, x1, y, z, r):
-    """A disc whose axis runs out of the wall (x)."""
-    return Manifold.cylinder(x1 - x0, r, r, SEG).rotate([0, 90, 0]).translate([x0, y, z])
-
-
-def build_sleek():
-    zc = SLEEK_W / 2
-    lens = np.array([SLEEK_OUT, -SLEEK_DOWN, zc])
-    plug_end = PLUG_END if PLUG_END is not None else (-1 if frame()[0][1] > 0 else 1)
+def holder_parts(plug_end):
+    """Camera coordinates: x = long axis, y = short axis, z = optical axis (lens face at z = 0, body behind it)."""
     L, W, T = CAM_L + 2 * FIT, CAM_W + 2 * FIT, CAM_T + FIT
-    R, C = 9.0, 1.4                          # plate corner radius, and the soft bevel round its front edge
-    ys, zs = (-SLEEK_H + R, -R), (zc - SLEEK_W / 2 + R, zc + SLEEK_W / 2 - R)
-    plate = Manifold.batch_hull([xdisc(0, SLEEK_T - C, y, z, R) for y in ys for z in zs] +
-                                [xdisc(SLEEK_T - C, SLEEK_T, y, z, R - C) for y in ys for z in zs])
-    # Strip pockets on the back, open at the bottom so the pull tabs come straight out.
-    for i in range(STRIPS):
-        z0 = zc - SLEEK_W / 2 + MARGIN + i * (STRIP_W + STRIP_GAP) - 0.2
-        plate = plate - box(-1, RECESS, -SLEEK_H - 1, -1.2, z0, z0 + STRIP_W + 0.4)
-    # Cradle: a rounded shell round the camera, with a rounded window for the lens and one open end.
-    shell = placed(rbox(-L / 2 - WALL, L / 2 + WALL, -W / 2 - WALL, W / 2 + WALL, -T - WALL, 1.2, 2.0), lens)
+    e = plug_end
+    x_closed = -e * (L / 2 + RAIL)           # end stop on the side away from the plug
+    x_open = e * (L / 2)                     # open end, flush with the camera: the plug and cable come straight out
+    outer = box(min(x_closed, x_open), max(x_closed, x_open), -W / 2 - RAIL, W / 2 + RAIL, -T - BED, LIPT)
     pocket = box(-L / 2, L / 2, -W / 2, W / 2, -T, 0)
-    win = Manifold.batch_hull([Manifold.cylinder(8, 1.6, 1.6, SEG).translate([x, y, -2])
-                               for x in (-L / 2 + 3.1, L / 2 - 3.1) for y in (-W / 2 + LIP + 1.6, W / 2 - LIP - 1.6)])
-    slide = box(-L / 2, L / 2, -W / 2 - 0.05, W / 2 + 0.05, -T - 0.05, 0).translate([plug_end * L, 0, 0])
-    stop = box(-0.6, 0.6, -W / 2, W / 2, -T, -T + 0.5).translate([plug_end * (L / 2 - 1.5), 0, 0])
-    # Neck: one smooth taper from a disc on the plate to the back of the cradle.
-    root = xdisc(SLEEK_T - 1.0, SLEEK_T, -SLEEK_H / 2, zc, 13.0)
-    back = placed(rbox(-L / 2 - WALL + 1, L / 2 + WALL - 1, -W / 2 - WALL + 1, W / 2 + WALL - 1, -T - WALL + 0.3, -T - WALL + 1.8, 0.6), lens)
-    neck = Manifold.batch_hull([root, back])
-    part = plate + neck + shell
-    part = part - placed(pocket + slide + win, lens)
-    part = part + placed(stop, lens)
-    return part ^ box(0, 400, -400, 400, -400, 400)
+    path = box(-L / 2, L / 2, -W / 2, W / 2, -T, 0).translate([e * L, 0, 0])           # it slides in from the open end
+    window = box(-L / 2 - 50, L / 2 + 50, -W / 2 + LIP, W / 2 - LIP, -1, LIPT + 1)    # lens window between the two lips
+    plugroom = box(e * L / 2 - (0 if e > 0 else 40), e * L / 2 + (40 if e > 0 else 0), -9, 9, -T - 2, 6)  # plug + cable socket
+    return outer, pocket + path + window + plugroom, L, W, T
+
+
+def corners(m: Manifold):
+    v = np.asarray(m.to_mesh().vert_properties)[:, :3]
+    return v
+
+
+def build_angular():
+    global PRINT_UP
+    plug_end = PLUG_END if PLUG_END is not None else 1
+    outer, cut, L, W, T = holder_parts(plug_end)
+    r, u, f = frame()
+    # Pull the cradle in until its closest point just clears the plate (x = plate front).
+    pts = corners(outer) @ np.column_stack([r, u, f]).T
+    lens_x = (STRIP_THICK + PT + 0.6) - pts[:, 0].min()
+    # Vertically: the cradle's top flush with the plate's top, so the strip carries it from just below.
+    lens_y = -pts[:, 1].max()
+    lens_z = 0.0
+    lens = np.array([lens_x, lens_y, lens_z])
+    cradle = placed(outer, lens)
+    cv = corners(cradle)
+    # Plate: covers the strip's sticky part; its bottom edge is where the pull tab comes out.
+    ph = SM_L - SM_TAB + 1.0
+    zc = (cv[:, 2].min() + cv[:, 2].max()) / 2
+    pw = SM_W + 2.0
+    plate = box(STRIP_THICK, STRIP_THICK + PT, -ph, 0, zc - pw / 2, zc + pw / 2)
+    # Wedge: a straight-faced hull from the plate to the cradle.
+    body = Manifold.batch_hull([plate, cradle])
+    # Cable clip on the plug side of the plate, low down: the cable from the camera drops into it, so its weight goes into
+    # the plate right at the wall instead of hanging off the camera.
+    side = -1 if (r[2] * plug_end) < 0 else 1                     # which edge of the plate the plug points toward
+    # The clip is a tube with a diamond cross-section, running up and down the wall: tilted 45°, every face of it prints
+    # without support in the planned orientation. A 3.2 mm slit on its outer corner lets a 4 mm cable snap in.
+    s_in, s_out = CABLE + 0.4, CABLE + 0.4 + 2 * RAIL
+    half = s_out / math.sqrt(2)
+    cx, cz = STRIP_THICK + half, zc + side * (pw / 2 + half - 1.0)   # back corner on the plate's back plane, fused to its edge
+    y0, y1 = -ph, -ph + 12
+    diamond = lambda size: Manifold.cube([size, y1 - y0, size]).translate([-size / 2, 0, -size / 2]).rotate([0, 45, 0])
+    clip = diamond(s_out).translate([cx, y0, cz]) - diamond(s_in).translate([cx, y0 - 1, cz]).scale([1, 1, 1])
+    clip = clip - box(cx, cx + s_out, y0 - 1, y1 + 1, cz - 1.6, cz + 1.6)
+    # The camera's whole field of view (90° x 67°, plus 3° each way) is cut out, so nothing can ever sit in the picture.
+    th, tv = math.tan(math.radians(45 + 3)), math.tan(math.radians(33.5 + 3))
+    far = 400.0
+    view = Manifold.batch_hull([box(-0.3, 0.3, -0.3, 0.3, -0.8, -0.2)] +
+                               [box(-0.1, 0.1, -0.1, 0.1, -0.1, 0.1).translate([sx * th * far, sy * tv * far, far]) for sx in (-1, 1) for sy in (-1, 1)])
+    # ...but the lens window must stay framed: keep the cradle's lips.
+    part = (body + clip) - placed(cut + view.translate([LENS_X, 0, 0]), lens)
+    # Print lying on the cradle's top face (the camera's top side): "up" on the bed is the camera's down.
+    PRINT_UP = -u
+    return part, lens
 
 
 def lens_pos():
-    return np.array([SLEEK_OUT, -SLEEK_DOWN, SLEEK_W / 2]) if not CORNER else np.array([OUT, -DOWN, ALONG])
+    return build_angular()[1] if not CORNER else np.array([OUT, -DOWN, ALONG])
+
+
+def report(part, lens):
+    """Weight, the load on the strip, and what a printer has to bridge or overhang."""
+    m = part.to_mesh()
+    v = np.asarray(m.vert_properties)[:, :3]; tri = v[np.asarray(m.tri_verts)]
+    n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]); area = np.linalg.norm(n, axis=1) / 2
+    n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    vol = part.volume() / 1000
+    out = {"volume_cm3": round(vol, 1)}
+    for name, up in (("on the cradle's top (planned)", PRINT_UP), ("plate down", np.array([1.0, 0, 0]))):
+        h = tri @ up
+        on_bed = np.all(np.abs(h - h.min()) < 0.05, axis=1)
+        down = (n @ -up)
+        over = (~on_bed) & (down > math.cos(math.radians(45)) + 1e-6)
+        flat = over & (down > 0.98)
+        out[name] = {"overhang_mm2": round(float(area[over & ~flat].sum())), "flat_bridge_mm2": round(float(area[flat].sum())),
+                     "bed_contact_mm2": round(float(area[on_bed].sum()))}
+    # Mass: walls and top/bottom skins print solid, the rest at ~20% infill; call it 55% of solid PETG/PLA (1.25 g/cm3).
+    grams = vol * 1.25 * 0.55
+    r, u, f = frame()
+    cam_c = lens - f * (CAM_T / 2)
+    com_x = (grams * float(np.mean(v[:, 0])) + 22 * cam_c[0]) / (grams + 22)
+    out.update(mount_g=round(grams, 1), camera_g=22, lever_mm=round(com_x, 1),
+               peel_Nmm=round((grams + 22) / 1000 * 9.81 * com_x, 1))
+    return out
 
 
 def main():
-    part = build() if CORNER else build_sleek()
+    part = build() if CORNER else build_angular()[0]
     mesh: Mesh = part.to_mesh()
     tm = trimesh.Trimesh(vertices=np.asarray(mesh.vert_properties)[:, :3], faces=np.asarray(mesh.tri_verts))
     out = pathlib.Path(__file__).with_name(f"{SPOT}_mount.stl")
@@ -171,6 +226,8 @@ def main():
           f"watertight {tm.is_watertight}, volume {tm.volume / 1000:.1f} cm³")
     r, u, f = frame()
     print("aim (room x, y, z):", np.round(f, 3), " camera right:", np.round(r, 3))
+    if not CORNER:
+        print(report(*build_angular()))
 
 
 if __name__ == "__main__":
