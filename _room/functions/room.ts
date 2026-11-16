@@ -8,6 +8,7 @@ import { CTL, decide, fit, samples, type Bucket } from "./model.ts";
 //   POST {action:test}       -> send a test notification
 //   POST {action:mode, mode: awake|sleep|away} -> set his presence (lights_presence 'me'), which picks the blind's target
 //   POST {action:tick}       -> (pg_cron, every minute) work out the advice and push when it changes; after dark, steer the blind
+//   POST {action:thermal, stats, frame?} -> (thermal camera key only) one minute's summary from the PC's thermal camera, into room_thermal
 // JWT verification is off because the app is a static page with no Supabase login; instead every
 // request must carry a private key in the x-room-key header, checked against hashes in public.room_keys.
 
@@ -241,6 +242,23 @@ Deno.serve(async (req: Request) => {
     if (body.action === "test") {
       const d = await rpc("room_tick_data");
       return reply(await push(d.subs, "Alerts are on. You'll hear from me when something should change.", d.vapid_private));
+    }
+    if (body.action === "thermal") {
+      if (label !== "thermal camera") return reply({ error: "key" }, 401);
+      const s = body.stats ?? {};
+      const num = (v: unknown, lo = -40, hi = 150) => (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi ? Math.round(v * 100) / 100 : null);
+      const f = body.frame;
+      const frame = f && f.w === 80 && f.h === 62 && typeof f.dc_i16_b64 === "string" && f.dc_i16_b64.length <= 14000 ? f : null;
+      const stats = JSON.stringify(s).length <= 4000 ? s : {};
+      await rest("room_thermal", "POST", {
+        window_c: num(s.window_c), unit_c: num(s.unit_c), unit_state: ["heating", "cooling", "off"].includes(s.unit_state) ? s.unit_state : null,
+        unit_leak: typeof s.unit_leak === "boolean" ? s.unit_leak : null, walls_c: num(s.walls_c), floor_c: num(s.floor_c), floor_min_c: num(s.floor_min_c),
+        bed_c: num(s.bed_c), head_c: num(s.head_c), in_bed: typeof s.in_bed === "boolean" ? s.in_bed : null,
+        people_px: num(s.people_px, 0, 5000), stats, frame,
+      });
+      // Whole frames are kept for 30 days; the minute summaries stay.
+      if (new Date().getMinutes() === 0) await rest(`room_thermal?ts=lt.${new Date(Date.now() - 30 * 864e5).toISOString()}&frame=not.is.null`, "PATCH", { frame: null }).catch(() => {});
+      return reply({ ok: true });
     }
     return reply({ error: "action" }, 400);
   } catch (e) {
