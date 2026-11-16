@@ -120,8 +120,9 @@ PRINT_UP = None                            # filled in by build_angular(): the d
 LENS_X = -8.0                              # the lens sits toward one end
 PLUG_X, PLUG_SIDE, PLUG_Z = 8.0, -1, -6.0  # the USB-C plug sticks out of a long side, toward the other end, near the back
 PLUG_W = 8.4                               # USB-C plug width
-# A 90° USB-C adapter (male-to-female) on the plug turns the cable to run along the wall; this is the room left for it.
-ADAPTER_DEEP, ADAPTER_W, ADAPTER_T, ADAPTER_RUN = 15.0, 14.0, 9.0, 40.0
+# A plain USB-C extension cable's female end plugs straight onto the plug. This is the room left for that end (a typical
+# one is about 13 x 7.5 mm and 22 mm long to where the cable starts); the cable then bends down along the wall.
+CONN_LEN, CONN_W, CONN_T = 24.0, 14.0, 9.0
 CATCH = 0.7                                # how far the snap catches overlap the camera's front edges
 
 
@@ -133,14 +134,14 @@ def holder_parts():
     outer = box(-L / 2 - RAIL, L / 2 + RAIL, -W / 2 - RAIL, W / 2 + RAIL, -T - BED, front)
     pocket = box(-L / 2, L / 2, -W / 2, W / 2, -T, 30)
     sy = PLUG_SIDE
-    ylo, yhi = (-W / 2 - ADAPTER_DEEP, -W / 2 + 0.01) if sy < 0 else (W / 2 - 0.01, W / 2 + ADAPTER_DEEP)
-    slot = box(PLUG_X - ADAPTER_W / 2, PLUG_X + ADAPTER_W / 2, ylo, yhi, PLUG_Z - ADAPTER_T / 2, 30)
-    run = box(PLUG_X - ADAPTER_W / 2, L / 2 + RAIL + ADAPTER_RUN, ylo, yhi, PLUG_Z - ADAPTER_T / 2, 30)   # cable out the end
-    cut = pocket + slot + run
+    ylo, yhi = (-W / 2 - CONN_LEN, -W / 2 + 0.01) if sy < 0 else (W / 2 - 0.01, W / 2 + CONN_LEN)
+    # Straight out of the bottom: a slot for the cable's female end, open at the front so the camera goes in with it attached.
+    conn = box(PLUG_X - CONN_W / 2, PLUG_X + CONN_W / 2, ylo, yhi, PLUG_Z - CONN_T / 2, 30)
+    cut = pocket + conn
     catches = Manifold()
     for side in (1, -1):
         # Along each long front edge, away from the plug slot: a ramp that the camera pushes past and clicks under.
-        xs = [(-L / 2 + 1, L / 2 - 1)] if side != sy else [(-L / 2 + 1, PLUG_X - ADAPTER_W / 2 - 1)]
+        xs = [(-L / 2 + 1, L / 2 - 1)] if side != sy else [(-L / 2 + 1, PLUG_X - CONN_W / 2 - 1)]
         for x0, x1 in xs:
             edge = side * W / 2
             into = edge + side * 0.6                                    # reach into the rail so it fuses
@@ -176,7 +177,10 @@ def build_angular(up_override=None):
     far = 400.0
     view = Manifold.batch_hull([box(-0.3, 0.3, -0.3, 0.3, -0.8, -0.2)] +
                                [box(-0.1, 0.1, -0.1, 0.1, -0.1, 0.1).translate([sx * th * far, sy * tv * far, far]) for sx in (-1, 1) for sy in (-1, 1)])
-    part = body - placed(cut + view.translate([LENS_X, 0, 1.0]), lens) + placed(catches, lens)
+    # Where the cable leaves its connector: from there it bends down along the wall, through a slot in the mount's underside.
+    end = lens + R @ np.array([PLUG_X, PLUG_SIDE * (W / 2 + CONN_LEN), PLUG_Z])
+    drop = box(end[0] - 3.0, 400, -400, end[1] + 3.0, end[2] - 3.0, end[2] + 3.0)
+    part = body - placed(cut + view.translate([LENS_X, 0, 1.0]), lens) - drop + placed(catches, lens)
     part = part ^ box(STRIP_THICK, 400, -400, 400, -400, 400)     # nothing behind the plate's back
     PRINT_UP = up_override if up_override is not None else best_up(part)
     return part, lens
