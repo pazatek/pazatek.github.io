@@ -35,8 +35,10 @@ import room_scene as rs
 HERE = pathlib.Path(__file__).resolve().parent
 K = 273.15
 DEFAULT_CONFIG = {
-    # Top left of the door as you walk in, aimed 40° off the desk wall toward the bed and 33° down (the mount holds this).
-    "pose": {"pos": [0.046, 2.07, 0.046], "yaw": 40.0, "tilt": -33.0, "roll": 0.0, "flip_h": False, "flip_v": False},
+    # Top left of the window as you walk in, looking along the window wall toward the bed side and 50° down (the mount holds
+    # this). It sees the PC, desk, floor, bed, you and the heat/AC unit; the glass it only sees edge-on, so window_c is skipped.
+    "pose": {"pos": [0.046, 2.2, 3.639], "yaw": 105.0, "tilt": -50.0, "roll": 0.0, "flip_h": False, "flip_v": False},
+    "skip": ["window"],
     # Reference card: black electrical tape on a piece of card, hung in free air next to the desk thermometer.
     "card": {"pixel": None, "thermometer": "desk"},
     "frame_every_min": 15,
@@ -182,7 +184,7 @@ class Calibration:
 
 # ---------- one minute's summary ----------
 
-def summarize(t: np.ndarray, labels: np.ndarray, purity: np.ndarray) -> dict:
+def summarize(t: np.ndarray, labels: np.ndarray, purity: np.ndarray, skip=()) -> dict:
     def pick(*names, pure=0.75):
         m = np.isin(labels, names) & (purity >= pure)
         return t[m]
@@ -203,7 +205,8 @@ def summarize(t: np.ndarray, labels: np.ndarray, purity: np.ndarray) -> dict:
     warm = (t >= 30.0) & ~np.isin(labels, ["pc", "unit", "lamp"])
     floor = pick("floor")
     return {
-        "window_c": med(pick("window", pure=0.6)),
+        "window_c": None if "window" in skip else med(pick("window", pure=0.6)),
+        "pc_c": med(pick("pc", pure=0.6)),     # the PC case (its power draw is logged separately in pc_power)
         "unit_c": unit_c, "unit_state": unit_state,
         "unit_leak": bool(unit_state == "off" and unit_c is not None and med(pick("wall_window")) is not None and unit_c < med(pick("wall_window")) - 1.5),
         "walls_c": wall_c,
@@ -328,7 +331,7 @@ def main():
                 except Exception as e:  # noqa: BLE001 - calibration can wait a minute
                     log("thermometer read failed:", e)
             t = cal.apply(surf)
-            stats = {**summarize(t, labels, purity), "frames": len(frames), "cal": calib, **({"fake": True} if args.fake else {})}
+            stats = {**summarize(t, labels, purity, cfg.get("skip", [])), "frames": len(frames), "cal": calib, **({"fake": True} if args.fake else {})}
             body = {"action": "thermal", "stats": stats}
             if minute % cfg.get("frame_every_min", 15) == 0:
                 q = np.clip(np.round(t * 10), -32768, 32767).astype("<i2")   # deci-°C

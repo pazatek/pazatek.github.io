@@ -1,6 +1,6 @@
 # Thermal camera
 
-A Waveshare **Thermal-90 USB Camera (B)** (80×62 pixels, 90°×67°, ±1.5 °C, USB-C) hangs in the corner above the door and plugs
+A Waveshare **Thermal-90 USB Camera (B)** (80×62 pixels, 90°×67°, ±1.5 °C, USB-C) hangs at the top left of the window (as you walk in) and plugs
 into the PC, which is always on. A small Python program on the PC reads it, works out the temperature of each surface it can
 see, and sends a one-minute summary to Supabase through the `room` edge function.
 
@@ -13,7 +13,8 @@ Thermometers measure air; the camera measures surfaces. What it adds:
 
 | Column (°C) | What it is |
 |---|---|
-| `window_c` | The glass, seen nearly straight on (or the blind when it's down) |
+| `window_c` | Empty from the window corner: it sees the glass edge-on, which reads the room's reflection, not the glass |
+| `pc_c` | The PC case (its power draw is already logged in `pc_power`); in `stats` only |
 | `unit_c`, `unit_state`, `unit_leak` | The heat/AC unit under the window: heating, cooling or off, and whether it's off but letting cold air through |
 | `walls_c` | Median of the walls, closet and ceiling: what your body radiates to, which is a big part of how warm the room feels |
 | `floor_c`, `floor_min_c` | Floor, and its coldest 5% |
@@ -29,8 +30,8 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
   sees, so the program knows which pixels are window, unit, bed and so on. Also makes fake frames for testing.
 - `thermal_agent.py`: the program. Averages about two frames a second over each minute (that cuts the noise about 10×),
   corrects every pixel for its surface's emissivity, applies the calibration, and posts. See its docstring for flags.
-- `mount/mount.py` → `mount/door_corner_mount.stl`: the 3D-printed corner mount. Two 72×48 mm plates stick to the two walls
-  above the door; the cradle holds the camera aimed 40° off the desk wall toward the bed and 33° down, the aim the room
+- `mount/mount.py` → `mount/window_corner_mount.stl`: the 3D-printed corner mount. Two 72×48 mm plates stick to the window wall and
+  the desk wall, just left of the window; the cradle holds the camera looking along the window wall toward the bed side, 50° down, the aim the room
   model found best. Checked: it's a closed solid and none of the camera's view hits the mount.
 - `install.ps1`: copies the program to `%USERPROFILE%\room-thermal`, makes a venv with `pysenxor-lite` (Meridian's library for
   this sensor), and adds the scheduled task "Room thermal camera" (starts at logon, restarts if it stops).
@@ -52,9 +53,9 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
 ## On arrival
 
 1. Measure the camera (Waveshare lists 32 × 18.5 mm; thickness unknown) and which end the USB-C plug comes out of. Fix `CAM_*`
-   and `PLUG_END` in `mount/mount.py`, run it, and print `door_corner_mount.stl`: PETG or PLA, 4 walls, 30% infill, one plate
+   and, if needed, the open end in `SPOTS` in `mount/mount.py`, run it, and print `window_corner_mount.stl`: PETG or PLA, 4 walls, 30% infill, one plate
    flat on the bed, supports under the cradle.
-2. Stick it in the corner above the door with Command strips, top about 2.10 m up. Run a 3 m USB-C extension down to the PC.
+2. Stick it in the corner to the left of the window with Command strips, top about 2.23 m up, clear of the blind. The PC is about 1 m away, so a short USB-C extension does it.
 3. `powershell -ExecutionPolicy Bypass -File install.ps1`
 4. Hang the reference card by the desk thermometer, then from `%USERPROFILE%\room-thermal`:
    `venv\Scripts\python thermal_agent.py --find-card` and hold a warm hand right behind the card for 20 seconds.

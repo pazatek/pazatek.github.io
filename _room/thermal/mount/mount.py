@@ -1,10 +1,12 @@
-"""Door-corner mount for the Waveshare Thermal-90 USB Camera (B).
+"""Corner mount for the Waveshare Thermal-90 USB Camera (B).
 
-Two plates stick to the two walls of the corner above the door (Command strips or VHB), and a cradle holds the camera
-aimed the way the room model found best: 40° from the desk wall toward the bed, 33° down.
+Two plates stick to the two walls of a corner on the desk wall (Command strips or VHB), and a cradle holds the camera
+aimed the way the room model found best for that corner. SPOT picks the corner:
+  "window": top left of the window as you walk in (the pick: sees the PC, desk, bed, you, floor and the heat/AC unit)
+  "door":   top left of the door (sees the window glass head-on, but not the PC)
 
-Room frame, millimetres, origin at the corner where the plates meet, top of the mount at y = 0:
-  x runs along the door wall toward the drawer and bed, y is up, z runs along the desk wall toward the window.
+Mount frame, millimetres, origin at the corner where the plates meet, top of the mount at y = 0:
+  z runs along the desk wall into the room, x runs along the other wall (window or door wall) toward the bed side, y is up.
 The walls are the planes x = 0 and z = 0; everything printed sits at x >= 0, z >= 0.
 
 Camera: an aluminium block with the lens on its big face and the USB-C plug sticking out of one end. Measure the real
@@ -22,10 +24,14 @@ CAM_L, CAM_W, CAM_T = 32.0, 18.5, 10.0
 FIT = 0.3            # clearance per side for a snug push fit
 WALL = 2.4           # cradle wall
 LIP = 1.2            # lip over the lens face's long edges that holds the camera in
-PLUG_END = +1        # which short end the USB-C plug comes out of: +1 or -1 along the camera's long axis
 
-# Aim (matches the room model and thermal_agent.py's POSE).
-YAW, TILT = 40.0, -33.0
+# Per corner: aim in the mount frame (degrees from the desk wall toward the bed side, and down; matches thermal_agent.py's
+# pose: room yaw 105°, tilt -50° at the window corner, room yaw 40°, tilt -33° at the door corner), and which end of the
+# cradle is open (+1 or -1 along the camera's long axis). The camera slides in from the open end with its USB-C plug
+# sticking out of it, and that end has to face the room, not the wall.
+SPOTS = {"window": (75.0, -50.0, -1), "door": (40.0, -33.0, +1)}
+SPOT = "window"
+YAW, TILT, PLUG_END = SPOTS[SPOT]
 # Where the lens sits, measured from the corner (mm): out from each wall, and down from the top of the mount.
 OUT, DOWN = 46.0, 28.0
 
@@ -66,7 +72,7 @@ def build():
     lips = box(-L / 2 - WALL, L / 2 + WALL, -W / 2 - WALL, W / 2 + WALL, 0, 1.2) - window
     # The plug end is left open: the camera slides in from there under the lips, and the plug and cable come out of it.
     slide = box(-L / 2, L / 2, -W / 2, W / 2, -T, 0).translate([PLUG_END * L, 0, 0])
-    stop = box(-0.6, 0.6, -W / 2, W / 2, -T, -T + 0.5).translate([PLUG_END * (L / 2 - 0.6), 0, 0])  # small bump that clicks it in place
+    stop = box(-0.6, 0.6, -W / 2, W / 2, -T, -T + 0.5).translate([PLUG_END * (L / 2 - 1.5), 0, 0])  # small bump that clicks it in place
     cradle = placed(((outer + lips) - pocket - slide) + stop, lens)
     back = placed(box(-L / 2 - WALL, L / 2 + WALL, -W / 2 - WALL, W / 2 + WALL, -T - WALL, -T), lens)
     plug = slide
@@ -85,7 +91,7 @@ def main():
     part = build()
     mesh: Mesh = part.to_mesh()
     tm = trimesh.Trimesh(vertices=np.asarray(mesh.vert_properties)[:, :3], faces=np.asarray(mesh.tri_verts))
-    out = pathlib.Path(__file__).with_name("door_corner_mount.stl")
+    out = pathlib.Path(__file__).with_name(f"{SPOT}_corner_mount.stl")
     tm.export(out)
     ext = tm.bounds[1] - tm.bounds[0]
     print(f"wrote {out.name}: {len(tm.faces)} triangles, {ext[0]:.0f} × {ext[1]:.0f} × {ext[2]:.0f} mm, "
