@@ -19,8 +19,13 @@ import numpy as np
 import trimesh
 from manifold3d import Manifold, Mesh
 
-# Camera body (Waveshare lists 32.0 × 18.5 mm; the thickness is a guess until it is measured).
+# Camera body. 32.0 × 18.5 mm is from Waveshare's outline drawing (Thermal-45/90 USB Camera (B), "Unit: mm"; the wiki says
+# the same). The thickness isn't published anywhere: photos put it near 10 mm and one reseller lists 33 × 28 × 12 mm with
+# the plug and lens. So the pocket is CAM_T_MAX deep and a set of printed shims (0.5, 1 and 2 mm) fills whatever's left
+# behind the camera: it fits any body from 8.5 to 12 mm without reprinting. CAM_T is only used for the pictures.
 CAM_L, CAM_W, CAM_T = 32.0, 18.5, 10.0
+CAM_T_MAX = 12.0
+SHIMS = (0.5, 1.0, 2.0)
 FIT = 0.3            # clearance per side for a snug push fit
 WALL = 2.4           # cradle wall
 LIP = 1.2            # lip over the lens face's long edges that holds the camera in
@@ -72,6 +77,13 @@ def box(x0, x1, y0, y1, z0, z1):
     return Manifold.cube([x1 - x0, y1 - y0, z1 - z0]).translate([x0, y0, z0])
 
 
+def cbox(x0, x1, y0, y1, z0, z1, c):
+    """A box with all 12 edges cut off at 45° by c mm (flat chamfers, no curves): the hull of three boxes, each inset
+    by c on two axes. A hull of chamfered boxes is chamfered on every outside edge too."""
+    return Manifold.batch_hull([box(x0, x1, y0 + c, y1 - c, z0 + c, z1 - c), box(x0 + c, x1 - c, y0, y1, z0 + c, z1 - c),
+                                box(x0 + c, x1 - c, y0 + c, y1 - c, z0, z1)])
+
+
 def build():
     lens = np.array([OUT, -DOWN, ALONG])
     plug_end = PLUG_END if PLUG_END is not None else (-1 if frame()[0][1] > 0 else 1)   # open end pointing down
@@ -115,33 +127,46 @@ STRIP_THICK = 1.0                          # a single foam strip; the plate sits
 PT = 2.4                                   # plate thickness: 12 layers at 0.2 mm, stiff enough for a strip this size
 RAIL, BED = 1.6, 1.6                       # cradle walls and back (4 perimeters at 0.4 mm)
 PRINT_UP = None                            # filled in by build_angular(): the direction that's "up" on the print bed
-# Where things are on the camera (from Waveshare's photos; measure on arrival). Camera coordinates: x along the long side,
-# y along the short side, z out of the lens face.
-LENS_X = -8.0                              # the lens sits toward one end
-PLUG_X, PLUG_SIDE, PLUG_Z = 8.0, -1, -6.0  # the USB-C plug sticks out of a long side, toward the other end, near the back
-PLUG_W = 8.4                               # USB-C plug width
+# Where things are on the camera, read off Waveshare's outline drawing (15.2 px/mm) and checked against a straight-on
+# photo of the back of the 90° version. Camera coordinates: x along the long side, y along the short side, z out of the
+# lens face; looking at the lens with the plug pointing down, +x is to the right.
+LENS_X = -7.8                              # lens centre 8.2 mm from the left end, centred across the width
+LENS_D, LENS_RING = 9.2, 11.4              # black barrel (sticks out about 3 mm on the 90°), and the metal ring around it
+# A rigid male USB-C plug out of the bottom long side, centred 18.75 mm from the lens end (2.75 mm right of centre) and
+# sticking out 9.75 mm. How deep it sits through the thickness isn't drawn (photos: about the middle); the slot below is
+# open from the pocket floor to the front, so that doesn't matter for the fit.
+PLUG_X, PLUG_SIDE, PLUG_Z = 2.75, -1, -CAM_T / 2
+PLUG_W, PLUG_OUT = 8.25, 9.75
 # A plain USB-C extension cable's female end plugs straight onto the plug. This is the room left for that end (a typical
 # one is about 13 x 7.5 mm and 22 mm long to where the cable starts); the cable then bends down along the wall.
 CONN_LEN, CONN_W, CONN_T = 24.0, 14.0, 9.0
-CATCH = 0.7                                # how far the snap catches overlap the camera's front edges
+CATCH = 1.0                                # how far the snap catches overlap the camera's front edges (they're rounded)
+# Every outside edge is cut off at 45° (flat chamfers, so it stays angular and still prints with no supports: a 45° face
+# is the steepest a printer bridges cleanly). The cradle's is smaller so its 1.6 mm rails keep a flat front for the catches.
+CH, CH_CRADLE = 1.0, 0.8
 
 
 def holder_parts():
     """The cradle in camera coordinates (lens face at z = 0, body behind it). The camera pushes in from the front and
     clicks under two angled catches; its plug passes through a slot in the bottom rail into the adapter bay."""
-    L, W, T = CAM_L + 2 * FIT, CAM_W + 2 * FIT, CAM_T + FIT
+    L, W, T = CAM_L + 2 * FIT, CAM_W + 2 * FIT, CAM_T_MAX + FIT
     front = 1.6
-    outer = box(-L / 2 - RAIL, L / 2 + RAIL, -W / 2 - RAIL, W / 2 + RAIL, -T - BED, front)
+    outer = cbox(-L / 2 - RAIL, L / 2 + RAIL, -W / 2 - RAIL, W / 2 + RAIL, -T - BED, front, CH_CRADLE)
     pocket = box(-L / 2, L / 2, -W / 2, W / 2, -T, 30)
     sy = PLUG_SIDE
     ylo, yhi = (-W / 2 - CONN_LEN, -W / 2 + 0.01) if sy < 0 else (W / 2 - 0.01, W / 2 + CONN_LEN)
     # Straight out of the bottom: a slot for the cable's female end, open at the front so the camera goes in with it attached.
-    conn = box(PLUG_X - CONN_W / 2, PLUG_X + CONN_W / 2, ylo, yhi, PLUG_Z - CONN_T / 2, 30)
-    cut = pocket + conn
+    conn = box(PLUG_X - CONN_W / 2, PLUG_X + CONN_W / 2, ylo, yhi, -T, 30)
+    # On the slot's far side the wedge's outer face runs almost parallel to the slot wall, leaving a fin that tapers to a
+    # knife edge (20°). Open that side instead: the plug and the slot's floor and other wall still hold the connector.
+    fx = PLUG_X + CONN_W / 2
+    fin = box(fx - 0.01, fx + 30, ylo - 1 if sy < 0 else W / 2 + RAIL + 1, -W / 2 - RAIL - 1 if sy < 0 else yhi + 1,
+              -T, 30)
+    cut = pocket + conn + fin
     catches = Manifold()
     for side in (1, -1):
         # Along each long front edge, away from the plug slot: a ramp that the camera pushes past and clicks under.
-        xs = [(-L / 2 + 1, L / 2 - 1)] if side != sy else [(-L / 2 + 1, PLUG_X - CONN_W / 2 - 1)]
+        xs = [(-L / 2 + 1, L / 2 - 1)] if side != sy else [(-L / 2 + 1, PLUG_X - CONN_W / 2 - 1), (PLUG_X + CONN_W / 2 + 1, L / 2 - 1)]
         for x0, x1 in xs:
             edge = side * W / 2
             into = edge + side * 0.6                                    # reach into the rail so it fuses
@@ -164,14 +189,18 @@ def build_angular(up_override=None):
     need = corners(outer + cut ^ box(-60, 60, -60, 60, -20, 2)) @ R.T
     lens_x = (STRIP_THICK + PT + 0.6) - need[:, 0].min()
     pts = corners(outer) @ R.T
-    lens_y = -pts[:, 1].max()                                     # cradle top flush with the plate top
+    # Cradle top flush with the plate top. It sits a hair high and gets sliced flat at y = 0 below: otherwise its top
+    # chamfer lies almost flat just under the bed face and the printer has to bridge it.
+    lens_y = -pts[:, 1].max() + 0.5                         # leaves 1.2 mm over the camera's top corner
     lens = np.array([lens_x, lens_y, 0.0])
     cradle = placed(outer, lens)
     cv = corners(cradle)
     ph = SM_L - SM_TAB + 1.0                                      # plate covers the strip's sticky part; the tab hangs below
     zc = (cv[:, 2].min() + cv[:, 2].max()) / 2
     pw = SM_W + 2.0
-    plate = box(STRIP_THICK, STRIP_THICK + PT, -ph, 0, zc - pw / 2, zc + pw / 2)
+    # Chamfered on the room side only: it starts CH behind the wall face and gets clipped flat there below, so the whole
+    # back still sits on the strip.
+    plate = cbox(STRIP_THICK - CH, STRIP_THICK + PT, -ph, 0, zc - pw / 2, zc + pw / 2, CH)
     body = Manifold.batch_hull([plate, cradle])
     th, tv = math.tan(math.radians(45 + 3)), math.tan(math.radians(33.5 + 3))
     far = 400.0
@@ -181,9 +210,46 @@ def build_angular(up_override=None):
     end = lens + R @ np.array([PLUG_X, PLUG_SIDE * (W / 2 + CONN_LEN), PLUG_Z])
     drop = box(end[0] - 3.0, 400, -400, end[1] + 3.0, end[2] - 3.0, end[2] + 3.0)
     part = body - placed(cut + view.translate([LENS_X, 0, 1.0]), lens) - drop + placed(catches, lens)
-    part = part ^ box(STRIP_THICK, 400, -400, 400, -400, 400)     # nothing behind the plate's back
+    part = part ^ box(STRIP_THICK, 400, -400, 0, -400, 400)       # nothing behind the plate's back or above its top
+    part = blunt(part)
     PRINT_UP = up_override if up_override is not None else best_up(part)
     return part, lens
+
+
+def blunt(part, limit=75.0, depth=0.5):
+    """Flatten any outside edge sharper than `limit` degrees: slice it off `depth` mm in, with a plane halfway between its
+    two faces, inside a small cylinder around the edge so nothing else gets touched."""
+    for _ in range(8):
+        m = part.to_mesh(); v = np.asarray(m.vert_properties)[:, :3]; t = np.asarray(m.tri_verts)
+        n = np.cross(v[t[:, 1]] - v[t[:, 0]], v[t[:, 2]] - v[t[:, 0]])
+        n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+        key = {}
+        idx = np.array([key.setdefault(tuple(np.round(p, 4)), i) for i, p in enumerate(v)])
+        faces = {}
+        for fi, tri in enumerate(t):
+            a = idx[tri]
+            for k in range(3):
+                faces.setdefault(tuple(sorted((a[k], a[(k + 1) % 3]))), []).append(fi)
+        worst = None
+        for (a, b), fs in faces.items():
+            if len(fs) != 2 or np.linalg.norm(v[a] - v[b]) < 1.0:
+                continue
+            n0, n1 = n[fs[0]], n[fs[1]]
+            far = [i for i in idx[t[fs[1]]] if i not in (a, b)][0]
+            if (v[far] - v[a]) @ n0 >= 0:                            # concave: leave it
+                continue
+            ang = 180 - math.degrees(math.acos(float(np.clip(n0 @ n1, -1, 1))))
+            if ang < limit and (worst is None or ang < worst[0]):
+                worst = (ang, a, b, unit(n0 + n1))
+        if worst is None:
+            break
+        _, a, b, bis = worst
+        e = v[b] - v[a]; length = np.linalg.norm(e); e = e / length
+        rot = trimesh.geometry.align_vectors([0, 0, 1], e)[:3, :3]
+        cyl = Manifold.cylinder(length + 2.0, 3.0, 3.0, 16).translate([0, 0, -1.0])
+        cyl = cyl.transform(np.column_stack([rot, v[a]]))
+        part = part - cyl.trim_by_plane(list(bis), float(v[a] @ bis - depth))
+    return part
 
 
 def best_up(part):
@@ -234,8 +300,25 @@ def report(part, lens):
     return out
 
 
+def print_plate(part):
+    """The mount turned the way it prints (PRINT_UP = +z, sitting on z = 0) with the shims laid flat beside it, so the
+    STL drops onto the bed as is."""
+    up = unit(PRINT_UP)
+    rot = trimesh.geometry.align_vectors(up, [0, 0, 1])[:3, :3]
+    on_bed = part.transform(np.column_stack([rot, np.zeros(3)]))
+    lo, hi = on_bed.bounding_box()[:3], on_bed.bounding_box()[3:]
+    on_bed = on_bed.translate([-lo[0], -lo[1], -lo[2]])
+    x = hi[0] - lo[0] + 6.0
+    sw, sl = CAM_W - 1.0, CAM_L - 1.0                             # sits flat on the pocket floor behind the camera
+    for i, t in enumerate(SHIMS):
+        on_bed = on_bed + cbox(0, sw, 0, sl, 0, t, min(0.4, t / 2 - 0.01)).translate([x + i * (sw + 4.0), 0, 0])
+    return on_bed
+
+
 def main():
     part = build() if CORNER else build_angular()[0]
+    if not CORNER:
+        part = print_plate(part)
     mesh: Mesh = part.to_mesh()
     tm = trimesh.Trimesh(vertices=np.asarray(mesh.vert_properties)[:, :3], faces=np.asarray(mesh.tri_verts))
     out = pathlib.Path(__file__).with_name(f"{SPOT}_mount.stl")

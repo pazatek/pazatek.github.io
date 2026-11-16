@@ -30,23 +30,28 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
   sees, so the program knows which pixels are window, unit, bed and so on. Also makes fake frames for testing.
 - `thermal_agent.py`: the program. Averages about two frames a second over each minute (that cuts the noise about 10×),
   corrects every pixel for its surface's emissivity, applies the calibration, and posts. See its docstring for flags.
-- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount, all flat faces, about 16 g, 49 × 27 × 40 mm. It
-  holds the camera on the desk wall 85 cm from the window corner, above the PC, aimed toward the bed side and 55° down.
-  - **Camera:** it pushes in from the front and clicks under two angled catches along its front edges. Waveshare's photos
-    show the USB-C plug coming out of a long side near one end (the lens sits toward the other end), so the plug goes
-    through a slot in the bottom rail. `LENS_X`, `PLUG_X`, `PLUG_Z` and the `CAM_*` sizes are read off photos: measure.
+- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount, all flat faces with every outside edge chamfered
+  (1 mm at 45°, no edge sharper than 80°), about 16 g, 50 × 27 × 40 mm. It holds the camera on the desk wall 85 cm from
+  the window corner, above the PC, aimed toward the bed side and 55° down. The STL is already turned the way it prints,
+  with three shims laid beside it, so it drops straight onto the bed.
+  - **Camera:** sizes from Waveshare's outline drawing for the (B) USB camera: body 32.0 × 18.5 mm, lens centre 8.2 mm
+    from one end (barrel 9.2 mm, sticks out about 3 mm on the 90°), and a rigid male USB-C plug out of the bottom long
+    side, centred 18.75 mm from the lens end and 9.75 mm long. The camera pushes in from the front and clicks under four
+    angled catches (1 mm over its front edges).
+  - **Thickness:** not published anywhere (photos say about 10 mm, one reseller lists 12 mm with the lens). So the pocket
+    is 12 mm deep and the shims (0.5, 1 and 2 mm) go behind the camera to fill the rest: stack whichever fit snug. Works
+    for any body from 8.5 to 12 mm.
   - **Cable:** straight out of the bottom. A plain USB-C extension cable (female end onto the camera, USB-A or USB-C male
-    into the PC) plugs straight onto the plug; its female end sits in a slot through the mount (room for one up to about
-    13 × 7.5 mm and 22 mm long), and the cable bends down and runs along the wall right under the mount, about 8 mm off
-    it, behind the camera's view. Nothing sticks out to the side.
+    into the PC) plugs straight onto the plug; its female end sits in a slot open from the pocket floor to the front (room
+    for one up to about 13 × 7.5 mm and 22 mm long, at any depth the plug turns out to be), and the cable bends down
+    along the wall right under the mount, behind the camera's view.
   - **Strip:** one 3M Command Adjustables Mini refill strip, the near-square one (1.03" × 1.32", rated 0.5 lb / 227 g).
     The 28 × 26.5 mm plate covers only the sticky part; the pull tab (assumed about 8 mm, check it) hangs free below.
-  - **Gravity:** the camera sits as close to the wall as its view and the straight cable end allow (the camera's bottom
-    faces back toward the wall at 35° below horizontal, so the cable end needs room): its weight is about 32 mm out, a peel
-    load of about 12 N·mm. About 55 g with the cable's share on a 227 g strip, roughly a 4× margin.
-  - **Printing:** no supports. `best_up()` tries every flat face as the bed face; the best is standing on the mount's
-    flat top edge (plate top and cradle top are flush): no bridges, about 30 mm² past 45°, 1,200 mm² of first layer.
-    PETG or PLA, 0.2 mm layers, 4 walls, 15% gyroid infill. The camera's view (90° × 67° plus 3°) is cut out of the part.
+  - **Gravity:** the camera's weight is about 33 mm out from the wall, a peel load of about 12 N·mm. About 55 g with the
+    cable's share on a 227 g strip, roughly a 4× margin.
+  - **Printing:** no supports. It stands on the mount's flat top edge: no bridges, about 50 mm² past 45° (the catch
+    ramps), 1,200 mm² of first layer, at least 1.2 mm of wall everywhere. PETG or PLA, 0.2 mm layers, 4 walls, 15% gyroid
+    infill. The camera's view (90° × 67° plus 3°) is cut out of the part, checked clear.
 - `install.ps1`: copies the program to `%USERPROFILE%\room-thermal`, makes a venv with `pysenxor-lite` (Meridian's library for
   this sensor), and adds the scheduled task "Room thermal camera" (starts at logon, restarts if it stops).
 - Edge function `room`, action `thermal`: accepts only the key labelled `thermal camera` in `room_keys`. That key lives only
@@ -66,9 +71,8 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
 
 ## On arrival
 
-1. Measure the camera (Waveshare lists 32 × 18.5 mm; thickness unknown) and which end the USB-C plug comes out of. Fix `CAM_*`
-   and the lens and plug positions (`LENS_X`, `PLUG_X`, `PLUG_Z`) in `mount/mount.py`, run it, and print
-   `above_pc_mount.stl` as described above.
+1. Print `mount/above_pc_mount.stl` as is (it fits any camera thickness from 8.5 to 12 mm). Push the camera in with the
+   extension cable already on its plug, and stack shims behind it until it clicks in snug.
 2. Stick it on the desk wall 85 cm from the window corner (above the PC) with Command strips, top about 2.23 m up. A short USB-C cable reaches the PC below.
 3. `powershell -ExecutionPolicy Bypass -File install.ps1`
 4. Hang the reference card by the desk thermometer, then from `%USERPROFILE%\room-thermal`:
