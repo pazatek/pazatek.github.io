@@ -102,8 +102,66 @@ def build():
     return part ^ keep
 
 
+# ---- the sleek single-plate version (used when the spot isn't a corner) ----
+SEG = 72                                    # facets per full circle: smooth on any printer
+# 3M Command Medium picture-hanging strips: 3/4" x 2-3/4" (19.05 x 69.85 mm). About the last 15 mm is the pull tab, which
+# must stay free, so the plate covers only the sticky part and the tabs hang out of the bottom.
+STRIP_W, STRIP_L, STRIP_TAB = 19.05, 69.85, 15.0
+STRIPS, STRIP_GAP, MARGIN = 2, 5.0, 2.5     # two side by side: the camera sticks out, and two strips resist peeling far better
+SLEEK_W = STRIPS * STRIP_W + (STRIPS - 1) * STRIP_GAP + 2 * MARGIN    # 48.1 mm along the wall
+SLEEK_H = STRIP_L - STRIP_TAB + 1.0                                   # 55.9 mm tall
+SLEEK_T = 4.0
+SLEEK_OUT, SLEEK_DOWN = 44.0, 30.0          # lens: out from the wall, and down from the top of the plate
+RECESS = 0.4                                # shallow pockets on the back that show where each strip goes
+
+
+def rbox(x0, x1, y0, y1, z0, z1, r):
+    """A box with every edge and corner rounded to radius r."""
+    pts = [(x, y, z) for x in (x0 + r, x1 - r) for y in (y0 + r, y1 - r) for z in (z0 + r, z1 - r)]
+    return Manifold.batch_hull([Manifold.sphere(r, SEG).translate(p) for p in pts])
+
+
+def xdisc(x0, x1, y, z, r):
+    """A disc whose axis runs out of the wall (x)."""
+    return Manifold.cylinder(x1 - x0, r, r, SEG).rotate([0, 90, 0]).translate([x0, y, z])
+
+
+def build_sleek():
+    zc = SLEEK_W / 2
+    lens = np.array([SLEEK_OUT, -SLEEK_DOWN, zc])
+    plug_end = PLUG_END if PLUG_END is not None else (-1 if frame()[0][1] > 0 else 1)
+    L, W, T = CAM_L + 2 * FIT, CAM_W + 2 * FIT, CAM_T + FIT
+    R, C = 9.0, 1.4                          # plate corner radius, and the soft bevel round its front edge
+    ys, zs = (-SLEEK_H + R, -R), (zc - SLEEK_W / 2 + R, zc + SLEEK_W / 2 - R)
+    plate = Manifold.batch_hull([xdisc(0, SLEEK_T - C, y, z, R) for y in ys for z in zs] +
+                                [xdisc(SLEEK_T - C, SLEEK_T, y, z, R - C) for y in ys for z in zs])
+    # Strip pockets on the back, open at the bottom so the pull tabs come straight out.
+    for i in range(STRIPS):
+        z0 = zc - SLEEK_W / 2 + MARGIN + i * (STRIP_W + STRIP_GAP) - 0.2
+        plate = plate - box(-1, RECESS, -SLEEK_H - 1, -1.2, z0, z0 + STRIP_W + 0.4)
+    # Cradle: a rounded shell round the camera, with a rounded window for the lens and one open end.
+    shell = placed(rbox(-L / 2 - WALL, L / 2 + WALL, -W / 2 - WALL, W / 2 + WALL, -T - WALL, 1.2, 2.0), lens)
+    pocket = box(-L / 2, L / 2, -W / 2, W / 2, -T, 0)
+    win = Manifold.batch_hull([Manifold.cylinder(8, 1.6, 1.6, SEG).translate([x, y, -2])
+                               for x in (-L / 2 + 3.1, L / 2 - 3.1) for y in (-W / 2 + LIP + 1.6, W / 2 - LIP - 1.6)])
+    slide = box(-L / 2, L / 2, -W / 2 - 0.05, W / 2 + 0.05, -T - 0.05, 0).translate([plug_end * L, 0, 0])
+    stop = box(-0.6, 0.6, -W / 2, W / 2, -T, -T + 0.5).translate([plug_end * (L / 2 - 1.5), 0, 0])
+    # Neck: one smooth taper from a disc on the plate to the back of the cradle.
+    root = xdisc(SLEEK_T - 1.0, SLEEK_T, -SLEEK_H / 2, zc, 13.0)
+    back = placed(rbox(-L / 2 - WALL + 1, L / 2 + WALL - 1, -W / 2 - WALL + 1, W / 2 + WALL - 1, -T - WALL + 0.3, -T - WALL + 1.8, 0.6), lens)
+    neck = Manifold.batch_hull([root, back])
+    part = plate + neck + shell
+    part = part - placed(pocket + slide + win, lens)
+    part = part + placed(stop, lens)
+    return part ^ box(0, 400, -400, 400, -400, 400)
+
+
+def lens_pos():
+    return np.array([SLEEK_OUT, -SLEEK_DOWN, SLEEK_W / 2]) if not CORNER else np.array([OUT, -DOWN, ALONG])
+
+
 def main():
-    part = build()
+    part = build() if CORNER else build_sleek()
     mesh: Mesh = part.to_mesh()
     tm = trimesh.Trimesh(vertices=np.asarray(mesh.vert_properties)[:, :3], faces=np.asarray(mesh.tri_verts))
     out = pathlib.Path(__file__).with_name(f"{SPOT}_mount.stl")

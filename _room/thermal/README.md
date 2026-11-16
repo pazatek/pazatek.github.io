@@ -30,7 +30,9 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
   sees, so the program knows which pixels are window, unit, bed and so on. Also makes fake frames for testing.
 - `thermal_agent.py`: the program. Averages about two frames a second over each minute (that cuts the noise about 10×),
   corrects every pixel for its surface's emissivity, applies the calibration, and posts. See its docstring for flags.
-- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount. One 72×48 mm plate sticks to the desk wall 85 cm
+- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount: smooth and rounded, about 37 g. A 48 × 56 mm
+  plate sized for two 3M Command Medium picture-hanging strips (3/4" × 2-3/4") side by side, with shallow pockets on the
+  back that show where each strip goes and leave the pull tabs hanging out the bottom. It sticks to the desk wall 85 cm
   from the window corner, above the PC; the cradle holds the camera upright, aimed toward the bed side and 55° down, the
   spot and aim the room model found best once ceiling and extra wall count as waste. `SPOTS` in mount.py also builds the
   other spots that were tried (window corner, on its side, door corner). Checked: it's a closed solid and none of the camera's view hits the mount.
@@ -54,8 +56,8 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
 ## On arrival
 
 1. Measure the camera (Waveshare lists 32 × 18.5 mm; thickness unknown) and which end the USB-C plug comes out of. Fix `CAM_*`
-   and, if needed, the open end in `SPOTS` in `mount/mount.py`, run it, and print `above_pc_mount.stl`: PETG or PLA, 4 walls, 30% infill, one plate
-   flat on the bed, supports under the cradle.
+   and, if needed, the open end in `SPOTS` in `mount/mount.py`, run it, and print `above_pc_mount.stl`: PETG or PLA, 4 walls, 30% infill, plate flat
+   on the bed (strip side down), supports under the cradle.
 2. Stick it on the desk wall 85 cm from the window corner (above the PC) with Command strips, top about 2.23 m up. A short USB-C cable reaches the PC below.
 3. `powershell -ExecutionPolicy Bypass -File install.ps1`
 4. Hang the reference card by the desk thermometer, then from `%USERPROFILE%\room-thermal`:
