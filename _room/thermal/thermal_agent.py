@@ -35,9 +35,10 @@ import room_scene as rs
 HERE = pathlib.Path(__file__).resolve().parent
 K = 273.15
 DEFAULT_CONFIG = {
-    # Top left of the window as you walk in, looking along the window wall toward the bed side and 50° down (the mount holds
-    # this). It sees the PC, desk, floor, bed, you and the heat/AC unit; the glass it only sees edge-on, so window_c is skipped.
-    "pose": {"pos": [0.046, 2.2, 3.639], "yaw": 105.0, "tilt": -50.0, "roll": 0.0, "flip_h": False, "flip_v": False},
+    # On the desk wall 45 cm from the window corner, near the ceiling, turned on its side (roll 90: its wide 90° axis runs up
+    # and down), aimed toward the bed side and 40° down (the mount holds this). Only 8% of the picture is wasted wall; it sees
+    # the PC, desk, floor, bed, you and the heat/AC unit. The glass it sees at a steep angle, so window_c is skipped.
+    "pose": {"pos": [0.046, 2.2, 3.235], "yaw": 115.0, "tilt": -40.0, "roll": 90.0, "flip_h": False, "flip_v": False},
     "skip": ["window"],
     # Reference card: black electrical tape on a piece of card, hung in free air next to the desk thermometer.
     "card": {"pixel": None, "thermometer": "desk"},
