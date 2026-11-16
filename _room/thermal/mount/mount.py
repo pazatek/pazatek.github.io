@@ -103,10 +103,8 @@ def build():
 
 
 # ---- the angular single-plate version (used when the spot isn't a corner) ----
-# All flat faces, no curves, no supports. It prints lying on the cradle's top face (PRINT_UP): every face of the hull was
-# tried as the bed face, and this one leaves the least overhang (a few mm²) with a big first layer. The only thing a printer
-# has to bridge is the 10 mm roof over the camera pocket. The plate's back then prints as a sloped top surface; its fine
-# layer steps are no problem for the strip's foam.
+# All flat faces, no curves. best_up() tries every flat face of the part as the print-bed face and keeps the one with the
+# least overhang, so it prints without supports; report() says what's left to bridge.
 #
 # One 3M Command Adjustables Mini refill strip, the near-square one (1.03" x 1.32", 26.2 x 33.5 mm, rated 0.5 lb / 227 g).
 # Its pull tab (about 8 mm; check it on the real strip) must stay free, so the plate covers only the sticky part and the
@@ -115,61 +113,91 @@ def build():
 SM_W, SM_L, SM_TAB = 26.2, 33.5, 8.0
 STRIP_THICK = 1.0                          # a single foam strip; the plate sits this far off the wall
 PT = 2.4                                   # plate thickness: 12 layers at 0.2 mm, stiff enough for a strip this size
-RAIL, BED, LIPT, LIP = 1.6, 1.6, 1.2, 1.5  # cradle walls (4 perimeters at 0.4 mm), back, lip thickness, lip overlap
+RAIL, BED = 1.6, 1.6                       # cradle walls and back (4 perimeters at 0.4 mm)
 PRINT_UP = None                            # filled in by build_angular(): the direction that's "up" on the print bed
-LENS_X = 0.0                               # lens offset from the camera's middle along its long side (measure on arrival)
+# Where things are on the camera (from Waveshare's photos; measure on arrival). Camera coordinates: x along the long side,
+# y along the short side, z out of the lens face.
+LENS_X = -8.0                              # the lens sits toward one end
+PLUG_X, PLUG_SIDE, PLUG_Z = 8.0, -1, -6.0  # the USB-C plug sticks out of a long side, toward the other end, near the back
+PLUG_W = 8.4                               # USB-C plug width
+# A 90° USB-C adapter (male-to-female) on the plug turns the cable to run along the wall; this is the room left for it.
+ADAPTER_DEEP, ADAPTER_W, ADAPTER_T, ADAPTER_RUN = 15.0, 14.0, 9.0, 40.0
+CATCH = 0.7                                # how far the snap catches overlap the camera's front edges
 
 
-def holder_parts(plug_end):
-    """Camera coordinates: x = long axis, y = short axis, z = optical axis (lens face at z = 0, body behind it)."""
+def holder_parts():
+    """The cradle in camera coordinates (lens face at z = 0, body behind it). The camera pushes in from the front and
+    clicks under two angled catches; its plug passes through a slot in the bottom rail into the adapter bay."""
     L, W, T = CAM_L + 2 * FIT, CAM_W + 2 * FIT, CAM_T + FIT
-    e = plug_end
-    x_closed = -e * (L / 2 + RAIL)           # end stop on the side away from the plug
-    x_open = e * (L / 2)                     # open end, flush with the camera: the plug and cable come straight out
-    outer = box(min(x_closed, x_open), max(x_closed, x_open), -W / 2 - RAIL, W / 2 + RAIL, -T - BED, LIPT)
-    pocket = box(-L / 2, L / 2, -W / 2, W / 2, -T, 0)
-    path = box(-L / 2, L / 2, -W / 2, W / 2, -T, 0).translate([e * L, 0, 0])           # it slides in from the open end
-    window = box(-L / 2 - 50, L / 2 + 50, -W / 2 + LIP, W / 2 - LIP, -1, LIPT + 1)    # lens window between the two lips
-    plugroom = box(e * L / 2 - (0 if e > 0 else 40), e * L / 2 + (40 if e > 0 else 0), -9, 9, -T - 2, 6)  # plug + cable socket
-    return outer, pocket + path + window + plugroom, L, W, T
+    front = 1.6
+    outer = box(-L / 2 - RAIL, L / 2 + RAIL, -W / 2 - RAIL, W / 2 + RAIL, -T - BED, front)
+    pocket = box(-L / 2, L / 2, -W / 2, W / 2, -T, 30)
+    sy = PLUG_SIDE
+    ylo, yhi = (-W / 2 - ADAPTER_DEEP, -W / 2 + 0.01) if sy < 0 else (W / 2 - 0.01, W / 2 + ADAPTER_DEEP)
+    slot = box(PLUG_X - ADAPTER_W / 2, PLUG_X + ADAPTER_W / 2, ylo, yhi, PLUG_Z - ADAPTER_T / 2, 30)
+    run = box(PLUG_X - ADAPTER_W / 2, L / 2 + RAIL + ADAPTER_RUN, ylo, yhi, PLUG_Z - ADAPTER_T / 2, 30)   # cable out the end
+    cut = pocket + slot + run
+    catches = Manifold()
+    for side in (1, -1):
+        # Along each long front edge, away from the plug slot: a ramp that the camera pushes past and clicks under.
+        xs = [(-L / 2 + 1, L / 2 - 1)] if side != sy else [(-L / 2 + 1, PLUG_X - ADAPTER_W / 2 - 1)]
+        for x0, x1 in xs:
+            edge = side * W / 2
+            into = edge + side * 0.6                                    # reach into the rail so it fuses
+            lip = box(x0, x1, min(into, edge - side * CATCH), max(into, edge - side * CATCH), 0, 0.4)
+            top = box(x0, x1, min(into, edge - side * 0.05), max(into, edge - side * 0.05), front - 0.05, front)
+            catches = catches + Manifold.batch_hull([lip, top])
+    return outer, cut, catches, L, W, T
 
 
 def corners(m: Manifold):
-    v = np.asarray(m.to_mesh().vert_properties)[:, :3]
-    return v
+    return np.asarray(m.to_mesh().vert_properties)[:, :3]
 
 
-def build_angular():
+def build_angular(up_override=None):
     global PRINT_UP
-    plug_end = PLUG_END if PLUG_END is not None else 1
-    outer, cut, L, W, T = holder_parts(plug_end)
+    outer, cut, catches, L, W, T = holder_parts()
     r, u, f = frame()
-    # Pull the cradle in until its closest point just clears the plate (x = plate front).
-    pts = corners(outer) @ np.column_stack([r, u, f]).T
-    lens_x = (STRIP_THICK + PT + 0.6) - pts[:, 0].min()
-    # Vertically: the cradle's top flush with the plate's top, so the strip carries it from just below.
-    lens_y = -pts[:, 1].max()
-    lens_z = 0.0
-    lens = np.array([lens_x, lens_y, lens_z])
+    R = np.column_stack([r, u, f])
+    # Pull the cradle in until it, and the adapter bay, just clear the plate.
+    need = corners(outer + cut ^ box(-60, 60, -60, 60, -20, 2)) @ R.T
+    lens_x = (STRIP_THICK + PT + 0.6) - need[:, 0].min()
+    pts = corners(outer) @ R.T
+    lens_y = -pts[:, 1].max()                                     # cradle top flush with the plate top
+    lens = np.array([lens_x, lens_y, 0.0])
     cradle = placed(outer, lens)
     cv = corners(cradle)
-    # Plate: covers the strip's sticky part; its bottom edge is where the pull tab comes out.
-    ph = SM_L - SM_TAB + 1.0
+    ph = SM_L - SM_TAB + 1.0                                      # plate covers the strip's sticky part; the tab hangs below
     zc = (cv[:, 2].min() + cv[:, 2].max()) / 2
     pw = SM_W + 2.0
     plate = box(STRIP_THICK, STRIP_THICK + PT, -ph, 0, zc - pw / 2, zc + pw / 2)
-    # Wedge: a straight-faced hull from the plate to the cradle.
     body = Manifold.batch_hull([plate, cradle])
-    # The camera's whole field of view (90° x 67°, plus 3° each way) is cut out, so nothing can ever sit in the picture.
     th, tv = math.tan(math.radians(45 + 3)), math.tan(math.radians(33.5 + 3))
     far = 400.0
     view = Manifold.batch_hull([box(-0.3, 0.3, -0.3, 0.3, -0.8, -0.2)] +
                                [box(-0.1, 0.1, -0.1, 0.1, -0.1, 0.1).translate([sx * th * far, sy * tv * far, far]) for sx in (-1, 1) for sy in (-1, 1)])
-    # ...but the lens window must stay framed: keep the cradle's lips.
-    part = body - placed(cut + view.translate([LENS_X, 0, 0]), lens)
-    # Print lying on the cradle's top face (the camera's top side): "up" on the bed is the camera's down.
-    PRINT_UP = -u
+    part = body - placed(cut + view.translate([LENS_X, 0, 1.0]), lens) + placed(catches, lens)
+    part = part ^ box(STRIP_THICK, 400, -400, 400, -400, 400)     # nothing behind the plate's back
+    PRINT_UP = up_override if up_override is not None else best_up(part)
     return part, lens
+
+
+def best_up(part):
+    """Try every flat face of the hull as the bed face; keep the one with the least overhang (bridges count a third)."""
+    m = part.to_mesh(); v = np.asarray(m.vert_properties)[:, :3]; tri = v[np.asarray(m.tri_verts)]
+    n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]); area = np.linalg.norm(n, axis=1) / 2
+    n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    h = Manifold.batch_hull([part]).to_mesh(); hv = np.asarray(h.vert_properties)[:, :3]; ht = hv[np.asarray(h.tri_verts)]
+    hn = np.cross(ht[:, 1] - ht[:, 0], ht[:, 2] - ht[:, 0]); hn = hn / np.linalg.norm(hn, axis=1, keepdims=True)
+    best = None
+    for c in np.unique(np.round(hn, 3), axis=0):
+        up = -c / np.linalg.norm(c)
+        hh = tri @ up; on = np.all(np.abs(hh - hh.min()) < 0.05, axis=1); down = n @ -up
+        over = (~on) & (down > math.cos(math.radians(45)) + 1e-6); flat = over & (down > 0.98)
+        score = area[over & ~flat].sum() + area[flat].sum() / 3 - 0.05 * area[on].sum()
+        if best is None or score < best[0]:
+            best = (score, up)
+    return best[1]
 
 
 def lens_pos():
@@ -184,7 +212,7 @@ def report(part, lens):
     n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
     vol = part.volume() / 1000
     out = {"volume_cm3": round(vol, 1)}
-    for name, up in (("on the cradle's top (planned)", PRINT_UP), ("plate down", np.array([1.0, 0, 0]))):
+    for name, up in (("planned orientation", PRINT_UP), ("plate down", np.array([1.0, 0, 0]))):
         h = tri @ up
         on_bed = np.all(np.abs(h - h.min()) < 0.05, axis=1)
         down = (n @ -up)

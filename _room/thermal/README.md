@@ -30,19 +30,21 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
   sees, so the program knows which pixels are window, unit, bed and so on. Also makes fake frames for testing.
 - `thermal_agent.py`: the program. Averages about two frames a second over each minute (that cuts the noise about 10×),
   corrects every pixel for its surface's emissivity, applies the calibration, and posts. See its docstring for flags.
-- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount, all flat faces, about 9 g, 34 × 27 × 38 mm. It
+- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount, all flat faces, about 12 g, 42 × 27 × 40 mm. It
   holds the camera on the desk wall 85 cm from the window corner, above the PC, aimed toward the bed side and 55° down.
+  - **Camera:** it pushes in from the front and clicks under two angled catches along its front edges. Waveshare's photos
+    show the USB-C plug coming out of a long side near one end (the lens sits toward the other end), so the plug goes
+    through a slot in the bottom rail. `LENS_X`, `PLUG_X`, `PLUG_Z` and the `CAM_*` sizes are read off photos: measure.
+  - **Cable:** a 90° USB-C adapter (male-to-female, the L-shaped kind) goes on the plug and turns the cable to run along
+    the wall, out the window-side end of the mount, through a bay cut into the wedge. A USB-C female-to-male (or
+    female-to-USB-A) extension plugs onto the adapter and drops down the wall to the PC, below and behind the camera's view.
   - **Strip:** one 3M Command Adjustables Mini refill strip, the near-square one (1.03" × 1.32", rated 0.5 lb / 227 g).
     The 28 × 26.5 mm plate covers only the sticky part; the pull tab (assumed about 8 mm, check it) hangs free below.
-  - **Gravity:** the camera is pulled in as close to the wall as its view allows, so the weight (9 g mount + 22 g camera)
-    sits about 20 mm out: a peel load of about 6 N·mm. With the cable's share it's about 45 g on a 227 g strip, a 5× margin.
-  - **Cable:** the camera's USB-C plug points out of the open end of the cradle, toward the window. A USB-C
-    female-to-male extension plugs onto it and hangs straight down to the PC below. Add a small adhesive cable clip on
-    the wall under it if you want the cable to take no weight off the camera.
-  - **Printing:** no supports and no overhangs. Lay it on the cradle's flat top face (the slicer's "lay on face", the big
-    face that isn't the plate). The only bridge is the 10 mm roof over the camera pocket. PETG or PLA, 0.2 mm layers,
-    4 walls, 15% gyroid infill. The camera's view (90° × 67° plus 3°) is cut out of the part, so nothing can end up in
-    the picture.
+  - **Gravity:** the camera sits as close to the wall as its view and the adapter bay allow: its weight is about 25 mm
+    out, a peel load of about 8 N·mm. About 50 g with the cable's share on a 227 g strip, roughly a 4.5× margin.
+  - **Printing:** no supports. `best_up()` tries every flat face as the bed face; the best is standing on the mount's
+    flat top edge (plate top and cradle top are flush): no bridges, about 30 mm² past 45°, 980 mm² of first layer.
+    PETG or PLA, 0.2 mm layers, 4 walls, 15% gyroid infill. The camera's view (90° × 67° plus 3°) is cut out of the part.
 - `install.ps1`: copies the program to `%USERPROFILE%\room-thermal`, makes a venv with `pysenxor-lite` (Meridian's library for
   this sensor), and adds the scheduled task "Room thermal camera" (starts at logon, restarts if it stops).
 - Edge function `room`, action `thermal`: accepts only the key labelled `thermal camera` in `room_keys`. That key lives only
@@ -63,7 +65,7 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
 ## On arrival
 
 1. Measure the camera (Waveshare lists 32 × 18.5 mm; thickness unknown) and which end the USB-C plug comes out of. Fix `CAM_*`
-   and, if needed, the open end in `SPOTS` in `mount/mount.py` (and `LENS_X` if the lens isn't centred), run it, and print
+   and the lens and plug positions (`LENS_X`, `PLUG_X`, `PLUG_Z`) in `mount/mount.py`, run it, and print
    `above_pc_mount.stl` as described above.
 2. Stick it on the desk wall 85 cm from the window corner (above the PC) with Command strips, top about 2.23 m up. A short USB-C cable reaches the PC below.
 3. `powershell -ExecutionPolicy Bypass -File install.ps1`
