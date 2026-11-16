@@ -86,7 +86,7 @@ dd { margin: 0; font: 600 clamp(16px, 3.5vh, 34px)/1 var(--display); letter-spac
 
 <script>
 
-const K = { TARGET: 66.5, LO: 65, HI: 68, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, BSHORT: 180, TAU: 43, PC_IDLE: 100,
+const K = { TARGET: 64, LO: 60, HI: 67, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, BSHORT: 180, TAU: 43, PC_IDLE: 100,
             AW_LO: 72, AW_HI: 75, AW_AIM: 73.5, CO2_HI: 1000 };
 const cToF = c => (c == null ? null : c * 9 / 5 + 32);
 function holdWidth(target, out, watts, people) {
@@ -120,10 +120,10 @@ function advise(s) {
   }
   if (s.mode === "sleep") {
     const outEff = s.lowF == null ? out : (out + s.lowF) / 2, H = holdWidth(K.TARGET, outEff, s.watts, n), wc = co2Width(n, s.bedF, out);
-    if (H == null) return { door: "closed", window: K.FULL, fan: "low", conf: "Estimate", phase: null, why: "Too mild outside (" + f1(outEff) + "°F) for the window alone to hold 66.5°F." };
+    if (H == null) return { door: "closed", window: K.FULL, fan: "low", conf: "Estimate", phase: null, why: "Too mild outside (" + f1(outEff) + "°F) for the window alone to hold " + K.TARGET + "°F." };
     let phase = s.phase === "precool" || s.phase === "warm" ? s.phase : null;
-    if (s.bedF > K.HI + 0.5) phase = "precool"; else if (phase === "precool" && s.bedF <= 67) phase = null;
-    if (s.bedF < K.LO) phase = "warm"; else if (phase === "warm" && s.bedF >= 66) phase = null;
+    if (s.bedF > K.HI + 0.5) phase = "precool"; else if (phase === "precool" && s.bedF <= K.HI - 1) phase = null;
+    if (s.bedF < K.LO) phase = "warm"; else if (phase === "warm" && s.bedF >= K.LO + 1) phase = null;
     if (phase === "precool") {
       const floor = fullOpenFloor(out, s.watts, n), eta = floor < 66.7 ? K.TAU * Math.log((s.bedF - floor) / (67 - floor)) : null;
       return { door: "closed", window: K.FULL, fan: "high", conf: "Measured", phase,
@@ -132,9 +132,9 @@ function advise(s) {
     if (phase === "warm") return { door: "closed", window: 0, fan: "off", conf: "Measured", phase,
         why: "Bed is " + f1(s.bedF) + "°F, too cold. At 66 this changes to " + clampW(Math.max(1, H - 2)) + " in." };
     let w = H, trim = "";
-    if (s.slope != null && s.bedF > 67.5 && s.slope >= 0) { w += 2; trim = " Plus 2 in, it is warm and not falling."; }
-    if (s.slope != null && s.bedF < 65.8 && s.slope <= 0) { w -= 2; trim = " Minus 2 in, it is cool and not rising."; }
-    let win = clampW(w), conf = "Measured", why = "Bed is " + f1(s.bedF) + "°F. This holds 66.5 with " + f1(outEff) + "°F outside tonight." + trim;
+    if (s.slope != null && s.bedF > K.HI - 0.5 && s.slope >= 0) { w += 2; trim = " Plus 2 in, it is warm and not falling."; }
+    if (s.slope != null && s.bedF < K.LO + 0.8 && s.slope <= 0) { w -= 2; trim = " Minus 2 in, it is cool and not rising."; }
+    let win = clampW(w), conf = "Measured", why = "Bed is " + f1(s.bedF) + "°F. This holds " + K.TARGET + " with " + f1(outEff) + "°F outside tonight." + trim;
     if (s.co2 != null && s.co2 >= K.CO2_HI && wc != null && win < Math.ceil(wc)) { win = clampW(Math.ceil(wc)); conf = "Estimate"; why += " Raised for CO2 at " + Math.round(s.co2) + " ppm."; }
     return { door: "closed", window: win, fan: "off", conf, phase: null, why };
   }
@@ -192,7 +192,7 @@ function render() {
   show("fan", a.fan.charAt(0).toUpperCase() + a.fan.slice(1), a.fan === "off");
   $("why").hidden = true;
   const tag = st.mode === "away" ? "Nobody home" : st.mode === "sleep"
-    ? (a.phase === "precool" ? "Cooling to 67" : a.phase === "warm" ? "Warming to 66" : a.fan === "low" ? "Mild night" : "Holding 66.5")
+    ? (a.phase === "precool" ? "Cooling to " + (K.HI - 1) : a.phase === "warm" ? "Warming to " + (K.LO + 1) : a.fan === "low" ? "Mild night" : "Holding " + K.TARGET)
     : (a.fan === "low" ? "Desk above " + K.AW_HI : a.phase === "cold" ? "Desk below " + K.AW_LO : "Holding CO2");
   show("tag", tag); show("conf", a.conf, a.conf === "Estimate");
   show("co2", s.co2 == null ? "--" : Math.round(s.co2) + " ppm", s.co2 == null);

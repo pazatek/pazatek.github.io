@@ -29,7 +29,7 @@ async function rest(path: string, method: string, body?: unknown, prefer = "retu
 }
 
 // ---- the same model the app page uses; keep the two in step ----
-const K = { TARGET: 66.5, LO: 65, HI: 68, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, PC_IDLE: 100, AW_LO: 72, AW_HI: 75, AW_AIM: 73.5, CO2_HI: 1000 };
+const K = { TARGET: 64, LO: 60, HI: 67, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, PC_IDLE: 100, AW_LO: 72, AW_HI: 75, AW_AIM: 73.5, CO2_HI: 1000 };
 const cToF = (c: number | null | undefined) => (c == null ? null : Number(c) * 9 / 5 + 32);
 const hold = (target: number, out: number, watts: number) => {
   const d = target - out;
@@ -57,13 +57,13 @@ function advise(s: In): Advice {
     const outEff = s.lowF == null ? s.outF : (s.outF + s.lowF) / 2, H = hold(K.TARGET, outEff, s.watts), wc = co2Width(s.bedF, s.outF);
     if (H == null) return { door: "closed", window: K.FULL, fan: "low", phase: null, what: "It is mild outside" };
     let phase = s.phase === "precool" || s.phase === "warm" ? s.phase : null;
-    if (s.bedF > K.HI + 0.5) phase = "precool"; else if (phase === "precool" && s.bedF <= 67) phase = null;
-    if (s.bedF < K.LO) phase = "warm"; else if (phase === "warm" && s.bedF >= 66) phase = null;
+    if (s.bedF > K.HI + 0.5) phase = "precool"; else if (phase === "precool" && s.bedF <= K.HI - 1) phase = null;
+    if (s.bedF < K.LO) phase = "warm"; else if (phase === "warm" && s.bedF >= K.LO + 1) phase = null;
     if (phase === "precool") return { door: "closed", window: K.FULL, fan: "high", phase, what: `Bed is ${f1(s.bedF)}°F, too warm for sleep`, holdW: clampW(H) };
     if (phase === "warm") return { door: "closed", window: 0, fan: "off", phase, what: `Bed is ${f1(s.bedF)}°F, too cold for sleep` };
     let w = H;
-    if (s.slope != null && s.bedF > 67.5 && s.slope >= 0) w += 2;
-    if (s.slope != null && s.bedF < 65.8 && s.slope <= 0) w -= 2;
+    if (s.slope != null && s.bedF > K.HI - 0.5 && s.slope >= 0) w += 2;
+    if (s.slope != null && s.bedF < K.LO + 0.8 && s.slope <= 0) w -= 2;
     let win = clampW(w);
     if (s.co2 != null && s.co2 >= K.CO2_HI && wc != null && win < Math.ceil(wc)) win = clampW(Math.ceil(wc));
     return { door: "closed", window: win, fan: "off", phase: null, what: `Bed is ${f1(s.bedF)}°F` };
@@ -182,7 +182,7 @@ async function tick(key: string) {
 
   if (mode === "awake" && d.local_hour < 3 && (!d.last_bedtime || now - Date.parse(d.last_bedtime) > 12 * 3600000)) {
     const a = adviseSnapped({ ...base, mode: "sleep", phase: null, blind: steered });
-    const text = `Bedtime setup. ${actions(a, null)}.` + (a.phase === "precool" ? ` When the bed reads 67°F, ${windowPhrase(a.holdW!)} and fan off.` : "");
+    const text = `Bedtime setup. ${actions(a, null)}.` + (a.phase === "precool" ? ` When the bed reads ${K.HI - 1}°F, ${windowPhrase(a.holdW!)} and fan off.` : "");
     return await log({ kind: "bedtime", mode: "sleep", phase: a.phase, door: a.door, window_in: a.window, fan: a.fan }, text);
   }
   if (mode === "awake" && last && last.kind === "bedtime" && now - Date.parse(String(last.ts)) < 3 * 3600000) return { skip: "bedtime setup sent, waiting for sleep" };

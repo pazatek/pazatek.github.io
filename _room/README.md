@@ -38,7 +38,7 @@ Commit and push `room/` to `main`, then republish `artifact.html` to the artifac
 
 - Secrets (SwitchBot, Tuya, the app key) live in Supabase edge function secrets or on the phone. Never commit or print them. The publishable key in the site code is meant to be public.
 - Blind: 0% is fully up, 100% fully down. Speed stays at 20 (40 is too loud, creeping was rejected). The Tuya commands `border`, `control_back` and `reset` stay blocked.
-- Comfort bands: awake 72 to 75°F (aim 73.5), sleep 65 to 68°F (aim 66.5).
+- Comfort bands: awake 72 to 75°F (aim 73.5), sleep 60 to 67°F (aim 64), the 60-67°F range sleep guidance gives; letting it sit near 60 is fine (Piotr, 2026-11-16).
 - Overnight the window stays at a quarter and the blind is the throttle.
 
 ## Open

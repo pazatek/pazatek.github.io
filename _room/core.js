@@ -47,7 +47,7 @@ function render() {
   onBlind(blindPct, !!(snap.blind && snap.blind.steering) && performance.now() >= blindHold);
   viz.set(step[0], a.door === "open", fan, (blindPct || 0) / 100);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : a.aim ? (a.phase === "wide" ? "Blind maxed, still warm" : a.phase === "narrow" ? "Blind maxed, still cool" : "Blind holding " + a.aim + "°") : st.mode === "sleep"
-    ? (a.phase === "precool" ? "Cooling to 67°" : a.phase === "warm" ? "Warming to 66°" : a.fan === "low" ? "Mild night" : "Holding 66.5°")
+    ? (a.phase === "precool" ? "Cooling to " + (K.HI - 1) + "°" : a.phase === "warm" ? "Warming to " + (K.LO + 1) + "°" : a.fan === "low" ? "Mild night" : "Holding " + K.TARGET + "°")
     : (a.fan === "low" ? "Desk above " + K.AW_HI + "°" : a.phase === "cold" ? "Desk below " + K.AW_LO + "°" : "Holding CO2");
   const lo = st.mode === "sleep" ? K.LO : K.AW_LO, hi = st.mode === "sleep" ? K.HI : K.AW_HI;
   show("t-desk", s.deskF == null ? "--" : f1(s.deskF) + "\u00B0", s.deskF == null, s.deskF == null ? "" : roomColor(s.deskF, lo, hi));
