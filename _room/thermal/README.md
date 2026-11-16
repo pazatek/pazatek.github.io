@@ -30,20 +30,19 @@ Rows go into `public.room_thermal` (schema in `schema.sql`), one a minute; every
   sees, so the program knows which pixels are window, unit, bed and so on. Also makes fake frames for testing.
 - `thermal_agent.py`: the program. Averages about two frames a second over each minute (that cuts the noise about 10×),
   corrects every pixel for its surface's emissivity, applies the calibration, and posts. See its docstring for flags.
-- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount, all flat faces, about 12 g. It holds the camera on
-  the desk wall 85 cm from the window corner, above the PC, aimed toward the bed side and 55° down.
-  - **Strip:** one 3M Command **Small** picture-hanging strip pair (5/8" × 2-1/8", about 450 g a pair). The 18 × 42 mm plate
-    covers only the sticky part; the pull tab hangs free below it.
-  - **Gravity:** the camera is pulled in as close to the wall as its view allows, so the weight (12 g mount + 22 g camera)
-    sits about 21 mm out. That's a peel load of about 7 N·mm, and in shear one pair has about a 13× margin.
-  - **Cable:** the camera's USB-C plug points out of the open end of the cradle, toward the window. A short USB-C
-    female-to-male extension plugs onto it, drops into the diamond-shaped clip at the bottom of the plate (a 3.2 mm slit,
-    snaps over a 4 mm cable), and runs down the wall to the PC. The clip carries the cable's weight right at the wall
-    instead of on the camera.
-  - **Printing:** no supports. Lay it on the cradle's flat top face (the slicer's "lay on face" on the largest face that
-    isn't the plate). Every other face is within 45° of vertical except a 10 mm bridge over the camera pocket. PETG or
-    PLA, 0.2 mm layers, 4 walls, 15% gyroid infill. The camera's view (90° × 67° plus 3°) is cut out of the part, so
-    nothing can end up in the picture.
+- `mount/mount.py` → `mount/above_pc_mount.stl`: the 3D-printed mount, all flat faces, about 9 g, 34 × 27 × 38 mm. It
+  holds the camera on the desk wall 85 cm from the window corner, above the PC, aimed toward the bed side and 55° down.
+  - **Strip:** one 3M Command Adjustables Mini refill strip, the near-square one (1.03" × 1.32", rated 0.5 lb / 227 g).
+    The 28 × 26.5 mm plate covers only the sticky part; the pull tab (assumed about 8 mm, check it) hangs free below.
+  - **Gravity:** the camera is pulled in as close to the wall as its view allows, so the weight (9 g mount + 22 g camera)
+    sits about 20 mm out: a peel load of about 6 N·mm. With the cable's share it's about 45 g on a 227 g strip, a 5× margin.
+  - **Cable:** the camera's USB-C plug points out of the open end of the cradle, toward the window. A USB-C
+    female-to-male extension plugs onto it and hangs straight down to the PC below. Add a small adhesive cable clip on
+    the wall under it if you want the cable to take no weight off the camera.
+  - **Printing:** no supports and no overhangs. Lay it on the cradle's flat top face (the slicer's "lay on face", the big
+    face that isn't the plate). The only bridge is the 10 mm roof over the camera pocket. PETG or PLA, 0.2 mm layers,
+    4 walls, 15% gyroid infill. The camera's view (90° × 67° plus 3°) is cut out of the part, so nothing can end up in
+    the picture.
 - `install.ps1`: copies the program to `%USERPROFILE%\room-thermal`, makes a venv with `pysenxor-lite` (Meridian's library for
   this sensor), and adds the scheduled task "Room thermal camera" (starts at logon, restarts if it stops).
 - Edge function `room`, action `thermal`: accepts only the key labelled `thermal camera` in `room_keys`. That key lives only

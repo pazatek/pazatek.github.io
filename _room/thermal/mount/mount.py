@@ -108,15 +108,14 @@ def build():
 # has to bridge is the 10 mm roof over the camera pocket. The plate's back then prints as a sloped top surface; its fine
 # layer steps are no problem for the strip's foam.
 #
-# One 3M Command Small picture-hanging strip pair (5/8" x 2-1/8", 16 x 54 mm, about 450 g a pair). The last ~13 mm is the
-# pull tab: the plate covers only the sticky part and the tab hangs free below it. Camera + mount + a bit of cable is about
-# 50 g, so one pair has roughly a 9x margin in shear. The camera is pulled in as close to the wall as its view allows, so
-# the lever that tries to peel the top of the strip off is as short as it can be.
-SM_W, SM_L, SM_TAB = 16.0, 54.0, 13.0
-STRIP_THICK = 4.0                          # an interlocked pair is about this thick; the plate sits this far off the wall
+# One 3M Command Adjustables Mini refill strip, the near-square one (1.03" x 1.32", 26.2 x 33.5 mm, rated 0.5 lb / 227 g).
+# Its pull tab (about 8 mm; check it on the real strip) must stay free, so the plate covers only the sticky part and the
+# tab hangs out below it. Camera + mount + the cable's share is about 45 g, roughly a 5x margin. The camera is pulled in
+# as close to the wall as its view allows, so the lever that tries to peel the top of the strip off is as short as it can be.
+SM_W, SM_L, SM_TAB = 26.2, 33.5, 8.0
+STRIP_THICK = 1.0                          # a single foam strip; the plate sits this far off the wall
 PT = 2.4                                   # plate thickness: 12 layers at 0.2 mm, stiff enough for a strip this size
 RAIL, BED, LIPT, LIP = 1.6, 1.6, 1.2, 1.5  # cradle walls (4 perimeters at 0.4 mm), back, lip thickness, lip overlap
-CABLE = 4.2                                # clip channel for a USB-C cable up to about 4 mm thick
 PRINT_UP = None                            # filled in by build_angular(): the direction that's "up" on the print bed
 LENS_X = 0.0                               # lens offset from the camera's middle along its long side (measure on arrival)
 
@@ -161,25 +160,13 @@ def build_angular():
     plate = box(STRIP_THICK, STRIP_THICK + PT, -ph, 0, zc - pw / 2, zc + pw / 2)
     # Wedge: a straight-faced hull from the plate to the cradle.
     body = Manifold.batch_hull([plate, cradle])
-    # Cable clip on the plug side of the plate, low down: the cable from the camera drops into it, so its weight goes into
-    # the plate right at the wall instead of hanging off the camera.
-    side = -1 if (r[2] * plug_end) < 0 else 1                     # which edge of the plate the plug points toward
-    # The clip is a tube with a diamond cross-section, running up and down the wall: tilted 45°, every face of it prints
-    # without support in the planned orientation. A 3.2 mm slit on its outer corner lets a 4 mm cable snap in.
-    s_in, s_out = CABLE + 0.4, CABLE + 0.4 + 2 * RAIL
-    half = s_out / math.sqrt(2)
-    cx, cz = STRIP_THICK + half, zc + side * (pw / 2 + half - 1.0)   # back corner on the plate's back plane, fused to its edge
-    y0, y1 = -ph, -ph + 12
-    diamond = lambda size: Manifold.cube([size, y1 - y0, size]).translate([-size / 2, 0, -size / 2]).rotate([0, 45, 0])
-    clip = diamond(s_out).translate([cx, y0, cz]) - diamond(s_in).translate([cx, y0 - 1, cz]).scale([1, 1, 1])
-    clip = clip - box(cx, cx + s_out, y0 - 1, y1 + 1, cz - 1.6, cz + 1.6)
     # The camera's whole field of view (90° x 67°, plus 3° each way) is cut out, so nothing can ever sit in the picture.
     th, tv = math.tan(math.radians(45 + 3)), math.tan(math.radians(33.5 + 3))
     far = 400.0
     view = Manifold.batch_hull([box(-0.3, 0.3, -0.3, 0.3, -0.8, -0.2)] +
                                [box(-0.1, 0.1, -0.1, 0.1, -0.1, 0.1).translate([sx * th * far, sy * tv * far, far]) for sx in (-1, 1) for sy in (-1, 1)])
     # ...but the lens window must stay framed: keep the cradle's lips.
-    part = (body + clip) - placed(cut + view.translate([LENS_X, 0, 0]), lens)
+    part = body - placed(cut + view.translate([LENS_X, 0, 0]), lens)
     # Print lying on the cradle's top face (the camera's top side): "up" on the bed is the camera's down.
     PRINT_UP = -u
     return part, lens
