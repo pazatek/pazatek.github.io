@@ -31,6 +31,7 @@ Commit and push `room/` to `main`, then republish `artifact.html` to the artifac
 - `core.js`: the advice UI, plus `viz`, a Canvas 2D isometric renderer. Layers are baked once per lamp on/off combination. The desk chair is Uplift's Pursuit model (`CHAIR`), drawn with its own depth buffer; `chair/bake.py <stl> <3mf>` regenerates that data from the vendor's files, which are not kept here.
 - `functions/room.ts`: source of the `room` edge function (snapshot, advice, push alerts, the night blind controller `steer()`). `functions/model.ts`: the learned room model `steer()` uses; deploy both files together. `tests/model_sim.js`: simulated nights for the controller. The `blind` (Tuya), `air` (SwitchBot poll) and `lights` (Govee scheduler, owned by another session, treat as read-only) functions exist only in Supabase; fetch them from there before editing.
 - Supabase project `hxaftcofwrffwjxtjeoj`. Tables `air_readings`, `air_outdoor`, `pc_power`, `room_state`, `room_blind`, `room_notify`, `room_push_subs`, `room_thermal`. `room_snapshot()` is the one read both front ends use. pg_cron jobs: `room-tick` (1 min), `air-poll` and `lights-tick` (30 s).
+- `ios/`: the iPhone app for the lock screen Live Activity (readings about every minute while home and awake). The server side is `live()` in `functions/room.ts` and the `room_live` table. See `ios/README.md`.
 - `thermal/`: the thermal camera on the PC (agent, room scene, calibration, corner mount, installer). Writes `room_thermal` through the `room` function's `thermal` action. See `thermal/README.md`.
 - `lamp-relay-handoff.md`: plan for the Matter relay on the gaming PC that makes the two lamps tappable with low latency. Not built yet; the app's lamp taps broadcast on the `room-lights` realtime channel and nothing answers.
 
@@ -46,4 +47,5 @@ Commit and push `room/` to `main`, then republish `artifact.html` to the artifac
 - Check `room_model` after the first real nights: does the learned settling range (settle() at 0 and 100%) look like the room, and how many moves a night (`room_log`)?
 - Blind position only refreshes while the app is open (no background poll job).
 - Thermal camera (Waveshare Thermal-90 USB Camera (B)) not bought yet; the software side is built and waits in `thermal/`. Nothing uses `room_thermal` yet.
+- Live Activity: code written, waiting on the paid Apple developer account, a current Xcode on the Mac and an APNs key. `room_live` isn't created and the new `room` function isn't deployed yet.
 - Apartment view waits on a higher-resolution scan.

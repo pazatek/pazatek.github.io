@@ -196,6 +196,115 @@ async function tick(key: string) {
   return await log(row, `${a.what}. ${actions(a, last && last.kind !== "offline" ? last : null)}.`);
 }
 
+// ---- Live Activity on the iPhone (the Room app in _room/ios): readings on the lock screen and in the Dynamic Island ----
+// While he is home and awake (lights_presence 'me' = home) the activity is started by push-to-start and updated every
+// minute the readings change; when he goes to sleep or leaves it is ended. iOS stops an activity after 8 hours, so one
+// that old is ended and a fresh one started. Tokens come from the app (action live_token) and live in room_live.
+// Secrets: APNS_KEY_P8 (the .p8 file's text), APNS_KEY_ID, APNS_TEAM_ID. Without them this does nothing.
+const BUNDLE = "com.piotrzatek.roomcoach";
+type LiveRow = { id: string; kind: string; token: string; env: string; started_at: string; ended_at: string | null; last_state: Record<string, unknown> | null; last_push: string | null; last_hi: string | null };
+const WIN_SHORT: Record<number, string> = { 0: "closed", 3: "⅛", 7: "¼", 13: "½", 26: "full" };
+
+// What the lock screen shows; RoomAttributes.ContentState in the app must have the same keys.
+// deno-lint-ignore no-explicit-any
+function liveState(snap: any, me: string | null, last: Record<string, unknown> | null) {
+  const now = Date.parse(snap.now);
+  // deno-lint-ignore no-explicit-any
+  const fresh = (r: any) => r && r.temp_c != null && now - Date.parse(r.ts) < 15 * 60000;
+  const r1 = (x: number | null) => (x == null ? null : Math.round(x * 10) / 10);
+  const bedF = fresh(snap.bed) ? cToF(snap.bed.temp_c) : null, deskF = fresh(snap.desk) ? cToF(snap.desk.temp_c) : null;
+  const sleep = me === "asleep", useDesk = !sleep && deskF != null;
+  const src = useDesk ? snap.desk : snap.bed;
+  let what = "Sensors offline";
+  if (bedF != null || deskF != null) {
+    what = "";
+    if (last && last.kind !== "offline" && last.window_in != null) {
+      const w = Number(last.window_in);
+      what = `Window ${WIN_SHORT[w] ?? `${w} in`} · door ${last.door} · fan ${last.fan}`;
+    }
+    if (snap.blind?.percent != null) what += `${what ? " · " : ""}blind ${Math.round(Number(snap.blind.percent))}%`;
+  }
+  return {
+    label: useDesk ? "Desk" : "Bed", temp: r1(useDesk ? deskF : bedF) ?? 0, lo: sleep ? K.LO : K.AW_LO, hi: sleep ? K.HI : K.AW_HI,
+    bed: useDesk ? r1(bedF) : null, out: r1(cToF(snap.outdoor?.temp_c)),
+    co2: snap.bed?.co2 == null ? null : Math.round(Number(snap.bed.co2)),
+    hum: src?.humidity == null ? null : Math.round(Number(src.humidity)),
+    what, ts: Math.floor(Date.parse(src?.ts ?? snap.now) / 1000),
+  };
+}
+const canon = (o: Record<string, unknown> | null) => (o ? JSON.stringify(Object.keys(o).filter((k) => k !== "ts").sort().map((k) => [k, o[k]])) : "");
+
+// Apple refuses a new provider token more than once every 20 minutes, so one is kept in room_live for 50.
+async function apnsJwt() {
+  const rows = await (await fetch(`${BASE}/rest/v1/room_live?id=eq.apns_jwt&select=token,updated_at`, { headers: dbHeaders })).json();
+  if (rows?.[0] && Date.now() - Date.parse(rows[0].updated_at) < 50 * 60000) return rows[0].token as string;
+  const pem = Deno.env.get("APNS_KEY_P8")!, kid = Deno.env.get("APNS_KEY_ID")!, team = Deno.env.get("APNS_TEAM_ID")!;
+  const der = Uint8Array.from(atob(pem.replace(/-----[^-]+-----|\s/g, "")), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const b64u = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const enc = (o: unknown) => b64u(new TextEncoder().encode(JSON.stringify(o)));
+  const now = new Date(), head = `${enc({ alg: "ES256", kid })}.${enc({ iss: team, iat: Math.floor(now.getTime() / 1000) })}`;
+  const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(head)));
+  const jwt = `${head}.${b64u(sig)}`;
+  await rest("room_live?on_conflict=id", "POST", { id: "apns_jwt", kind: "jwt", token: jwt, updated_at: now.toISOString() }, "resolution=merge-duplicates,return=minimal");
+  return jwt;
+}
+async function apns(row: LiveRow, aps: Record<string, unknown>, priority: 5 | 10, jwt: string) {
+  const host = row.env === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
+  const res = await fetch(`https://${host}/3/device/${row.token}`, {
+    method: "POST", body: JSON.stringify({ aps }),
+    headers: { authorization: `bearer ${jwt}`, "apns-push-type": "liveactivity", "apns-topic": `${BUNDLE}.push-type.liveactivity`, "apns-priority": String(priority) },
+  });
+  const reason = res.ok ? null : ((await res.json().catch(() => ({}))) as { reason?: string }).reason ?? null;
+  return { status: res.status, reason };
+}
+const deadToken = (r: { status: number; reason: string | null }) => r.status === 410 || ["BadDeviceToken", "ExpiredToken", "Unregistered", "DeviceTokenNotForTopic"].includes(r.reason ?? "");
+
+// deno-lint-ignore no-explicit-any
+async function live(d: any) {
+  if (!Deno.env.get("APNS_KEY_P8")) return { skip: "no APNs key" };
+  const rows = (await (await fetch(`${BASE}/rest/v1/room_live?kind=in.(start,update)&select=*`, { headers: dbHeaders })).json()) as LiveRow[];
+  const now = Date.now(), ts = Math.floor(now / 1000), iso = new Date(now).toISOString(), home = d.me === "home";
+  const st = liveState(d.snap, d.me, d.last), out: unknown[] = [];
+  const active = rows.filter((r) => r.kind === "update" && !r.ended_at), start = rows.find((r) => r.id === "start");
+  if (!active.length && !(home && start)) return { skip: home ? "no start token yet" : "not home" };
+  const jwt = await apnsJwt();
+  // One started by hand from the app while asleep or away stays up until the presence next changes.
+  const me = await (await fetch(`${BASE}/rest/v1/lights_presence?person=eq.me&select=since`, { headers: dbHeaders })).json().catch(() => null);
+  const meSince = me?.[0]?.since ? Date.parse(me[0].since) : 0;
+  let running = 0;
+  for (const r of active) {
+    const id = encodeURIComponent(r.id);
+    if ((!home && meSince > Date.parse(r.started_at)) || now - Date.parse(r.started_at) > 465 * 60000) {
+      const res = await apns(r, { timestamp: ts, event: "end", "content-state": st, "dismissal-date": ts }, 10, jwt);
+      await rest(`room_live?id=eq.${id}`, "PATCH", { ended_at: iso });
+      out.push({ end: r.id, ...res });
+      continue;
+    }
+    const since = r.last_push ? now - Date.parse(r.last_push) : Infinity;
+    if (canon(r.last_state) === canon(st) && since < 5 * 60000) { running++; continue; }
+    // High priority wakes the phone right away but iOS rations it; the rest go at low priority, which iOS may hold a little.
+    const hi = !r.last_hi || now - Date.parse(r.last_hi) >= 2 * 60000 || r.last_state?.what !== st.what;
+    const res = await apns(r, { timestamp: ts, event: "update", "content-state": st, "stale-date": ts + 600 }, hi ? 10 : 5, jwt);
+    if (deadToken(res)) await rest(`room_live?id=eq.${id}`, "PATCH", { ended_at: iso });
+    else {
+      running++;
+      if (res.status === 200) await rest(`room_live?id=eq.${id}`, "PATCH", { last_state: st, last_push: iso, ...(hi ? { last_hi: iso } : {}) });
+    }
+    out.push({ update: r.id, hi, ...res });
+  }
+  if (home && !running && start && (!start.last_push || now - Date.parse(start.last_push) > 15 * 60000)) {
+    const res = await apns(start, {
+      timestamp: ts, event: "start", "content-state": st, "stale-date": ts + 600, "attributes-type": "RoomAttributes", attributes: {},
+      alert: { title: "Room", body: "Live readings are on" },
+    }, 10, jwt);
+    if (deadToken(res)) await rest("room_live?id=eq.start", "DELETE");
+    else await rest("room_live?id=eq.start", "PATCH", { last_push: iso });
+    out.push({ start: true, ...res });
+  }
+  return out;
+}
+
 function cors(req: Request) {
   const o = req.headers.get("origin") ?? "";
   return {
@@ -223,7 +332,27 @@ Deno.serve(async (req: Request) => {
     }
     if (req.method !== "POST") return reply({ error: "method" }, 405);
     const body = await req.json().catch(() => ({}));
-    if (body.action === "tick") return label === "cron tick" ? reply(await tick(key)) : reply({ error: "key" }, 401);
+    if (body.action === "tick") {
+      if (label !== "cron tick") return reply({ error: "key" }, 401);
+      const r = await tick(key);
+      const lv = await rpc("room_tick_data").then(live).catch((e) => ({ error: (e as Error).message.slice(0, 200) }));
+      return reply({ ...r, live: lv });
+    }
+    if (body.action === "live_token") {
+      const env = body.env === "production" ? "production" : "sandbox";
+      const tok = typeof body.token === "string" && /^[0-9a-f]{32,400}$/.test(body.token) ? body.token : null;
+      const id = typeof body.id === "string" && /^[A-Za-z0-9-]{1,64}$/.test(body.id) && body.id !== "start" && body.id !== "apns_jwt" ? body.id : null;
+      const up = (row: Record<string, unknown>) => rest("room_live?on_conflict=id", "POST", row, "resolution=merge-duplicates,return=minimal");
+      if (body.kind === "start" && tok) await up({ id: "start", kind: "start", token: tok, env });
+      else if (body.kind === "update" && tok && id) await up({ id, kind: "update", token: tok, env, ended_at: null });
+      else if (body.kind === "ended" && id) await rest(`room_live?id=eq.${encodeURIComponent(id)}`, "PATCH", { ended_at: new Date().toISOString() });
+      else return reply({ error: "bad token" }, 400);
+      return reply({ ok: true });
+    }
+    if (body.action === "live_state") {
+      const d = await rpc("room_tick_data");
+      return reply(liveState(d.snap, d.me, d.last));
+    }
     if (body.action === "subscribe") {
       const s = body.sub ?? {};
       const ok = typeof s.endpoint === "string" && s.endpoint.startsWith("https://") && s.endpoint.length < 1000 && typeof s.keys?.p256dh === "string" && typeof s.keys?.auth === "string"
