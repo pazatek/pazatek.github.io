@@ -33,6 +33,7 @@ Commit and push `room/` to `main`, then republish `artifact.html` to the artifac
 - Supabase project `hxaftcofwrffwjxtjeoj`. Tables `air_readings`, `air_outdoor`, `pc_power`, `room_state`, `room_blind`, `room_notify`, `room_push_subs`, `room_thermal`. `room_snapshot()` is the one read both front ends use. pg_cron jobs: `room-tick` (1 min), `air-poll` and `lights-tick` (30 s).
 - `ios/`: the iPhone app for the lock screen Live Activity (readings about every minute while home and awake). The server side is `live()` in `functions/room.ts` and the `room_live` table. See `ios/README.md`.
 - `thermal/`: the thermal camera on the PC (agent, room scene, calibration, corner mount, installer). Writes `room_thermal` through the `room` function's `thermal` action. See `thermal/README.md`.
+- `render/`: the photoreal room (Blender on the Mac). Its light layers in `../room/photo/` replace the drawn room in the home screen app and are relit live from the lamps. See `render/README.md`.
 - `relay/`: the Matter lamp relay on the PC. Tapping a lamp in the app opens a sheet (power, brightness, temperature, color wheel), which sends signed commands on the `room-lights` channel. See `relay/README.md`. `lamp-relay-handoff.md` is the original plan.
 
 ## Rules that came out of building it

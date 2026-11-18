@@ -35,7 +35,7 @@ extra='''  <div class="list"><div class="row"><span>Blind</span><div class="pick
     <div class="lc-wheel" id="lamp-wheel" role="slider" aria-label="Color"><i id="lamp-dot" hidden></i></div>
     <div class="lc-ms" id="lamp-ms"></div>
   </section>'''
-hooks='function onBlank(askKey) { $("keyform").hidden = !askKey; }\nfunction onGood() { $("keyform").hidden = true; $("why").hidden = true; }\nfunction onBlind(p, steering) { for (const b of document.querySelectorAll("#blind button")) b.setAttribute("aria-pressed", String(b.dataset.p === "auto" ? steering : !steering && p != null && Math.abs(p - Number(b.dataset.p)) <= 12)); }\n'
+hooks='const PHOTO_BASE = "photo/";\nfunction onBlank(askKey) { $("keyform").hidden = !askKey; }\nfunction onGood() { $("keyform").hidden = true; $("why").hidden = true; }\nfunction onBlind(p, steering) { for (const b of document.querySelectorAll("#blind button")) b.setAttribute("aria-pressed", String(b.dataset.p === "auto" ? steering : !steering && p != null && Math.abs(p - Number(b.dataset.p)) <= 12)); }\n'
 alerts='''const alertsBtn = $("alerts"), alertsNote = $("alerts-note");
 const pushOk = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 function alertsShow(on, note) { alertsBtn.setAttribute("aria-checked", String(on)); alertsNote.textContent = note || ""; }
@@ -112,6 +112,7 @@ function liveOpen() {
       if (performance.now() >= (lampHold[s.lamp] || 0)) {
         Object.assign(lampState[s.lamp], s);
         if (lamps[s.lamp] !== !!s.on) { lamps[s.lamp] = !!s.on; viz.lamps(lamps); }
+        viz.light(s.lamp, { ...lampState[s.lamp], on: lamps[s.lamp] });
       } else lampState[s.lamp].online = s.online;
       if (sheetLamp === s.lamp) paintSheet();
     }
@@ -192,6 +193,7 @@ const setB = slider(lampB, 1, 100, v => { const id = sheetLamp, b = Math.round(v
 const setK = slider(lampK, K_LO, K_HI, v => { const id = sheetLamp, k = Math.round(v / 10) * 10; Object.assign(lampState[id], { k, mode: "ct" }); lit(id); paintSheet(); lampSend(id, { k }); });
 function paintSheet() {
   const id = sheetLamp, s = lampState[id], on = !!lamps[id];
+  viz.light(id, { ...s, on });
   $("lamp-name").textContent = lampNames[id];
   $("lamp-on").setAttribute("aria-checked", String(on));
   card.classList.toggle("off", !on);

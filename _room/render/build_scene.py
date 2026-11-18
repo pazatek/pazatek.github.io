@@ -183,7 +183,10 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 M["floor_photo"], _ft = image_material("floor_photo", os.path.join(HERE, "tex", "floor_planks.jpg"), 0.4)
 _ft.extension = "REPEAT"
-M["poster_fuji"], _ = image_material("poster_fuji", os.path.join(HERE, "tex", "poster_fuji.jpg"), 0.6)
+for _n in ("jotaro", "jolyne", "giorno"):
+    M["poster_" + _n], _ = image_material("poster_" + _n, os.path.join(HERE, "tex", f"poster_{_n}.jpg"), 0.35)
+# RÖDALM birch effect: pale, fine-grained foil
+M["birch"] = wood("birch", "#dcc6a0", "#c9ae86", 14.0, 0.45)
 
 def stripes(name, base, line, period=0.012, width=0.25, axis="Y"):
     """Pinstripe fabric: thin lines every `period` metres along one Blender axis."""
@@ -407,7 +410,11 @@ for x in (BX0, (BX0 + BX1) / 2 - 0.015, BX1 - 0.03):
         box(x, x + 0.03, 0, RAIL - 0.05, z, z + 0.03, M["black_frame"], "bed_leg", bevel=0.002)
 box(BX0 + 0.01, BX1 - 0.01, RAIL, MTOP, BZ0 + 0.01, BZ1 - 0.01, M["sheet"], "mattress", bevel=0.04)
 for px0 in (1.95, 2.65):
-    p = box(px0, px0 + 0.58, MTOP - 0.01, MTOP + 0.13, 0.11, 0.52, M["sheet"], "pillow", bevel=0.06)
+    p = box(px0, px0 + 0.62, MTOP - 0.005, MTOP + 0.16, 0.10, 0.55, M["sheet"], "pillow", bevel=0)
+    p.modifiers.clear()
+    p.modifiers.new("round", "SUBSURF").levels = 3
+    for poly in p.data.polygons:
+        poly.use_smooth = True
 # duvet folded back toward the foot, the orange Illinois fleece on top of it
 box(BX0 + 0.03, BX1 - 0.03, MTOP - 0.005, MTOP + 0.06, 1.35, BZ1 - 0.02, M["duvet_stripe"], "duvet", bevel=0.03)
 box(BX0 + 0.06, BX1 - 0.06, MTOP + 0.06, MTOP + 0.11, 1.30, 1.55, M["duvet_stripe"], "duvet_fold", bevel=0.025)
@@ -420,8 +427,7 @@ hb.append(box(BX0, BX1, HB - 0.03, HB, 0.0, 0.03, M["black_frame"], "hb_top", be
 for i, (y0_, y1_) in enumerate(((0.38, 0.55), (0.585, 0.755), (0.79, 0.96))):
     hb.append(box(BX0 + 0.03, BX1 - 0.03, y0_, y1_, 0.004, 0.026, M["oak"], "hb_plank", bevel=0.002))
     hb.append(box(BX0 + 0.03, BX1 - 0.03, y1_, y1_ + 0.035, 0.008, 0.022, M["black_frame"], "hb_bar", bevel=0))
-for o in hb:
-    hidden_from_camera(o)
+# (shown: Piotr wants the headboard in the render)
 
 # ---- dresser: two stacked two-drawer units, light oak with black edges and bar handles ----
 DX0, DX1, DZ1 = 0.80, 1.77, 0.435
@@ -441,10 +447,23 @@ cylinder((1.62, 0.953, 0.33), (1.62, 1.06, 0.33), 0.04, mat=M["white_plastic"], 
 box(0.98, 1.60, 0.953, 0.975, 0.03, 0.13, M["black_matte"], "sword_base")
 for x in (1.02, 1.52):
     box(x, x + 0.03, 0.975, 1.27, 0.06, 0.10, M["black_matte"], "sword_post")
-for y, L in ((1.10, 0.95), (1.25, 1.05)):
-    cylinder((1.29 - L / 2, y, 0.08), (1.29 + L / 2, y + 0.025, 0.08), 0.013, mat=M["black_metal"], name="saya")
-    cylinder((1.29 - L / 2 - 0.25, y - 0.012, 0.08), (1.29 - L / 2, y, 0.08), 0.012, mat=M["black_matte"], name="tsuka")
-    cylinder((1.29 - L / 2 - 0.004, y - 0.03, 0.08), (1.29 - L / 2 + 0.004, y + 0.03, 0.08), 0.03, mat=M["gold"], name="tsuba", verts=24)
+def katana(y, L, z=0.08, sori=0.045, segs=14):
+    """A sheathed katana lying on the rack: blade-in-saya plus handle, bowed upward by `sori` metres."""
+    # handles toward the bed (high x), as on the real rack
+    x0 = 1.29 + L / 2 + 0.12
+    pts = []
+    for i in range(segs + 1):
+        t = i / segs
+        pts.append((x0 - t * (L + 0.25), y + sori * 4 * t * (1 - t), z))
+    hilt = int(segs * 0.25 / (L + 0.25)) + 1
+    for i in range(segs):
+        mat = M["desk_mat"] if i < hilt else M["black_metal"]
+        r = 0.012 if i < hilt else 0.013 - 0.003 * (i / segs)
+        cylinder(pts[i], pts[i + 1], r, r, mat=mat, name="katana", verts=12)
+    cylinder((pts[hilt][0] + 0.004, pts[hilt][1] - 0.028, z), (pts[hilt][0] - 0.004, pts[hilt][1] + 0.028, z), 0.028, mat=M["gold"], name="tsuba", verts=24)
+
+katana(1.10, 0.62)
+katana(1.25, 0.80)
 
 # STORSEGEL table lamp ("little"): three ash legs and a white linen drum.
 cx, y0, cz = MINI
@@ -453,23 +472,33 @@ for a in (0.5, 2.6, 4.7):
 cylinder((cx, y0 + 0.13, cz), (cx, y0 + 0.30, cz), 0.088, mat=M["linen"], name="storsegel_shade", verts=64, cap=False)
 little_bulb = cylinder((cx, y0 + 0.17, cz), (cx, y0 + 0.24, cz), 0.022, mat=M["frost"], name="little_bulb", verts=24)
 
-# ---- posters on the bed wall: light wood frames, white mats ----
-px = W - 0.002
-POSTERS = ((2.305, ("#1aa39a", "#d65a8c")), (1.425, ("#2f6b3a", "#e8762b")), (0.555, None))
-for pz, cols in POSTERS:
-    box(px - 0.025, px, 1.14, 2.05, pz - 0.305, pz + 0.305, M["frame_wood"], "poster_frame", bevel=0.003)
-    box(px - 0.027, px - 0.025, 1.17, 2.02, pz - 0.275, pz + 0.275, M["mat_paper"], "poster_mat", bevel=0)
-    if cols is None:
-        mesh = bpy.data.meshes.new("poster_art")
-        corners = [B(px - 0.029, 1.22, pz + 0.215), B(px - 0.029, 1.22, pz - 0.215), B(px - 0.029, 1.97, pz - 0.215), B(px - 0.029, 1.97, pz + 0.215)]
-        mesh.from_pydata(corners, [], [(0, 1, 2, 3)]); mesh.update()
-        uv = mesh.uv_layers.new(name="UVMap")
-        for li, (u, v) in zip(range(4), ((0, 0), (1, 0), (1, 1), (0, 1))):
-            uv.data[li].uv = (u, v)
-        o = bpy.data.objects.new("poster_fuji", mesh); C_ROOM.objects.link(o); o.data.materials.append(M["poster_fuji"])
-    else:
-        box(px - 0.029, px - 0.027, 1.22, 1.97, pz - 0.215, pz + 0.215, material("poster_bg", cols[0], 0.8), "poster_art", bevel=0)
-        box(px - 0.031, px - 0.029, 1.35, 1.75, pz - 0.12, pz + 0.08, material("poster_fg", cols[1], 0.8), "poster_figure", bevel=0)
+# ---- posters on the bed wall: the three 20 x 28 in prints in IKEA RÖDALM 61 x 91 cm frames ----
+# Frame 63 x 93 cm outside, 3 cm deep, birch effect, about 1.6 cm of face; white mat with a 49 x 69 cm window.
+def picture(u, v, pz, yc, tex_mat, xw=W, out_w=0.63, out_h=0.93, mat_w=0.49, mat_h=0.69, depth=0.03, face=0.016):
+    """A framed print on the wall x = xw (facing -x), centred at (pz, yc)."""
+    xf = xw - depth
+    hw, hh = out_w / 2, out_h / 2
+    for (z0, z1, y0_, y1_) in ((pz - hw, pz + hw, yc + hh - face, yc + hh), (pz - hw, pz + hw, yc - hh, yc - hh + face),
+                               (pz - hw, pz - hw + face, yc - hh, yc + hh), (pz + hw - face, pz + hw, yc - hh, yc + hh)):
+        box(xf, xw, y0_, y1_, z0, z1, M["birch"], "rodalm_frame", bevel=0.002)
+    mx = xf + 0.006                     # mat sits a little behind the glass
+    mw, mh = mat_w / 2, mat_h / 2
+    for (z0, z1, y0_, y1_) in ((pz - hw + face, pz + hw - face, yc + mh, yc + hh - face), (pz - hw + face, pz + hw - face, yc - hh + face, yc - mh),
+                               (pz - hw + face, pz - mw, yc - mh, yc + mh), (pz + mw, pz + hw - face, yc - mh, yc + mh)):
+        box(mx, mx + 0.002, y0_, y1_, z0, z1, M["mat_paper"], "rodalm_mat", bevel=0)
+    # the print, seen through the mat window
+    mesh = bpy.data.meshes.new("print")
+    corners = [B(mx + 0.0035, yc - mh, pz + mw), B(mx + 0.0035, yc - mh, pz - mw), B(mx + 0.0035, yc + mh, pz - mw), B(mx + 0.0035, yc + mh, pz + mw)]
+    mesh.from_pydata(corners, [], [(0, 1, 2, 3)]); mesh.update()
+    uvl = mesh.uv_layers.new(name="UVMap")
+    for li, uvv in zip(range(4), ((0, 0), (1, 0), (1, 1), (0, 1))):
+        uvl.data[li].uv = uvv
+    o = bpy.data.objects.new("print", mesh); C_ROOM.objects.link(o); o.data.materials.append(tex_mat)
+    # glass in front, so the prints catch soft reflections like the real frames
+    box(xf - 0.001, xf + 0.001, yc - hh + face, yc + hh - face, pz - hw + face, pz + hw - face, M["glass"], "rodalm_glass", bevel=0)
+
+for pz, name in ((0.555, "jotaro"), (1.425, "jolyne"), (2.305, "giorno")):
+    picture(None, None, pz, 1.595, M["poster_" + name])
 
 # framed photo on the closet's side wall, next to the window
 box(NX - 0.022, NX, 1.22, 1.56, 3.05, 3.55, M["frame_wood"], "photo_frame", bevel=0.003)
@@ -528,6 +557,12 @@ for o in list(bpy.context.selected_objects):
     bpy.context.view_layer.objects.active = o
     bpy.ops.object.shade_smooth_by_angle(angle=math.radians(35)) if hasattr(bpy.ops.object, "shade_smooth_by_angle") else bpy.ops.object.shade_smooth()
 
+# Glass (window panes, picture glazing) lets light through without casting shadows: Cycles counts light through glass as a
+# caustic, which is off, so otherwise the sun and lamps would stop at every pane.
+for o in C_ROOM.objects:
+    if any(slot.material is M["glass"] for slot in o.material_slots):
+        o.visible_shadow = False
+
 # ---- lights (one collection each, so each can be rendered on its own) ----
 def light(kind, name, loc, energy, coll, size=0.05, direction=None, spot=None, blend=0.3, color=(1, 1, 1)):
     ld = bpy.data.lights.new(name, kind)
@@ -543,11 +578,47 @@ def light(kind, name, loc, energy, coll, size=0.05, direction=None, spot=None, b
     return o
 
 # 800 lm bulbs (Govee H600B). Cycles watts here are tuned by eye; the app rescales each layer anyway.
-light("SPOT", "pixar_spot", B(*BULB), 40, C_PIXAR, size=0.03, direction=B(*AIMDIR) - B(0, 0, 0), spot=math.radians(95), blend=0.45, color=(1, 0.86, 0.68))
-light("POINT", "little_point", B(cx, y0 + 0.21, cz), 22, C_LITTLE, size=0.03, color=(1, 0.86, 0.68))
-light("POINT", "fan_point", B(fx, fy - 0.1, fz), 25, C_FAN, size=0.05, color=(1, 0.95, 0.88))
+# Single-layer renders (--layer pixar etc.) use white light, so the app can tint them to the bulb's real colour.
+WARM = (1, 1, 1) if LAYER not in ("all", "lamps") else (1, 0.86, 0.68)
+light("SPOT", "pixar_spot", B(*BULB), 40, C_PIXAR, size=0.03, direction=B(*AIMDIR) - B(0, 0, 0), spot=math.radians(95), blend=0.45, color=WARM)
+light("POINT", "little_point", B(cx, y0 + 0.21, cz), 22, C_LITTLE, size=0.03, color=WARM)
+light("POINT", "fan_point", B(fx, fy - 0.1, fz), 25, C_FAN, size=0.05, color=(1, 1, 1) if LAYER == "fan" else (1, 0.95, 0.88))
 # A dim, even fill so shadowed corners are never pure black (the room's other light: hallway, screens, standby LEDs).
 light("AREA", "fill", B(W / 2, H - 0.05, D / 2), 6, C_FILL, direction=Vector((0, 0, -1))).data.size = 2.5
+
+# Cut-away fill: the headboard and dresser stand against the door wall the camera looks through, so their backs face the
+# camera in deep shadow. A soft light from that side, linked to just those objects, shows them without lighting the room.
+recv = bpy.data.collections.new("cutaway_receivers")
+for o in C_ROOM.objects:
+    if o.name.split(".")[0] in ("hb_post", "hb_top", "hb_plank", "hb_bar", "dresser_carcass", "dresser_side", "dresser_top"):
+        recv.objects.link(o)
+cut = light("AREA", "cutaway_fill", B(2.0, 1.1, -0.9), 30, C_FILL, direction=Vector((-0.2, 1, 0.15)))
+cut.data.size = 2.5
+cut.light_linking.receiver_collection = recv
+# An empty blocker collection counts as "everything blocks", so it holds one tiny cube far away: nothing in the room blocks.
+_far = box(40, 40.01, 40, 40.01, 40, 40.01, M["trim"], "far_blocker", bevel=0)
+_far.visible_camera = False
+_nb = bpy.data.collections.new("cut_no_blockers"); _nb.objects.link(_far)
+cut.light_linking.blocker_collection = _nb
+
+# Caps: the tops of the walls and the cut ends where the camera slices through the room. In the real room they touch the
+# ceiling and the hidden walls, so they would render black; like the app's drawing, they get an even light of their own.
+caps = bpy.data.collections.new("caps"); scene.collection.children.link(caps)
+M["cap"] = material("cap", "#dcdad6", 0.9)
+M["cap_slab"] = material("cap_slab", "#45423f", 0.95)
+for args in ((0, NX, H, H + 0.002, D, D + T), (NX, W + T, H, H + 0.002, DM, D + T), (W, W + T, H, H + 0.002, 0, DM),      # wall tops
+             (-0.002, 0, 0, H, D, D + T),                                                                              # window wall, cut end
+             (W, W + T, 0, H, -0.002, 0)):                                                                             # poster wall, cut end
+    o = box(*args, M["cap"], "cap", bevel=0, coll=caps)
+for args in ((-0.002, 0, -0.18, -0.02, 0, D + T), (0, W + T, -0.18, -0.02, -0.002, 0)):                                # floor slab edges
+    box(*args, M["cap_slab"], "cap_slab", bevel=0, coll=caps)
+nothing = bpy.data.collections.new("no_blockers")
+caplight = light("SUN", "cap_light", (0, 0, 10), 3.0, C_FILL, direction=Vector((0.55, 0.7, -0.45)))
+caplight.light_linking.receiver_collection = caps
+caplight.light_linking.blocker_collection = _nb
+caplight.data.angle = math.radians(30)
+for o in caps.objects:
+    o.visible_shadow = False
 
 # Daylight: sky world + a sun coming in through the window.
 world = bpy.data.worlds.new("world"); scene.world = world; world.use_nodes = True
@@ -578,8 +649,8 @@ if "day" not in lights_on:
 def glow(obj, on, strength, color=(1, 0.86, 0.68)):
     m = material(obj.name + "_glow", (*color, 1.0), 0.5, **{"Emission Color": (*color, 1.0), "Emission Strength": strength if on else 0.0})
     obj.data.materials.clear(); obj.data.materials.append(m)
-glow(pixar_bulb, "pixar" in lights_on, 40)
-glow(little_bulb, "little" in lights_on, 30)
+glow(pixar_bulb, "pixar" in lights_on, 40, WARM)
+glow(little_bulb, "little" in lights_on, 30, WARM)
 glow(dome, "fan" in lights_on, 12, (1, 0.95, 0.88))
 
 # ---- camera: the app's isometric view, orthographic ----
@@ -630,6 +701,17 @@ try:
 except Exception:
     pass
 scene.view_settings.exposure = 0.0
+
+# Where known room points land in the image, so the app can line its overlays and tap targets up with the render.
+import json
+from bpy_extras.object_utils import world_to_camera_view
+bpy.context.view_layer.update()
+pts = []
+for q in ((0, 0, 0), (W, 0, 0), (0, H, 0), (0, 0, D), (W, H, D), (W / 2, H / 2, D / 2)):
+    uvw = world_to_camera_view(scene, cam, B(*q))
+    pts.append({"app": q, "px": [uvw.x * scene.render.resolution_x, (1 - uvw.y) * scene.render.resolution_y]})
+with open(os.path.join(here, os.path.dirname(OUT), "camera.json"), "w") as fh:
+    json.dump({"width": scene.render.resolution_x, "height": scene.render.resolution_y, "points": pts}, fh)
 
 if OUT.endswith(".exr"):
     scene.render.image_settings.file_format = "OPEN_EXR"; scene.render.image_settings.color_depth = "16"

@@ -46,6 +46,7 @@ function render() {
   if (performance.now() >= blindHold) blindPct = snap.blind && snap.blind.percent != null ? Number(snap.blind.percent) : null;
   onBlind(blindPct, !!(snap.blind && snap.blind.steering) && performance.now() >= blindHold);
   viz.set(step[0], a.door === "open", fan, (blindPct || 0) / 100);
+  viz.daylight(snap.outdoor && snap.outdoor.sun_wm2 != null ? Number(snap.outdoor.sun_wm2) : 0);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : a.aim ? (a.phase === "wide" ? "Blind maxed, still warm" : a.phase === "narrow" ? "Blind maxed, still cool" : "Blind holding " + a.aim + "°") : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to " + (K.HI - 1) + "°" : a.phase === "warm" ? "Warming to " + (K.LO + 1) + "°" : a.fan === "low" ? "Mild night" : "Holding " + K.TARGET + "°")
     : (a.fan === "low" ? "Desk above " + K.AW_HI + "°" : a.phase === "cold" ? "Desk below " + K.AW_LO + "°" : "Holding CO2");
@@ -61,6 +62,94 @@ function render() {
   trend("out", s.outF == null ? null : num(tr.out_c), 0.3, "Outside");
   ages();
   onGood();
+}
+
+// Photoreal room: the Blender light layers (_room/render) summed live in WebGL. Light adds up, so each layer (rendered in white
+// light) is scaled by its lamp's live colour and brightness, then the sum is tone-mapped with AgX like Blender's view.
+// Only the home screen app sets PHOTO_BASE; the artifact keeps the drawn room.
+const photo = (() => {
+  if (typeof PHOTO_BASE === "undefined" || !PHOTO_BASE) return null;
+  const gc = document.createElement("canvas"), gl = gc.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false });
+  if (!gl) return null;
+  const NAMES = ["day", "pixar", "little", "fan", "fill"];
+  const VS = "attribute vec2 p; varying vec2 uv; void main() { uv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }";
+  const FS = `precision highp float;
+varying vec2 uv;
+uniform sampler2D t0, t1, t2, t3, t4, ta;
+uniform vec3 w0, w1, w2, w3, w4;
+uniform float exposure;
+vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
+vec3 contrast(vec3 x) { vec3 x2 = x * x, x4 = x2 * x2; return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232; }
+vec3 agx(vec3 v) {
+  const mat3 m = mat3(0.842479062253094, 0.0423282422610123, 0.0423756549057051, 0.0784335999999992, 0.878468636469772, 0.0784336, 0.0792237451477643, 0.0791661274605434, 0.879142973793104);
+  const mat3 mi = mat3(1.19687900512017, -0.0528968517574562, -0.0529716355144438, -0.0980208811401368, 1.15190312990417, -0.0980434501171241, -0.0990297440797205, -0.0989611768448433, 1.15107367264116);
+  v = clamp(log2(max(m * v, vec3(1e-10))), -12.47393, 4.026069);
+  v = contrast((v + 12.47393) / 16.499999);
+  return pow(max(mi * v, vec3(0.0)), vec3(2.2));
+}
+void main() {
+  float a = texture2D(ta, uv).r;
+  if (a < 0.002) { gl_FragColor = vec4(0.0); return; }
+  vec3 c = lin(texture2D(t0, uv).rgb) * w0 + lin(texture2D(t1, uv).rgb) * w1 + lin(texture2D(t2, uv).rgb) * w2 + lin(texture2D(t3, uv).rgb) * w3 + lin(texture2D(t4, uv).rgb) * w4;
+  vec3 col = pow(agx(c / a * exposure), vec3(1.0 / 2.2));
+  gl_FragColor = vec4(col * a, a);
+}`;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  let prog;
+  try { prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); } catch (e) { return null; }
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const U = n => gl.getUniformLocation(prog, n);
+  const api = { ready: false, meta: null, canvas: gc, weights: {}, exposure: 1, dirty: true, onReady: null };
+  const tex = img => {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    return t;
+  };
+  const image = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+  api.load = async () => {
+    const meta = await (await fetch(PHOTO_BASE + "layers.json", { cache: "no-cache" })).json();
+    const v = "?v=" + (meta.version || 1), imgs = await Promise.all(NAMES.map(n => image(PHOTO_BASE + n + ".webp" + v)).concat([image(PHOTO_BASE + "alpha.png" + v)]));
+    gc.width = imgs[0].naturalWidth; gc.height = imgs[0].naturalHeight;
+    gl.viewport(0, 0, gc.width, gc.height);
+    imgs.forEach((img, i) => { gl.activeTexture(gl.TEXTURE0 + i); tex(img); gl.uniform1i(U(i < 5 ? "t" + i : "ta"), i); });
+    api.meta = meta; api.ready = true; api.dirty = true;
+    if (api.onReady) api.onReady();
+  };
+  // rgb weights per layer, before the layer's own encoding scale
+  api.set = (name, rgb) => { api.weights[name] = rgb; api.dirty = true; };
+  api.render = () => {
+    if (!api.ready || !api.dirty) return;
+    NAMES.forEach((n, i) => { const k = api.meta.layers[n] ? api.meta.layers[n].scale : 0, c = api.weights[n] || [0, 0, 0]; gl.uniform3f(U("w" + i), c[0] * k, c[1] * k, c[2] * k); });
+    gl.uniform1f(U("exposure"), api.exposure);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    api.dirty = false;
+  };
+  api.load().catch(() => {});
+  return api;
+})();
+// A lamp's light as linear RGB (white = luminance 1): colour temperature from Kelvin, or a hue for colour mode, times brightness.
+function lampRGB(s) {
+  if (!s || s.on === false) return [0, 0, 0];
+  const b = Math.max(0, Math.min(1, (s.brightness == null ? 100 : s.brightness) / 100));
+  let c;
+  if (s.mode === "hs" && s.hue != null) {
+    const h = (s.hue % 360) / 60, sat = Math.max(0, Math.min(1, (s.sat == null ? 100 : s.sat) / 100)), x = 1 - Math.abs(h % 2 - 1);
+    const rgb = h < 1 ? [1, x, 0] : h < 2 ? [x, 1, 0] : h < 3 ? [0, 1, x] : h < 4 ? [0, x, 1] : h < 5 ? [x, 0, 1] : [1, 0, x];
+    // coloured LEDs give off much less light than white; this keeps saturated colours from blowing out
+    c = rgb.map(v => (1 - sat + sat * v) * (0.45 + 0.55 * (1 - sat)));
+  } else {
+    const t = Math.max(1000, Math.min(12000, s.k || 2700)) / 100;
+    const r = t <= 66 ? 255 : 329.7 * Math.pow(t - 60, -0.1332);
+    const g = t <= 66 ? 99.47 * Math.log(t) - 161.12 : 288.12 * Math.pow(t - 60, -0.0755);
+    const bl = t >= 66 ? 255 : t <= 19 ? 0 : 138.52 * Math.log(t - 10) - 305.04;
+    const lin = [r, g, bl].map(v => Math.pow(Math.max(0, Math.min(255, v)) / 255, 2.2)), lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+    c = lin.map(v => v / lum);
+  }
+  return c.map(v => v * b);
 }
 
 const viz = (() => {
@@ -82,7 +171,7 @@ const viz = (() => {
   const along = (p, d, t) => [p[0] + d[0] * t, p[1] + d[1] * t, p[2] + d[2] * t];
 
   // The only light in the room: the silver arm lamp aimed at the window, what bounces back off that wall, and the small tripod lamp.
-  const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.3, 0.68, 3.1], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.15);
+  const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.27, 0.92, 2.88], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.15);
   const MINI = [1.56, 0.95, 0.27];
   const LIGHTS = [
     { lamp: "pixar", p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
@@ -242,8 +331,8 @@ const viz = (() => {
       halo(P(BULB[0] + AIMDIR[0] * 0.05, BULB[1] + AIMDIR[1] * 0.05, BULB[2] + AIMDIR[2] * 0.05), 0.38 * sc, 0.5);
     }
 
-    const base = [0.24, 0.028, 3.06], elbow = [0.24, 0.38, 2.94], glow = lampOn.pixar ? 0.36 : 0.04;
-    const foot = cone([0.24, 0, 3.06], 0.095, base, 0.085, q => lit(q, "#c3c9d2", glow))[1];
+    const base = [0.26, 0.44, 2.71], elbow = [0.25, 0.68, 2.79], glow = lampOn.pixar ? 0.36 : 0.04;
+    const foot = cone([0.26, 0.42, 2.71], 0.075, base, 0.068, q => lit(q, "#c3c9d2", glow))[1];
     poly(foot, shade(SILVER, base, UP, glow), null);
     for (const [a, b] of [[base, elbow], [elbow, JOINT]]) {
       litLine(a, b, "#9aa1ab", VIEW, 3, glow);
@@ -312,9 +401,9 @@ const viz = (() => {
       box(0.35, 1.35, 0.28, 0.72, D - 0.24, D, "#e3d6b8");
       lit([[0.45, 0.721, D - 0.19], [1.25, 0.721, D - 0.19], [1.25, 0.721, D - 0.07], [0.45, 0.721, D - 0.07]], "#a99c7e");
     } },
-    { x: 0.24, z: 3.06, foot: [0.15, 0.33, 2.97, 3.15], draw: armLamp },
+    { x: 0.26, z: 2.71, draw: armLamp },
     { x: 0.26, z: 2.72, foot: [0.05, 0.47, 2.585, 2.855], draw() {
-      box(0.05, 0.47, 0, 0.38, 2.585, 2.855, "#eeedea");
+      box(0.05, 0.47, 0, 0.42, 2.585, 2.855, "#eeedea");
       lit([[0.09, 0.05, 2.584], [0.43, 0.05, 2.584], [0.43, 0.33, 2.584], [0.09, 0.33, 2.584]], "#3a404b");
     } },
     { x: 0.27, z: 2.08, foot: [0, 0.55, 1.605, 2.565], draw() {
@@ -487,6 +576,17 @@ const viz = (() => {
     cur.gap += (want.gap - cur.gap) * ease; cur.blind += (want.blind - cur.blind) * ease; cur.door += (want.door - cur.door) * ease; cur.speed += (SPEED[want.fan] - cur.speed) * ease;
     spin += cur.speed * dt;
     ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const real = photo && photo.ready && !whole && w > 0 && h > 0;
+    if (real) {
+      // image px = a * raw + b (from the render's camera points), and screen = o + sc * raw
+      lightPhoto(); photo.render();
+      const [a, bx, by] = photoFit(), k = sc / a;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(photo.canvas, ox - bx * k, oy - by * k, photo.canvas.width * k, photo.canvas.height * k);
+      drawLive(now, true);
+      if (!document.hidden && !still) requestAnimationFrame(draw);
+      return;
+    }
     if (back && w > 0 && h > 0) ctx.drawImage(back, 0, 0, w, h);
     ctx.save(); ctx.beginPath();
     [[WX0, WY0], [WX1, WY0], [WX1, WY1], [WX0, WY1]].forEach(([x, y], i) => { const q = P(x, y, D - 0.002); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
@@ -502,6 +602,11 @@ const viz = (() => {
     }
     if (front && w > 0 && h > 0) ctx.drawImage(front, 0, 0, w, h);
 
+    drawLive(now, false);
+    if (rest && w > 0 && h > 0) ctx.drawImage(rest, 0, 0, w, h);
+    if (!document.hidden && !still) requestAnimationFrame(draw);
+  }
+  function drawLive(now, real) {
     const g = cur.gap * FULL_M;
     if (g > 0.004) {
       const FLOOR = 0.1, xm = WX1 - g / 2;
@@ -532,13 +637,19 @@ const viz = (() => {
     }
 
     const dx0 = 0.03, dx1 = 0.80, dh = 2.0, a = cur.door * 1.3, open = cur.door > 0.05;
-    poly([[dx0, 0, 0], [dx1, 0, 0], [dx1, dh, 0], [dx0, dh, 0]], open ? null : "rgba(244,244,248,0.22)", open ? "#8e8e93" : "#e5e5ea", 2);
+    // over the render the closed door (on the cut-away wall) is left out; it only appears when the advice opens it
+    if (!real || open) poly([[dx0, 0, 0], [dx1, 0, 0], [dx1, dh, 0], [dx0, dh, 0]], open ? null : "rgba(244,244,248,0.22)", open ? "#8e8e93" : "#e5e5ea", 2);
     if (open) {
       const lx = dx0 + (dx1 - dx0) * Math.cos(a), lz = (dx1 - dx0) * Math.sin(a);
       poly([[dx0, 0, 0], [lx, 0, lz], [lx, dh, lz], [dx0, dh, 0]], "rgba(244,244,248,0.3)", "#e5e5ea", 2);
     }
 
     const fx = 1.665, fy = 2.1, fz = 1.435, R = 0.66;
+    if (real) {
+      // the render's fan stands still; while it runs, a soft blur disc over the blades shows it
+      if (cur.speed > 1) { ctx.globalAlpha = Math.min(0.22, cur.speed * 0.03); poly(ring([fx, fy, fz], UP, 0.56, 36), "#16161a", null); ctx.globalAlpha = 1; }
+      return;
+    }
     seg([fx, H, fz], [fx, fy, fz], "#6e6e73", 2.5);
     if (cur.speed > 1) { ctx.globalAlpha = Math.min(0.3, cur.speed * 0.04); poly(ring([fx, fy, fz], UP, R, 28), "#000000", null); ctx.globalAlpha = 1; }
     for (let i = 0; i < 5; i++) {
@@ -547,15 +658,34 @@ const viz = (() => {
       poly([p1, p2, p3], "#0b0b0d", "#0b0b0d", 0.7); poly([p1, p3, p4], "#1f1f24", "#1f1f24", 0.7);
     }
     const hub = P(fx, fy, fz); ctx.fillStyle = "#0b0b0d"; ctx.beginPath(); ctx.arc(hub[0], hub[1], 3.5, 0, 6.3); ctx.fill();
-    if (rest && w > 0 && h > 0) ctx.drawImage(rest, 0, 0, w, h);
-    if (!document.hidden && !still) requestAnimationFrame(draw);
+  }
+  // Photo mode: the render's projection, and each layer's weight from the lamps and the daylight.
+  const lampLook = { pixar: { k: 2700, brightness: 100 }, little: { k: 2700, brightness: 100 } };
+  let sunWm2 = 0, fitCache = null;
+  function photoFit() {
+    if (fitCache) return fitCache;
+    const pts = photo.meta.camera.points, r0 = raw(...pts[0].app), r1 = raw(...pts[1].app);
+    const a = Math.hypot(pts[1].px[0] - pts[0].px[0], pts[1].px[1] - pts[0].px[1]) / Math.hypot(r1[0] - r0[0], r1[1] - r0[1]);
+    return (fitCache = [a, pts[0].px[0] - a * r0[0], pts[0].px[1] - a * r0[1]]);
+  }
+  function lightPhoto() {
+    photo.set("pixar", lampRGB({ ...lampLook.pixar, on: lampOn.pixar }));
+    photo.set("little", lampRGB({ ...lampLook.little, on: lampOn.little }));
+    const d = Math.max(0, Math.min(1, sunWm2 / 250));
+    photo.set("day", [d, d, d]);
+    photo.set("fan", [0, 0, 0]);
+    photo.set("fill", [1, 1, 1]);
   }
   const kick = () => { last = performance.now(); requestAnimationFrame(draw); };
+  if (photo) photo.onReady = () => kick();
   if (window.ResizeObserver) new ResizeObserver(() => { size(); if (still) kick(); }).observe(cv); else addEventListener("resize", size);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) kick(); });
   size(); kick();
   return {
     lamps(state) { lampOn.pixar = state.pixar !== false; lampOn.little = state.little !== false; bake(); if (still) kick(); },
+    // a lamp's colour and brightness (relay state), for the photo layers
+    light(id, s) { if (!lampLook[id] || !s) return; Object.assign(lampLook[id], s); if (s.on != null) lampOn[id] = !!s.on; if (photo) photo.dirty = true; if (still) kick(); },
+    daylight(wm2) { if (Number.isFinite(wm2) && wm2 !== sunWm2) { sunWm2 = wm2; if (photo) photo.dirty = true; if (still) kick(); } },
     // Where a lamp is on screen (client px), for the lamp card.
     spot(id) {
       const r = cv.getBoundingClientRect(), at = id === "pixar" ? mix(JOINT, BULB, 0.5) : [MINI[0], MINI[1] + 0.18, MINI[2]], p = P(at[0], at[1], at[2]);

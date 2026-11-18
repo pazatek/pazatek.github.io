@@ -1,3 +1,4 @@
 out/*
 !out/preview_day.png
 !out/preview_night.png
+tex/poster_*.jpg

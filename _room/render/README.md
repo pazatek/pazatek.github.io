@@ -8,10 +8,32 @@ app's own orthographic isometric camera, so a render lines up pixel for pixel wi
 
 - `chair.obj` is the Uplift Pursuit mesh from `core.js` (`CHAIR`), already in Blender axes.
 - Modelled from the product pages: Hampton Bay Mena 44" fan, IKEA FORSÅ (pixar), IKEA STORSEGEL (little).
-- Each light renders on its own (`--layer`). Light adds up, so the app can rebuild any lamp colour and brightness by
-  summing the layers in a shader, each scaled by its lamp's live RGB. That part isn't built yet.
-- Timing: about 3-5 minutes per 1100 px frame at 128 samples on the M3 Pro.
+- Each light renders on its own (`--layer`), in white light. Light adds up, so the app rebuilds any lamp colour and
+  brightness by summing the layers.
 
-Modelled from Piotr's photos (2026-11-17): floor (texture cut from his photo, `tex/floor_planks.jpg`), bed (black metal frame, oak-plank headboard, pinstripe sheets, orange fleece), stacked oak/black dresser with the sword rack, desk (rustic wood, black frame, mat, monitor and laptop arms, mic boom), white PC with the FORSÅ on top, GE Zoneline AC, roller blind, printer and router, the blue Fuji poster (`tex/poster_fuji.jpg`). The headboard is hidden from the camera like the cut-away wall it stands against.
+## In the app
 
-Still placeholders: the other two posters, the framed photo, window and AC heights (from core.js, not measured).
+    ssh mac 'cd ~/room-render && ./render_layers.sh 1400 160'      # about 35 min: day, pixar, little, fan, fill (EXR), then encode_layers.py
+    scp 'mac:room-render/out/layers/{*.webp,alpha.png,layers.json}' ../../room/photo/
+
+- `encode_layers.py` writes one 8-bit sRGB WebP per layer, scaled so its brightest 0.3% fits (the scale is in `layers.json`).
+  It also writes `alpha.png` (the room's silhouette) and `camera.json`, the image positions of known room points.
+- `core.js` (`photo`) loads them only on the home screen app (`PHOTO_BASE`). It sums the layers in WebGL, then tone-maps.
+  - The sum is `day * sun + pixar * rgb * brightness + little * rgb * brightness + fill`.
+  - The lamp RGB comes from the relay state (`lampRGB`: Kelvin, or hue/sat for colour mode). The daylight weight is the outdoor `sun_wm2` / 250.
+  - Tone mapping is an AgX fit, like Blender's view.
+  - The camera points give the scale and offset that line the image up with the app's own projection, so lamp taps, the lamp card, airflow and the door overlay still land in the right place.
+  - The drawn room stays for the apartment view and as the fallback when WebGL or the images aren't there.
+- Fixed in the render (not live yet): the blind at 60%, the window closed, the fan's blades standing still (the app lays a blur disc over them while the fan runs).
+
+## Scene notes
+
+- Cut-away: the walls nearest the camera, and the ceiling, are hidden from the camera but still block and bounce light.
+  Their tops and cut ends ("caps") get their own linked light, as in the app's drawing.
+- The headboard and dresser stand against the cut-away door wall. A linked fill light shows their backs.
+  - A light-linking blocker collection must not be empty: Blender then treats everything as a blocker. It holds one far-away cube.
+- All glass casts no shadow. Light through glass is a caustic, which is off, so otherwise the sun and lamps would stop at every pane.
+- Posters: Piotr's three 20 x 28 in prints (Downloads/poster-upscale/out/print_20x28), cropped to the mat window.
+  - Frames: IKEA RÖDALM 61 x 91 cm, birch effect. 63 x 93 cm outside, 3 cm deep, mat opening 49 x 69 cm.
+  - The crops (`tex/poster_*.jpg`) aren't committed (copyrighted art). Rebuild them from the print files.
+- Floor: three planks cut from Piotr's floor photo (`tex/floor_planks.jpg`), white-balanced. Each strip of floor picks one of them at a random offset.
