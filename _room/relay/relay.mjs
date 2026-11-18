@@ -14,7 +14,7 @@
 import { OnOff, LevelControl, ColorControl } from "@matter/main/clusters";
 import { NodeId } from "@matter/main";
 import { createClient } from "@supabase/supabase-js";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, privateDecrypt, constants } from "node:crypto";
 import { readFileSync, appendFileSync, statSync, renameSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { HERE, startController, lamps } from "./matter.mjs";
@@ -34,15 +34,29 @@ function log(...a) {
 
 const env = Object.fromEntries(readFileSync(join(HERE, "relay.env"), "utf8").split(/\r?\n/).filter((l) => /^\w+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim()]));
 const KEYS = (env.ROOM_KEYS || env.ROOM_KEY || "").split(",").map((k) => k.trim()).filter(Boolean);
-if (!KEYS.length) { log("no ROOM_KEYS in relay.env"); process.exit(1); }
+
+// The app signs with a 12-hour key it gets from the `lamp` edge function: HMAC(secret, "lamp|" + exp). The secret comes from that
+// function too, encrypted to this PC's RSA key (relay_key.pem), so it never sits in a file or crosses the channel in the clear.
+let SECRET = null;
+async function fetchSecret() {
+  const r = await fetch(`${URL}/functions/v1/lamp?relay=1`);
+  if (!r.ok) throw new Error(`lamp http ${r.status}`);
+  const { s } = await r.json();
+  SECRET = privateDecrypt({ key: readFileSync(join(HERE, "relay_key.pem")), padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(s, "base64"));
+}
 
 const field = (v) => (v === undefined || v === null ? "" : String(v));
 function verify(c) {
   if (typeof c?.sig !== "string" || !/^[0-9a-f]{64}$/.test(c.sig)) return "bad sig";
   if (typeof c.t !== "number" || Math.abs(Date.now() - c.t) > 10000) return "stale";
   const msg = [c.lamp, c.on, c.brightness, c.k, c.hue, c.sat, c.t].map(field).join("|");
-  const got = Buffer.from(c.sig, "hex");
-  return KEYS.some((k) => timingSafeEqual(createHmac("sha256", k).update(msg).digest(), got)) ? null : "bad sig";
+  const got = Buffer.from(c.sig, "hex"), ok = (k) => timingSafeEqual(createHmac("sha256", k).update(msg).digest(), got);
+  if (typeof c.exp === "number") {
+    if (!SECRET) return "no secret yet";
+    if (c.exp < Date.now() || c.exp > Date.now() + 13 * 3600000) return "expired key";
+    return ok(createHmac("sha256", SECRET).update(`lamp|${c.exp}`).digest()) ? null : "bad sig";
+  }
+  return KEYS.some(ok) ? null : "bad sig";
 }
 
 // ---- Matter side ----
@@ -131,7 +145,7 @@ function join_() {
   channel
     .on("broadcast", { event: "cmd" }, ({ payload: c }) => {
       const bad = verify(c);
-      if (bad) return log("rejected cmd:", bad, c?.lamp ?? "");
+      if (bad) { if (bad === "no secret yet") fetchSecret().catch(() => {}); return log("rejected cmd:", bad, c?.lamp ?? ""); }
       enqueue({ lamp: c.lamp, on: c.on, brightness: num(c.brightness, 1, 100), k: num(c.k, 2700, 6500), hue: num(c.hue, 0, 360), sat: num(c.sat, 0, 100), t: c.t });
     })
     .on("broadcast", { event: "hello" }, () => { for (const n of Object.keys(L)) stateSoon(n); })
@@ -146,6 +160,10 @@ function join_() {
 }
 const num = (v, lo, hi) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : undefined);
 
+for (let i = 0; !SECRET; i++) {
+  try { await fetchSecret(); log("signing secret loaded"); }
+  catch (e) { log("couldn't load the signing secret:", e?.message ?? e); if (i >= 2) break; await new Promise((r) => setTimeout(r, 3000)); }
+}
 const controller = await startController();
 for (const [name, id] of Object.entries(lamps())) await attach(name, id, controller).catch((e) => log(name, "attach failed:", e?.message ?? e));
 join_();

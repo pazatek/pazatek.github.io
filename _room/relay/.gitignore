@@ -4,3 +4,5 @@ relay.env
 *.log
 *.log.1
 relay.out
+relay_key.pem
+test.key

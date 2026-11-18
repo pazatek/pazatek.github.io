@@ -9,7 +9,10 @@ commands from the Room Coach app over the Supabase Realtime channel `room-lights
 ## Contract
 
 - `cmd` (app to relay): `{ lamp, on?, brightness? 1-100, k? 2700-6500, hue? 0-360, sat? 0-100, t, sig }`.
-  - `sig` is HMAC-SHA256 with the room app key over `lamp|on|brightness|k|hue|sat|t`, with a missing field written as an empty string.
+  - `exp` and `sig`: the app gets a 12-hour signing key from the `lamp` edge function (`functions/lamp.ts`), which checks its app key: key = HMAC(secret, "lamp|" + exp).
+  - `sig` is HMAC-SHA256 with that key over `lamp|on|brightness|k|hue|sat|t`, with a missing field written as an empty string.
+  - The relay derives the same key from `exp`. It gets the secret from `lamp?relay=1`, encrypted to its own RSA key (`relay_key.pem`, which stays on the PC), so the secret never sits in a file or crosses the channel in the clear.
+  - Commands signed with a key listed in `relay.env` (`ROOM_KEYS`) are also accepted, for tests.
   - The relay drops a command whose signature is wrong or whose `t` is more than 10 s off the PC's clock.
 - `state` (relay to app), sent on every change and in reply to `hello`: `{ lamp, on, brightness, k, hue, sat, mode: "ct"|"hs", online, t }`.
 - Presence `{ relay: true }` while connected. The app has to join with `presence: { enabled: true }` or Realtime never sends it.
@@ -22,11 +25,12 @@ commands from the Room Coach app over the Supabase Realtime channel `room-lights
   - The bulb has to be in pairing mode from the home app it's already in; a code alone isn't enough.
   - Pass its IP if discovery misses it. `browse.mjs` lists Matter devices and shows which one is open to pairing; `srv.mjs <instance>` resolves its address.
 - `lamp.mjs <name> on|off|toggle`: quick test, prints the round trip.
-- `test_cmd.mjs '<json>'`: sends a signed command the way the app does, using the first key in `relay.env`.
+- `test_exp.mjs '<json>'`: sends a command signed the way the app does (12-hour key). `test_cmd.mjs` signs with the first `ROOM_KEYS` key instead.
 - `run.cmd` restarts the relay 5 s after any exit. `start-hidden.vbs` runs that with no window, and a shortcut to it in the Startup folder starts it at login.
-- `relay.env`: `ROOM_KEYS=<key>[,<key>...]`, the keys commands may be signed with. Never commit or print it.
+- `relay.env`: optional `ROOM_KEYS=<key>[,<key>...]` test keys. Never commit or print it.
+- Started at login by `Startup\Room lamp relay.lnk`, which runs `start-hidden.vbs`.
 
 ## State (2026-11-17)
 
-- pixar: node 1, at 192.168.50.50. Each command takes 200-350 ms for the bulb to acknowledge.
+- pixar: node 1, at 192.168.50.50. From the app's send to the bulb's acknowledgement takes about 100-400 ms.
 - little: not paired yet.

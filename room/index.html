@@ -928,7 +928,7 @@ function liveOpen() {
 document.addEventListener("visibilitychange", liveOpen);
 liveOpen();
 // Tapping a lamp opens its sheet: power, brightness, colour temperature and a colour wheel. Every change is a signed command
-// (HMAC with the app key over "lamp|on|brightness|k|hue|sat|t") that the relay on the PC checks before touching the bulb.
+// (HMAC over "lamp|on|brightness|k|hue|sat|t", with a key from the lamp function) that the relay on the PC checks before touching the bulb.
 const lampNames = { pixar: "Pixar lamp", little: "Little lamp" }, lampState = { pixar: {}, little: {} }, pend = {}, lastSent = {}, pendTimer = {};
 let sheetLamp = null;
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
@@ -937,9 +937,24 @@ async function lampFlush(id) {
   if (!f) return;
   lastSent[id] = performance.now(); lampHold[id] = performance.now() + 1500;
   const t = Date.now(), c = { lamp: id, ...f, t }, val = v => (v == null ? "" : String(v));
-  signer = signer || crypto.subtle.importKey("raw", utf8.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", await signer, utf8.encode([id, c.on, c.brightness, c.k, c.hue, c.sat, t].map(val).join("|")));
-  liveSend(TOPIC, "broadcast", { type: "broadcast", event: "cmd", payload: { ...c, sig: hex(mac) } });
+  const tk = await lampToken();
+  if (!tk) { stale("Couldn't get a lamp key. Check the connection."); return; }
+  const mac = await crypto.subtle.sign("HMAC", tk.signer, utf8.encode([id, c.on, c.brightness, c.k, c.hue, c.sat, t].map(val).join("|")));
+  liveSend(TOPIC, "broadcast", { type: "broadcast", event: "cmd", payload: { ...c, exp: tk.exp, sig: hex(mac) } });
+}
+// Commands are signed with a 12-hour key from the lamp function (it checks the app key); the relay derives the same key itself.
+const LAMP = ENDPOINT.replace(/room$/, "lamp");
+let lampTok = null, lampTokP = null;
+function lampToken() {
+  if (lampTok && lampTok.exp - Date.now() > 3600000) return Promise.resolve(lampTok);
+  return lampTokP = lampTokP || fetch(LAMP, { method: "POST", headers: { "x-room-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ action: "token" }) })
+    .then(r => { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+    .then(async j => {
+      const raw = Uint8Array.from(j.key.match(/../g).map(x => parseInt(x, 16)));
+      return lampTok = { exp: j.exp, signer: await crypto.subtle.importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]) };
+    })
+    .catch(() => (lampTok = null))
+    .finally(() => { lampTokP = null; });
 }
 // A dragged slider sends at most every 120 ms; the last position always goes out.
 function lampSend(id, f) {
@@ -971,7 +986,7 @@ function paintSheet() {
 }
 function onLamp(id) {
   if (!key) return;
-  sheetLamp = id; liveOpen();
+  sheetLamp = id; liveOpen(); lampToken();
   sheet.hidden = false; $("lampback").hidden = false;
   paintSheet();
 }
