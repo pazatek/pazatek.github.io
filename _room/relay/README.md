@@ -8,7 +8,7 @@ commands from the Room Coach app over the Supabase Realtime channel `room-lights
 
 ## Contract
 
-- `cmd` (app to relay): `{ lamp, on?, brightness? 1-100, k? 2700-6500, hue? 0-360, sat? 0-100, t, sig }`.
+- `cmd` (app to relay): `{ lamp, on?, brightness? 1-100, k? 1700-6500 (below 2700 sent as the blackbody's xy point: 2000K = 0.5269, 0.4133), hue? 0-360, sat? 0-100, t, sig }`.
   - `exp` and `sig`: the app gets a 12-hour signing key from the `lamp` edge function (`functions/lamp.ts`), which checks its app key: key = HMAC(secret, "lamp|" + exp).
   - `sig` is HMAC-SHA256 with that key over `lamp|on|brightness|k|hue|sat|t`, with a missing field written as an empty string.
   - The relay derives the same key from `exp`. It gets the secret from `lamp?relay=1`, encrypted to its own RSA key (`relay_key.pem`, which stays on the PC), so the secret never sits in a file or crosses the channel in the clear.
@@ -20,6 +20,8 @@ commands from the Room Coach app over the Supabase Realtime channel `room-lights
 - Commands under 400 ms apart fade over 0.2 s (Matter transitionTime 2), so a drag glides; a single tap changes at once. Color and brightness go out together.
 - `done` (relay to app) after the bulb acknowledges: `{ lamp, t, total, bulb }`. The app shows tap-to-lamp time as half its round trip minus `total`, plus `bulb`.
 - State is read from the subscription cache, not from the bulb: reading the bulb after every command slowed the next one.
+
+The app only offers three lights, always at full brightness (Piotr, 2026-11-17): warm white `k 2700`, amber `k 2000`, red `hue 0 sat 100`.
 
 ## Files
 

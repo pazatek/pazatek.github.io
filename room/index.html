@@ -97,6 +97,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .lc-wheel { position: relative; width: 104px; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; touch-action: none; cursor: crosshair;
   background: radial-gradient(circle closest-side, #fff, rgba(255, 255, 255, 0)), conic-gradient(from 90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) }
 .lc-wheel i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); pointer-events: none }
+.lc-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
+.lc-pre { border: 0; border-radius: 12px; padding: 8px 2px 7px; background: rgba(255, 255, 255, 0.08); color: var(--ink); font: 500 11px/1.2 var(--body);
+  display: flex; flex-direction: column; align-items: center; gap: 6px }
+.lc-pre i { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25) }
+.lc-pre[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); font-weight: 600 }
+.lc-pre[aria-pressed="true"] i { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #fff }
 .lc-ms { min-height: 12px; font: 500 10px/1.2 var(--body); color: var(--dim); text-align: center; font-variant-numeric: tabular-nums }
 .lampcard.off .lc-sl, .lampcard.off .lc-wheel { opacity: 0.4 }
 </style>
@@ -130,9 +136,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
   <form class="foot key" id="keyform" hidden><input id="key" type="password" autocomplete="off" aria-label="App key" placeholder="App key"><button class="link" type="submit">Save</button></form>
   <section class="lampcard" id="lampcard" role="dialog" aria-labelledby="lamp-name" hidden>
     <div class="lc-head"><span id="lamp-name">Lamp</span><span class="lc-note" id="lamp-note"></span><button class="lc-pow" id="lamp-on" type="button" role="switch" aria-checked="false" aria-label="Lamp on"></button></div>
-    <div class="lc-sl" id="lamp-b" role="slider" aria-label="Brightness" aria-valuemin="1" aria-valuemax="100" tabindex="0"><i class="lc-ic sun"></i><span class="lc-track"><span class="lc-fill"></span><span class="lc-thumb"></span></span><span class="lc-v" id="lamp-b-v"></span></div>
-    <div class="lc-sl kel" id="lamp-k" role="slider" aria-label="Color temperature" aria-valuemin="2700" aria-valuemax="6500" tabindex="0"><i class="lc-ic therm"></i><span class="lc-track"><span class="lc-thumb"></span></span><span class="lc-v" id="lamp-k-v"></span></div>
-    <div class="lc-wheel" id="lamp-wheel" role="slider" aria-label="Color"><i id="lamp-dot" hidden></i></div>
+    <div class="lc-presets" role="group" aria-label="Light">
+      <button type="button" class="lc-pre" data-pre="white" aria-pressed="false"><i style="background:#ffd9a3"></i>Warm white</button>
+      <button type="button" class="lc-pre" data-pre="amber" aria-pressed="false"><i style="background:#ff8b16"></i>Amber</button>
+      <button type="button" class="lc-pre" data-pre="red" aria-pressed="false"><i style="background:#ff2a1a"></i>Red</button>
+    </div>
     <div class="lc-ms" id="lamp-ms"></div>
   </section>
 </div>
@@ -1106,7 +1114,7 @@ function liveOpen() {
 }
 document.addEventListener("visibilitychange", liveOpen);
 liveOpen();
-// Tapping a lamp opens a small card beside it: power, brightness, colour temperature and a colour wheel. Every change is a signed command
+// Tapping a lamp opens a small card beside it: power and three lights (warm white, amber, red), always at full brightness. Every change is a signed command
 // (HMAC over "lamp|on|brightness|k|hue|sat|t", with a key from the lamp function) that the relay on the PC checks before touching the bulb.
 const lampNames = { pixar: "Pixar lamp", little: "Little lamp", basket: "Basket lamp" }, lampState = { pixar: {}, little: {}, basket: {} }, pend = {}, lastSent = {}, pendTimer = {};
 let sheetLamp = null;
@@ -1148,24 +1156,11 @@ function lampSend(id, f) {
   const wait = 80 - (performance.now() - (lastSent[id] || 0));
   if (wait <= 0) lampFlush(id); else if (!pendTimer[id]) pendTimer[id] = setTimeout(() => lampFlush(id), wait);
 }
-const card = $("lampcard"), lampB = $("lamp-b"), lampK = $("lamp-k"), wheel = $("lamp-wheel"), dot = $("lamp-dot");
-const K_LO = 2700, K_HI = 6500;
-// Thin sliders: grab anywhere on the row and drag; the thumb follows the finger every frame.
-function slider(el, lo, hi, onMove) {
-  const set = v => el.style.setProperty("--v", Math.max(0, Math.min(1, (v - lo) / (hi - lo))));
-  const at = e => { const r = el.querySelector(".lc-track").getBoundingClientRect(); return lo + Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (hi - lo); };
-  el.addEventListener("pointerdown", e => { el.setPointerCapture(e.pointerId); el.classList.add("drag"); const v = at(e); set(v); onMove(v); });
-  el.addEventListener("pointermove", e => { if (!el.hasPointerCapture(e.pointerId)) return; const v = at(e); set(v); onMove(v); });
-  const end = () => el.classList.remove("drag");
-  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
-  el.addEventListener("keydown", e => { const step = (hi - lo) / 20, cur = lo + Number(el.style.getPropertyValue("--v") || 0) * (hi - lo);
-    if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); set(cur + step); onMove(Math.min(hi, cur + step)); }
-    if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); set(cur - step); onMove(Math.max(lo, cur - step)); } });
-  return set;
-}
-const lit = id => { if (!lamps[id]) { lamps[id] = true; lampState[id].on = true; viz.lamps(lamps); } };
-const setB = slider(lampB, 1, 100, v => { const id = sheetLamp, b = Math.round(v); lampState[id].brightness = b; lit(id); paintSheet(); lampSend(id, { brightness: b }); });
-const setK = slider(lampK, K_LO, K_HI, v => { const id = sheetLamp, k = Math.round(v / 10) * 10; Object.assign(lampState[id], { k, mode: "ct" }); lit(id); paintSheet(); lampSend(id, { k }); });
+const card = $("lampcard");
+// Only three lights are ever wanted (Piotr, 2026-11-17), always at full brightness: warm white is the bulbs' warmest white,
+// amber is 2000K (the relay sends that blackbody's exact xy point), red is pure hue 0.
+const PRESETS = { white: { k: 2700, brightness: 100 }, amber: { k: 2000, brightness: 100 }, red: { hue: 0, sat: 100, brightness: 100 } };
+const presetOf = s => (s.mode === "hs" ? (s.sat > 60 && (s.hue < 20 || s.hue > 340) ? "red" : null) : s.k != null && s.k < 2400 ? "amber" : s.k != null ? "white" : null);
 function paintSheet() {
   const id = sheetLamp, s = lampState[id], on = !!lamps[id];
   viz.light(id, { ...s, on });
@@ -1173,19 +1168,16 @@ function paintSheet() {
   $("lamp-on").setAttribute("aria-checked", String(on));
   card.classList.toggle("off", !on);
   $("lamp-note").textContent = !relays.size ? "Relay offline" : s.online === false ? "Bulb offline" : "";
-  const b = s.brightness || 100, k = s.k || K_LO;
-  if (!lampB.classList.contains("drag")) setB(b);
-  if (!lampK.classList.contains("drag")) setK(k);
-  lampB.setAttribute("aria-valuenow", b); lampK.setAttribute("aria-valuenow", k);
-  $("lamp-b-v").textContent = b + "%";
-  $("lamp-k-v").textContent = s.mode === "hs" ? "color" : Math.round(k / 50) * 50 + "K";
-  dot.hidden = s.mode !== "hs" || s.hue == null;
-  if (!dot.hidden) {
-    const a = s.hue * Math.PI / 180, r = Math.min(1, (s.sat || 0) / 100) * 50;
-    dot.style.left = 50 + r * Math.cos(a) + "%"; dot.style.top = 50 + r * Math.sin(a) + "%";
-    dot.style.background = "hsl(" + s.hue + " " + (s.sat || 0) + "% " + (100 - (s.sat || 0) / 2) + "%)";
-  }
+  const cur = on ? presetOf(s) : null;
+  for (const b of card.querySelectorAll(".lc-pre")) b.setAttribute("aria-pressed", String(b.dataset.pre === cur));
 }
+for (const b of card.querySelectorAll(".lc-pre")) b.addEventListener("click", () => {
+  const id = sheetLamp, f = PRESETS[b.dataset.pre];
+  lamps[id] = true; viz.lamps(lamps);
+  Object.assign(lampState[id], { on: true, brightness: 100 }, f.hue != null ? { mode: "hs", hue: 0, sat: 100 } : { mode: "ct", k: f.k });
+  paintSheet();
+  lampSend(id, { on: true, ...f });
+});
 // The card sits beside the lamp in the picture, on whichever side has room, kept inside the room view.
 function placeCard() {
   if (!sheetLamp) return;
@@ -1210,15 +1202,8 @@ addEventListener("resize", placeCard);
 $("lamp-on").addEventListener("click", () => {
   const id = sheetLamp, on = !lamps[id];
   lamps[id] = on; lampState[id].on = on; viz.lamps(lamps); paintSheet();
-  lampSend(id, { on });
+  lampSend(id, on ? { on: true, brightness: 100 } : { on: false });
 });
-function wheelAt(e) {
-  const r = wheel.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  const hue = Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360), sat = Math.round(Math.min(1, Math.hypot(dx, dy) / (r.width / 2)) * 100);
-  const id = sheetLamp; Object.assign(lampState[id], { hue, sat, mode: "hs" }); lit(id); paintSheet(); lampSend(id, { hue, sat });
-}
-wheel.addEventListener("pointerdown", e => { wheel.setPointerCapture(e.pointerId); wheelAt(e); });
-wheel.addEventListener("pointermove", e => { if (wheel.hasPointerCapture(e.pointerId)) wheelAt(e); });
 </script>
 </body>
 </html>

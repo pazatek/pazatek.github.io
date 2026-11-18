@@ -92,9 +92,10 @@ async function readState(name) {
   return {
     lamp: name, online: !!l.node.isConnected, on: !!on,
     brightness: level == null ? null : Math.max(1, Math.round(level / 2.54)),
-    k: mireds ? Math.round(1e6 / mireds) : null,
+    // below the bulbs' warmest white (2700K) the colour is an xy point; report the Kelvin it was set to
+    k: mode === 1 ? (l.lastK || 2000) : mireds ? Math.round(1e6 / mireds) : null,
     hue: hue == null ? null : Math.round(hue * 360 / 254), sat: sat == null ? null : Math.round(sat * 100 / 254),
-    mode: mode === 2 ? "ct" : "hs", t: Date.now(),
+    mode: mode === 2 || mode === 1 ? "ct" : "hs", t: Date.now(),
   };
 }
 
@@ -122,6 +123,12 @@ async function run(l) {
         if (c.hue != null && c.sat != null) {
           jobs.push(l.color.moveToHueAndSaturation({ hue: Math.round((c.hue % 360) * 254 / 360), saturation: Math.round(c.sat * 2.54), transitionTime: tt, ...NOOPTS }));
           did.push(`hs ${c.hue}/${c.sat}`);
+        } else if (c.k != null && c.k < 2700) {
+          // warmer than the white LEDs go: the exact colour of that blackbody temperature, as an xy point from the colour LEDs
+          const [x, y] = planckXY(c.k);
+          jobs.push(l.color.moveToColor({ colorX: Math.round(x * 65536), colorY: Math.round(y * 65536), transitionTime: tt, ...NOOPTS }));
+          l.lastK = c.k;
+          did.push(`k ${c.k} (xy ${x.toFixed(4)}, ${y.toFixed(4)})`);
         } else if (c.k != null) {
           jobs.push(l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: tt, ...NOOPTS }));
           did.push(`k ${c.k}`);
@@ -156,7 +163,7 @@ function join_() {
     .on("broadcast", { event: "cmd" }, ({ payload: c }) => {
       const bad = verify(c);
       if (bad) { if (bad === "no secret yet") fetchSecret().catch(() => {}); return log("rejected cmd:", bad, c?.lamp ?? "", typeof c?.exp === "number" ? "(12 h key)" : "(no exp: old app version or test key)"); }
-      enqueue({ lamp: c.lamp, on: c.on, brightness: num(c.brightness, 1, 100), k: num(c.k, 2700, 6500), hue: num(c.hue, 0, 360), sat: num(c.sat, 0, 100), t: c.t });
+      enqueue({ lamp: c.lamp, on: c.on, brightness: num(c.brightness, 1, 100), k: num(c.k, 1700, 6500), hue: num(c.hue, 0, 360), sat: num(c.sat, 0, 100), t: c.t });
     })
     .on("broadcast", { event: "hello" }, () => { for (const n of Object.keys(L)) stateSoon(n); })
     .subscribe(async (status) => {
@@ -167,6 +174,13 @@ function join_() {
         setTimeout(() => { supa.removeChannel(old).catch(() => {}); join_(); }, 3000);
       }
     });
+}
+// CIE 1931 xy of a blackbody (Kim et al. cubic fit, valid 1667-4000K). 2000K -> (0.5269, 0.4133).
+function planckXY(T) {
+  const x = -0.2661239e9 / T ** 3 - 0.2343589e6 / T ** 2 + 0.8776956e3 / T + 0.17991;
+  const y = T < 2222 ? -1.1063814 * x ** 3 - 1.3481102 * x ** 2 + 2.18555832 * x - 0.20219683
+                     : -0.9549476 * x ** 3 - 1.37418593 * x ** 2 + 2.09137015 * x - 0.16748867;
+  return [x, y];
 }
 const num = (v, lo, hi) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : undefined);
 
