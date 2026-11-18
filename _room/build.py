@@ -89,7 +89,7 @@ setInterval(blindPoll, 15000); blindPoll();
 
 // Lamps go through a relay on the PC at home, reached over a live channel: no request per tap, so a tap costs one websocket frame.
 const LIVE = "wss://hxaftcofwrffwjxtjeoj.supabase.co/realtime/v1/websocket?apikey=sb_publishable_4TJE66VMSen-hl22kWL-Rw_8RXH_UOH&vsn=1.0.0", TOPIC = "realtime:room-lights";
-const lamps = { pixar: true, little: true }, lampHold = {}, relays = new Set(), utf8 = new TextEncoder();
+const lamps = { pixar: true, little: true, basket: true }, lampHold = {}, relays = new Set(), utf8 = new TextEncoder();
 let live = null, liveRef = 0, liveBeat = 0, signer = null;
 const liveSend = (topic, event, payload) => { if (live && live.readyState === 1) live.send(JSON.stringify({ topic, event, payload, ref: String(++liveRef) })); };
 const noteRelays = (map, add) => { for (const [id, v] of Object.entries(map || {})) if ((v.metas || []).some(m => m.relay)) add ? relays.add(id) : relays.delete(id); };
@@ -133,7 +133,7 @@ document.addEventListener("visibilitychange", liveOpen);
 liveOpen();
 // Tapping a lamp opens a small card beside it: power, brightness, colour temperature and a colour wheel. Every change is a signed command
 // (HMAC over "lamp|on|brightness|k|hue|sat|t", with a key from the lamp function) that the relay on the PC checks before touching the bulb.
-const lampNames = { pixar: "Pixar lamp", little: "Little lamp" }, lampState = { pixar: {}, little: {} }, pend = {}, lastSent = {}, pendTimer = {};
+const lampNames = { pixar: "Pixar lamp", little: "Little lamp", basket: "Basket lamp" }, lampState = { pixar: {}, little: {}, basket: {} }, pend = {}, lastSent = {}, pendTimer = {};
 let sheetLamp = null;
 const sentAt = new Map(), recentMs = [];
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");

@@ -11,7 +11,7 @@ import numpy as np
 d = os.path.abspath(sys.argv[sys.argv.index("--") + 1])
 meta = {"layers": {}}
 alpha = None
-for name in ("day", "pixar", "little", "fan", "fill"):
+for name in ("day", "pixar", "little", "basket", "fan", "fill"):
     src = os.path.join(d, name + ".exr")
     if not os.path.exists(src):
         continue

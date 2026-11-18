@@ -37,6 +37,8 @@ W, D, DM, NX, H, T = 3.33, 3.685, 2.865, 1.65, 2.4, 0.09
 WX0, WX1, WY0, WY1 = 0.14, 1.46, 0.92, 2.0
 AIM, JOINT = (0.8, 1.46, D), (0.27, 0.92, 2.88)  # FORSÅ stands on the PC (photos, 2026-11-17)
 MINI = (1.56, 0.95, 0.27)
+# Basket lamp (woven rattan ball base, jute drum shade) on the floor past the foot of the bed, by the far leg (photo 2026-11-17)
+BASKET = (3.08, 0.0, 2.30)
 FAN = (1.665, 2.1, 1.435)
 
 def B(x, y, z):
@@ -59,7 +61,7 @@ def collection(name):
     scene.collection.children.link(c)
     return c
 
-C_ROOM, C_DAY, C_PIXAR, C_LITTLE, C_FAN, C_FILL = (collection(n) for n in ("room", "light_day", "light_pixar", "light_little", "light_fan", "light_fill"))
+C_ROOM, C_DAY, C_PIXAR, C_LITTLE, C_FAN, C_FILL, C_BASKET = (collection(n) for n in ("room", "light_day", "light_pixar", "light_little", "light_fan", "light_fill", "light_basket"))
 
 def hexcol(h):
     h = h.lstrip("#")
@@ -217,6 +219,23 @@ def shade_material(name, color):
     nt.links.new(diff.outputs[0], mix.inputs[1]); nt.links.new(trans.outputs[0], mix.inputs[2]); nt.links.new(mix.outputs[0], out.inputs["Surface"])
     return m
 M["linen"] = shade_material("linen", "#f3efe6")
+M["jute"] = shade_material("jute", "#a88a62")
+
+def rattan(name, base="#d6b27a", dark="#a9824d"):
+    """Woven rattan: horizontal strands (bands up the height) with a little bump."""
+    m = material(name, base, 0.6)
+    nt = m.node_tree
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    wave = nt.nodes.new("ShaderNodeTexWave"); wave.wave_type = "BANDS"; wave.bands_direction = "Z"
+    wave.inputs["Scale"].default_value = 26.0; wave.inputs["Distortion"].default_value = 1.5; wave.inputs["Detail"].default_value = 3
+    nt.links.new(coord.outputs["Object"], wave.inputs["Vector"])
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = hexcol(dark); ramp.color_ramp.elements[1].color = hexcol(base)
+    nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"]); nt.links.new(ramp.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
+    bump = nt.nodes.new("ShaderNodeBump"); bump.inputs["Strength"].default_value = 0.35
+    nt.links.new(wave.outputs["Fac"], bump.inputs["Height"]); nt.links.new(bump.outputs["Normal"], nt.nodes["Principled BSDF"].inputs["Normal"])
+    return m
+M["rattan"] = rattan("rattan")
 M["frost"] = shade_material("frost", "#ffffff")
 
 def link(obj, coll=C_ROOM):
@@ -472,6 +491,34 @@ for a in (0.5, 2.6, 4.7):
 cylinder((cx, y0 + 0.13, cz), (cx, y0 + 0.30, cz), 0.088, mat=M["linen"], name="storsegel_shade", verts=64, cap=False)
 little_bulb = cylinder((cx, y0 + 0.17, cz), (cx, y0 + 0.24, cz), 0.022, mat=M["frost"], name="little_bulb", verts=24)
 
+# ---- basket lamp: woven rattan ball base, jute drum shade with a dark trim ----
+bx_, by_, bz_ = BASKET
+bpy.ops.mesh.primitive_uv_sphere_add(radius=0.095, location=B(bx_, 0.085, bz_), segments=48, ring_count=24)
+_ball = link(bpy.context.active_object); _ball.name = "basket_base"; _ball.scale.z = 0.9; _ball.data.materials.append(M["rattan"])
+for poly in _ball.data.polygons:
+    poly.use_smooth = True
+cylinder((bx_, 0.0, bz_), (bx_, 0.02, bz_), 0.06, mat=M["rattan"], name="basket_foot", verts=32)
+cylinder((bx_, 0.165, bz_), (bx_, 0.36, bz_), 0.115, mat=M["jute"], name="basket_shade", verts=64, cap=False)
+for y in (0.165, 0.354):
+    cylinder((bx_, y, bz_), (bx_, y + 0.006, bz_), 0.1165, mat=M["black_matte"], name="basket_trim", verts=64, cap=False)
+basket_bulb = cylinder((bx_, 0.2, bz_), (bx_, 0.27, bz_), 0.025, mat=M["frost"], name="basket_bulb", verts=24)
+
+# ---- Costco laundry hamper: tall woven-fabric basket in the corner between the closet and the bed wall, clothes heaped on top ----
+M["hamper"] = add_noise_bump(material("hamper", "#cbbb9b", 0.85, **{"Sheen Weight": 0.4}), 900, 0.15)
+HX, HZ = W - 0.23, DM - 0.24
+cylinder((HX, 0.0, HZ), (HX, 0.6, HZ), 0.185, 0.205, mat=M["hamper"], name="hamper", verts=48, cap=False)
+cylinder((HX, 0.0, HZ), (HX, 0.01, HZ), 0.185, mat=M["hamper"], name="hamper_floor", verts=48)
+cylinder((HX, 0.0, HZ), (HX, 0.05, HZ), 0.188, 0.19, mat=material("hamper_band", "#8e8268", 0.8), name="hamper_band", verts=48, cap=False)
+for i, (dx, dz, dy, r, col) in enumerate(((0.0, 0.0, 0.62, 0.17, "#2b2f3a"), (-0.07, 0.06, 0.66, 0.11, "#1d1f26"), (0.08, -0.05, 0.64, 0.10, "#e8e6e1"),
+                                         (-0.12, -0.09, 0.6, 0.09, "#7b8496"), (0.1, 0.09, 0.61, 0.08, "#f2f1ee"))):
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, location=B(HX + dx, dy, HZ + dz), segments=24, ring_count=12)
+    lump = link(bpy.context.active_object); lump.name = "laundry"; lump.scale.z = 0.45
+    lump.data.materials.append(material("laundry", col, 0.95, **{"Sheen Weight": 0.6}))
+    for poly in lump.data.polygons:
+        poly.use_smooth = True
+# a towel hanging over the side toward the bed
+box(HX - 0.2, HX - 0.17, 0.25, 0.62, HZ - 0.08, HZ + 0.08, material("towel", "#7b8496", 0.95, **{"Sheen Weight": 0.6}), "towel", bevel=0.01)
+
 # ---- posters on the bed wall: the three 20 x 28 in prints in IKEA RÖDALM 61 x 91 cm frames ----
 # Frame 63 x 93 cm outside, 3 cm deep, birch effect, about 1.6 cm of face; white mat with a 49 x 69 cm window.
 def picture(u, v, pz, yc, tex_mat, xw=W, out_w=0.63, out_h=0.93, mat_w=0.49, mat_h=0.69, depth=0.03, face=0.016):
@@ -582,6 +629,7 @@ def light(kind, name, loc, energy, coll, size=0.05, direction=None, spot=None, b
 WARM = (1, 1, 1) if LAYER not in ("all", "lamps") else (1, 0.86, 0.68)
 light("SPOT", "pixar_spot", B(*BULB), 40, C_PIXAR, size=0.03, direction=B(*AIMDIR) - B(0, 0, 0), spot=math.radians(95), blend=0.45, color=WARM)
 light("POINT", "little_point", B(cx, y0 + 0.21, cz), 22, C_LITTLE, size=0.03, color=WARM)
+light("POINT", "basket_point", B(bx_, 0.25, bz_), 22, C_BASKET, size=0.03, color=WARM)
 light("POINT", "fan_point", B(fx, fy - 0.1, fz), 25, C_FAN, size=0.05, color=(1, 1, 1) if LAYER == "fan" else (1, 0.95, 0.88))
 # A dim, even fill so shadowed corners are never pure black (the room's other light: hallway, screens, standby LEDs).
 light("AREA", "fill", B(W / 2, H - 0.05, D / 2), 6, C_FILL, direction=Vector((0, 0, -1))).data.size = 2.5
@@ -640,8 +688,8 @@ sun = light("SUN", "sun", (0, 0, 10), 0 if NIGHT else 4.5, C_DAY, direction=Vect
 sun.data.angle = math.radians(1.5)
 
 # ---- which layer this render is ----
-lights_on = {"all": {"day", "pixar", "little", "fan", "fill"}, "lamps": {"pixar", "little", "fill"}}.get(LAYER, {LAYER})
-for key, coll in (("day", C_DAY), ("pixar", C_PIXAR), ("little", C_LITTLE), ("fan", C_FAN), ("fill", C_FILL)):
+lights_on = {"all": {"day", "pixar", "little", "basket", "fan", "fill"}, "lamps": {"pixar", "little", "basket", "fill"}}.get(LAYER, {LAYER})
+for key, coll in (("day", C_DAY), ("pixar", C_PIXAR), ("little", C_LITTLE), ("basket", C_BASKET), ("fan", C_FAN), ("fill", C_FILL)):
     coll.hide_render = key not in lights_on
 if "day" not in lights_on:
     bg.inputs["Strength"].default_value = 0.0
@@ -651,6 +699,7 @@ def glow(obj, on, strength, color=(1, 0.86, 0.68)):
     obj.data.materials.clear(); obj.data.materials.append(m)
 glow(pixar_bulb, "pixar" in lights_on, 40, WARM)
 glow(little_bulb, "little" in lights_on, 30, WARM)
+glow(basket_bulb, "basket" in lights_on, 30, WARM)
 glow(dome, "fan" in lights_on, 12, (1, 0.95, 0.88))
 
 # ---- camera: the app's isometric view, orthographic ----

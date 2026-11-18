@@ -312,12 +312,12 @@ const photo = (() => {
   if (typeof PHOTO_BASE === "undefined" || !PHOTO_BASE) return null;
   const gc = document.createElement("canvas"), gl = gc.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false });
   if (!gl) return null;
-  const NAMES = ["day", "pixar", "little", "fan", "fill"];
+  const NAMES = ["day", "pixar", "little", "fan", "fill", "basket"];
   const VS = "attribute vec2 p; varying vec2 uv; void main() { uv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }";
   const FS = `precision highp float;
 varying vec2 uv;
-uniform sampler2D t0, t1, t2, t3, t4, ta;
-uniform vec3 w0, w1, w2, w3, w4;
+uniform sampler2D t0, t1, t2, t3, t4, t5, ta;
+uniform vec3 w0, w1, w2, w3, w4, w5;
 uniform float exposure;
 vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
 vec3 contrast(vec3 x) { vec3 x2 = x * x, x4 = x2 * x2; return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232; }
@@ -331,7 +331,7 @@ vec3 agx(vec3 v) {
 void main() {
   float a = texture2D(ta, uv).r;
   if (a < 0.002) { gl_FragColor = vec4(0.0); return; }
-  vec3 c = lin(texture2D(t0, uv).rgb) * w0 + lin(texture2D(t1, uv).rgb) * w1 + lin(texture2D(t2, uv).rgb) * w2 + lin(texture2D(t3, uv).rgb) * w3 + lin(texture2D(t4, uv).rgb) * w4;
+  vec3 c = lin(texture2D(t0, uv).rgb) * w0 + lin(texture2D(t1, uv).rgb) * w1 + lin(texture2D(t2, uv).rgb) * w2 + lin(texture2D(t3, uv).rgb) * w3 + lin(texture2D(t4, uv).rgb) * w4 + lin(texture2D(t5, uv).rgb) * w5;
   vec3 col = pow(agx(c / a * exposure), vec3(1.0 / 2.2));
   gl_FragColor = vec4(col * a, a);
 }`;
@@ -356,7 +356,7 @@ void main() {
     const v = "?v=" + (meta.version || 1), imgs = await Promise.all(NAMES.map(n => image(PHOTO_BASE + n + ".webp" + v)).concat([image(PHOTO_BASE + "alpha.png" + v)]));
     gc.width = imgs[0].naturalWidth; gc.height = imgs[0].naturalHeight;
     gl.viewport(0, 0, gc.width, gc.height);
-    imgs.forEach((img, i) => { gl.activeTexture(gl.TEXTURE0 + i); tex(img); gl.uniform1i(U(i < 5 ? "t" + i : "ta"), i); });
+    imgs.forEach((img, i) => { gl.activeTexture(gl.TEXTURE0 + i); tex(img); gl.uniform1i(U(i < NAMES.length ? "t" + i : "ta"), i); });
     api.meta = meta; api.ready = true; api.dirty = true;
     if (api.onReady) api.onReady();
   };
@@ -413,14 +413,14 @@ const viz = (() => {
 
   // The only light in the room: the silver arm lamp aimed at the window, what bounces back off that wall, and the small tripod lamp.
   const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.27, 0.92, 2.88], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.15);
-  const MINI = [1.56, 0.95, 0.27];
+  const MINI = [1.56, 0.95, 0.27], BASKET = [3.08, 0.26, 2.30];
   const LIGHTS = [
     { lamp: "pixar", p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
     { lamp: "pixar", p: BULB, power: 0.34, r: 0.8 },
     { lamp: "pixar", p: [0.8, 1.45, D - 0.3], power: 0.62, r: 1.5, dir: [0, 0, -1], c0: -0.1, c1: 0.4 },
     { lamp: "little", p: [MINI[0], MINI[1] + 0.24, MINI[2]], power: 1.2, r: 0.95 },
   ];
-  const lampOn = { pixar: true, little: true };
+  const lampOn = { pixar: true, little: true, basket: true };
   const AMBIENT = [0.39, 0.41, 0.51], WARM = [1.0, 0.85, 0.63];
   function lightAt(c, n) {
     let s = 0;
@@ -901,7 +901,7 @@ const viz = (() => {
     const hub = P(fx, fy, fz); ctx.fillStyle = "#0b0b0d"; ctx.beginPath(); ctx.arc(hub[0], hub[1], 3.5, 0, 6.3); ctx.fill();
   }
   // Photo mode: the render's projection, and each layer's weight from the lamps and the daylight.
-  const lampLook = { pixar: { k: 2700, brightness: 100 }, little: { k: 2700, brightness: 100 } };
+  const lampLook = { pixar: { k: 2700, brightness: 100 }, little: { k: 2700, brightness: 100 }, basket: { k: 2700, brightness: 100 } };
   let sunWm2 = 0, fitCache = null;
   function photoFit() {
     if (fitCache) return fitCache;
@@ -912,6 +912,7 @@ const viz = (() => {
   function lightPhoto() {
     photo.set("pixar", lampRGB({ ...lampLook.pixar, on: lampOn.pixar }));
     photo.set("little", lampRGB({ ...lampLook.little, on: lampOn.little }));
+    photo.set("basket", lampRGB({ ...lampLook.basket, on: lampOn.basket }));
     const d = Math.max(0, Math.min(1, sunWm2 / 250));
     photo.set("day", [d, d, d]);
     photo.set("fan", [0, 0, 0]);
@@ -923,20 +924,20 @@ const viz = (() => {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) kick(); });
   size(); kick();
   return {
-    lamps(state) { lampOn.pixar = state.pixar !== false; lampOn.little = state.little !== false; bake(); if (still) kick(); },
+    lamps(state) { lampOn.pixar = state.pixar !== false; lampOn.little = state.little !== false; lampOn.basket = state.basket !== false; bake(); if (still) kick(); },
     // a lamp's colour and brightness (relay state), for the photo layers
     light(id, s) { if (!lampLook[id] || !s) return; Object.assign(lampLook[id], s); if (s.on != null) lampOn[id] = !!s.on; if (photo) photo.dirty = true; if (still) kick(); },
     daylight(wm2) { if (Number.isFinite(wm2) && wm2 !== sunWm2) { sunWm2 = wm2; if (photo) photo.dirty = true; if (still) kick(); } },
     // Where a lamp is on screen (client px), for the lamp card.
     spot(id) {
-      const r = cv.getBoundingClientRect(), at = id === "pixar" ? mix(JOINT, BULB, 0.5) : [MINI[0], MINI[1] + 0.18, MINI[2]], p = P(at[0], at[1], at[2]);
+      const r = cv.getBoundingClientRect(), at = id === "pixar" ? mix(JOINT, BULB, 0.5) : id === "basket" ? BASKET : [MINI[0], MINI[1] + 0.18, MINI[2]], p = P(at[0], at[1], at[2]);
       return [r.left + p[0], r.top + p[1]];
     },
     // Which lamp a tap landed on, if any. The target is generous because the lamps are small on a phone.
     hit(clientX, clientY) {
       const r = cv.getBoundingClientRect(), x = clientX - r.left, y = clientY - r.top, reach = Math.max(26, 0.3 * sc);
       let best = null, bestD = reach;
-      for (const [id, at] of [["pixar", mix(JOINT, BULB, 0.5)], ["little", [MINI[0], MINI[1] + 0.18, MINI[2]]]]) {
+      for (const [id, at] of [["pixar", mix(JOINT, BULB, 0.5)], ["little", [MINI[0], MINI[1] + 0.18, MINI[2]]]].concat(photo ? [["basket", BASKET]] : [])) {
         const p = P(at[0], at[1], at[2]), d = Math.hypot(p[0] - x, p[1] - y);
         if (d < bestD) { best = id; bestD = d; }
       }
@@ -1051,7 +1052,7 @@ setInterval(blindPoll, 15000); blindPoll();
 
 // Lamps go through a relay on the PC at home, reached over a live channel: no request per tap, so a tap costs one websocket frame.
 const LIVE = "wss://hxaftcofwrffwjxtjeoj.supabase.co/realtime/v1/websocket?apikey=sb_publishable_4TJE66VMSen-hl22kWL-Rw_8RXH_UOH&vsn=1.0.0", TOPIC = "realtime:room-lights";
-const lamps = { pixar: true, little: true }, lampHold = {}, relays = new Set(), utf8 = new TextEncoder();
+const lamps = { pixar: true, little: true, basket: true }, lampHold = {}, relays = new Set(), utf8 = new TextEncoder();
 let live = null, liveRef = 0, liveBeat = 0, signer = null;
 const liveSend = (topic, event, payload) => { if (live && live.readyState === 1) live.send(JSON.stringify({ topic, event, payload, ref: String(++liveRef) })); };
 const noteRelays = (map, add) => { for (const [id, v] of Object.entries(map || {})) if ((v.metas || []).some(m => m.relay)) add ? relays.add(id) : relays.delete(id); };
@@ -1095,7 +1096,7 @@ document.addEventListener("visibilitychange", liveOpen);
 liveOpen();
 // Tapping a lamp opens a small card beside it: power, brightness, colour temperature and a colour wheel. Every change is a signed command
 // (HMAC over "lamp|on|brightness|k|hue|sat|t", with a key from the lamp function) that the relay on the PC checks before touching the bulb.
-const lampNames = { pixar: "Pixar lamp", little: "Little lamp" }, lampState = { pixar: {}, little: {} }, pend = {}, lastSent = {}, pendTimer = {};
+const lampNames = { pixar: "Pixar lamp", little: "Little lamp", basket: "Basket lamp" }, lampState = { pixar: {}, little: {}, basket: {} }, pend = {}, lastSent = {}, pendTimer = {};
 let sheetLamp = null;
 const sentAt = new Map(), recentMs = [];
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");

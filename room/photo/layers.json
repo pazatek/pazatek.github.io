@@ -1,13 +1,16 @@
 {
  "layers": {
   "day": {
-   "scale": 3.16015625
+   "scale": 3.162109375
   },
   "pixar": {
    "scale": 1.2421875
   },
   "little": {
    "scale": 1.08837890625
+  },
+  "basket": {
+   "scale": 0.7060546875
   },
   "fan": {
    "scale": 0.304931640625
@@ -88,5 +91,5 @@
    }
   ]
  },
- "version": 3
+ "version": 4
 }

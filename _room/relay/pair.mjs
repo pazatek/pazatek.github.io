@@ -6,8 +6,8 @@ import { ManualPairingCodeCodec } from "@matter/types";
 import { startController, saveLamp, lamps } from "./matter.mjs";
 
 const [name, raw, ip] = process.argv.slice(2); // optional ip: the bulb's address, when discovery misses it
-if (!["pixar", "little"].includes(name) || !raw) {
-  console.log("usage: node pair.mjs <pixar|little> <pairing code>");
+if (!["pixar", "little", "basket"].includes(name) || !raw) {
+  console.log("usage: node pair.mjs <pixar|little|basket> <pairing code> [ip]");
   process.exit(1);
 }
 const code = raw.replace(/\D/g, "");
