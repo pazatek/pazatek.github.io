@@ -178,7 +178,7 @@ function join_() {
     });
 }
 // Amber (the app's 2000K button), as a hue in degrees per lamp: lower is redder. Tune by eye; 0 is pure red.
-const AMBER_HUE = { default: 22, pixar: 22, little: 22, basket: 22 };
+const AMBER_HUE = { default: 22, pixar: 30, little: 30, basket: 14 };  // Govees looked pinkish at 22, the basket bulb yellow (Piotr, 2026-11-17)
 
 // CIE 1931 xy of a blackbody (Kim et al. cubic fit, valid 1667-4000K). 2000K -> (0.5269, 0.4133).
 function planckXY(T) {
