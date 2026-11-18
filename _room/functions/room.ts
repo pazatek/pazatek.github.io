@@ -29,7 +29,7 @@ async function rest(path: string, method: string, body?: unknown, prefer = "retu
 }
 
 // ---- the same model the app page uses; keep the two in step ----
-const K = { TARGET: 64, LO: 60, HI: 67, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, PC_IDLE: 100, AW_LO: 72, AW_HI: 75, AW_AIM: 73.5, CO2_HI: 1000 };
+const K = { TARGET: 64, LO: 60, HI: 67, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, PC_IDLE: 100, AW_LO: 73, AW_HI: 74, AW_AIM: 73.5, CO2_HI: 1000 };
 const cToF = (c: number | null | undefined) => (c == null ? null : Number(c) * 9 / 5 + 32);
 const hold = (target: number, out: number, watts: number) => {
   const d = target - out;
@@ -38,6 +38,7 @@ const hold = (target: number, out: number, watts: number) => {
 const co2Width = (inF: number, outF: number) => { const dK = (inF - outF) * 5 / 9; return dK < 1 ? null : 13.7 / (1.05 * Math.sqrt(dK)); };
 const clampW = (w: number) => Math.max(0, Math.min(K.FULL, Math.round(w)));
 const f1 = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
+const ALERT_GAP_MIN = 15;
 
 type In = { mode: string; phase: string | null; bedF: number; deskF: number | null; co2: number | null; outF: number; lowF: number | null; watts: number; slope: number | null; blind?: { percent: number } | null };
 type Advice = { door: string; window: number; fan: string; phase: string | null; what: string; holdW?: number };
@@ -70,7 +71,7 @@ function advise(s: In): Advice {
   }
   const t = s.deskF != null ? s.deskF : s.bedF, wc = co2Width(t, s.outF);
   let phase = s.phase === "cold" ? "cold" : null;
-  if (t < K.AW_LO) phase = "cold"; else if (t > K.AW_LO + 1) phase = null;
+  if (t < K.AW_LO) phase = "cold"; else if (t > K.AW_LO + 0.5) phase = null;
   if (t > K.AW_HI) {
     const W = hold(K.AW_AIM, s.outF, s.watts);
     return { door: "closed", window: W == null ? K.FULL : clampW(Math.max(W, wc || 0, 1)), fan: "low", phase: null, what: `Desk is ${f1(t)}°F, too warm` };
@@ -146,7 +147,11 @@ async function tick(key: string) {
   const snap = d.snap, last = d.last as Record<string, unknown> | null, subs = d.subs as Sub[];
   const now = Date.parse(snap.now);
   const mode = d.me === "asleep" ? "sleep" : d.me === "away" ? "away" : "awake";
+  // At most one phone alert every 15 minutes, of any kind (Piotr, 2026-11-17). A held-back alert isn't logged, so the next
+  // tick tries again and the latest advice goes out once the 15 minutes are up.
+  const sinceSent = d.last_sent ? now - Date.parse(d.last_sent) : Infinity;
   const log = async (row: Record<string, unknown>, text: string | null) => {
+    if (text && sinceSent < ALERT_GAP_MIN * 60000) return { skip: `sent one less than ${ALERT_GAP_MIN} minutes ago`, held: text };
     let sent = 0, errors: string[] = [];
     if (text && subs.length && d.vapid_private) ({ sent, errors } = await push(subs, text, d.vapid_private));
     await rest("room_notify", "POST", { ...row, notified: sent > 0, message: text });
@@ -166,7 +171,6 @@ async function tick(key: string) {
     co2: snap.bed.co2 == null ? null : Number(snap.bed.co2), outF: cToF(snap.outdoor.temp_c)!, lowF: cToF(snap.outdoor.low_next10h_c),
     watts: snap.pc?.n > 0 && snap.pc.watts != null ? Number(snap.pc.watts) : K.PC_IDLE, slope: prev ? bedF - cToF(prev.temp_c)! : null,
   };
-  const sinceSent = d.last_sent ? now - Date.parse(d.last_sent) : Infinity;
   const blind = snap.blind && snap.blind.percent != null ? { percent: Number(snap.blind.percent) } : null;
   const held = snap.blind?.hold_until && Date.parse(snap.blind.hold_until) > now, steering = !!(blind && snap.blind.steering && mode !== "away");
   await rest("room_log", "POST", { percent: blind?.percent ?? null, mode, steering, bed_f: bedF, desk_f: base.deskF, out_f: base.outF, watts: base.watts }).catch(() => {});
@@ -192,8 +196,8 @@ async function tick(key: string) {
   if (!changed) return { skip: "no change", advice: a, blind: moved };
   const row = { kind: "advice", mode, phase: a.phase, door: a.door, window_in: a.window, fan: a.fan };
   if (mode === "sleep") return await log(row, null);
-  if (sinceSent < 10 * 60000) return { skip: "sent one less than 10 minutes ago", advice: a };
-  return await log(row, `${a.what}. ${actions(a, last && last.kind !== "offline" ? last : null)}.`);
+  const act = actions(a, last && last.kind !== "offline" ? last : null);
+  return await log(row, act ? `${a.what}. ${act}.` : `${a.what}.`);
 }
 
 // ---- Live Activity on the iPhone (the Room app in _room/ios): readings on the lock screen and in the Dynamic Island ----

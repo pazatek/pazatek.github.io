@@ -102,7 +102,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 </div>
 <script>
 const K = { TARGET: 64, LO: 60, HI: 67, B: 63, TBLDG: 74, PERSON: 90, KW: 0.488, FULL: 26, BSHORT: 180, TAU: 43, PC_IDLE: 100,
-            AW_LO: 72, AW_HI: 75, AW_AIM: 73.5, CO2_HI: 1000 };
+            AW_LO: 73, AW_HI: 74, AW_AIM: 73.5, CO2_HI: 1000 };
 const cToF = c => (c == null ? null : c * 9 / 5 + 32);
 function holdWidth(target, out, watts, people) {
   const d = target - out; if (d < 3) return null;
@@ -155,7 +155,7 @@ function advise(s) {
   }
   const t = s.deskF != null ? s.deskF : s.bedF, wc = co2Width(n, t, out), co2 = s.co2 == null ? "?" : Math.round(s.co2);
   let phase = s.phase === "cold" ? "cold" : null;
-  if (t < K.AW_LO) phase = "cold"; else if (t > K.AW_LO + 1) phase = null;
+  if (t < K.AW_LO) phase = "cold"; else if (t > K.AW_LO + 0.5) phase = null;
   if (t > K.AW_HI) {
     const W = holdWidth(K.AW_AIM, out, s.watts, n);
     return { door: "closed", window: W == null ? K.FULL : clampW(Math.max(W, wc || 0, 1)), fan: "low", conf: "Estimate", phase: null, why: "Desk is " + f1(t) + "°F, above " + K.AW_HI + ". This should bring it to about " + K.AW_AIM + "." };
