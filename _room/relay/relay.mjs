@@ -110,9 +110,9 @@ async function run(l) {
   while (l.pending) {
     const c = l.pending; l.pending = null;
     const t0 = performance.now(), did = [], jobs = [];
-    // While a slider is being dragged (commands under 400 ms apart) each step fades over 0.2 s so the bulb glides instead of
+    // While a slider is being dragged (commands under 400 ms apart) each step fades over 0.3 s (about one bulb round trip) so the bulb glides instead of
     // stepping; a single tap changes at once.
-    const tt = t0 - (l.lastCmd || 0) < 400 ? 2 : 0;
+    const tt = t0 - (l.lastCmd || 0) < 500 ? 3 : 0;
     l.lastCmd = t0;
     try {
       if (!l.onOff) throw new Error("not connected yet");

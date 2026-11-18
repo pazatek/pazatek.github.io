@@ -577,12 +577,11 @@ const viz = (() => {
     spin += cur.speed * dt;
     ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.lineJoin = "round"; ctx.lineCap = "round";
     const real = photo && photo.ready && !whole && w > 0 && h > 0;
+    placePhoto(real);
     if (real) {
-      // image px = a * raw + b (from the render's camera points), and screen = o + sc * raw
+      // The render is its own canvas under this one (copying WebGL into a 2D canvas every frame made sliders stutter on phones);
+      // this canvas only carries the live overlays.
       lightPhoto(); photo.render();
-      const [a, bx, by] = photoFit(), k = sc / a;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(photo.canvas, ox - bx * k, oy - by * k, photo.canvas.width * k, photo.canvas.height * k);
       drawLive(now, true);
       if (!document.hidden && !still) requestAnimationFrame(draw);
       return;
@@ -662,6 +661,18 @@ const viz = (() => {
   // Photo mode: the render's projection, and each layer's weight from the lamps and the daylight.
   const lampLook = { pixar: { k: 2700, brightness: 100 }, little: { k: 2700, brightness: 100 }, basket: { k: 2700, brightness: 100 } };
   let sunWm2 = 0, fitCache = null;
+  let placed = "";
+  function placePhoto(on) {
+    const c = photo && photo.canvas;
+    if (!c) return;
+    if (!c.parentNode) { c.className = "photo"; cv.parentNode.insertBefore(c, cv); }
+    if (!on) { if (c.style.display !== "none") c.style.display = "none"; placed = ""; return; }
+    // image px = a * raw + b (from the render's camera points), and screen = o + sc * raw
+    const [a, bx, by] = photoFit(), k = sc / a, key = [ox, oy, k].join();
+    if (key === placed) return;
+    placed = key;
+    Object.assign(c.style, { display: "block", left: cv.offsetLeft + ox - bx * k + "px", top: cv.offsetTop + oy - by * k + "px", width: c.width * k + "px", height: c.height * k + "px" });
+  }
   function photoFit() {
     if (fitCache) return fitCache;
     const pts = photo.meta.camera.points, r0 = raw(...pts[0].app), r1 = raw(...pts[1].app);
