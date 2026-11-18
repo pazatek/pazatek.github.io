@@ -224,8 +224,8 @@ async function tick(key: string) {
   if (!changed) return { skip: "no change", advice: a, blind: moved };
   const row = { kind: "advice", mode, phase: a.phase, door: a.door, window_in: a.window, fan: a.fan };
   if (mode === "sleep") return await log(row, null);
-  const prev = last && last.kind !== "offline" ? last : null, act = actions(a, prev);
-  return await log(row, act ? `${heads(a, prev, mode)} ${act}.` : heads(a, prev, mode));
+  const prior = last && last.kind !== "offline" ? last : null, act = actions(a, prior);
+  return await log(row, act ? `${heads(a, prior, mode)} ${act}.` : heads(a, prior, mode));
 }
 
 // ---- Live Activity on the iPhone (the Room app in _room/ios): readings on the lock screen and in the Dynamic Island ----
