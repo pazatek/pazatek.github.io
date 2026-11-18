@@ -28,13 +28,12 @@ extra='''  <div class="list"><div class="row"><span>Blind</span><div class="pick
   <div class="row"><span>Alerts</span><span class="note" id="alerts-note"></span><button class="switch" id="alerts" type="button" role="switch" aria-checked="false" aria-label="Alerts"></button></div></div>
   <p class="foot" id="why" hidden></p>
   <form class="foot key" id="keyform" hidden><input id="key" type="password" autocomplete="off" aria-label="App key" placeholder="App key"><button class="link" type="submit">Save</button></form>
-  <div class="sheet-back" id="lampback" hidden></div>
-  <section class="sheet" id="lampsheet" role="dialog" aria-modal="true" aria-labelledby="lamp-name" hidden>
-    <div class="grab"></div>
-    <div class="row"><span class="sh-title" id="lamp-name">Lamp</span><span class="note" id="lamp-note"></span><button class="switch" id="lamp-on" type="button" role="switch" aria-checked="false" aria-label="Lamp on"></button></div>
-    <label class="sl"><span>Brightness</span><span class="note" id="lamp-b-v"></span><input type="range" id="lamp-b" min="1" max="100" step="1"></label>
-    <label class="sl"><span>Temperature</span><span class="note" id="lamp-k-v"></span><input type="range" id="lamp-k" min="2700" max="6500" step="50"></label>
-    <div class="wheel" id="lamp-wheel" role="slider" aria-label="Color"><i id="lamp-dot" hidden></i></div>
+  <section class="lampcard" id="lampcard" role="dialog" aria-labelledby="lamp-name" hidden>
+    <div class="lc-head"><span id="lamp-name">Lamp</span><span class="lc-note" id="lamp-note"></span><button class="lc-pow" id="lamp-on" type="button" role="switch" aria-checked="false" aria-label="Lamp on"></button></div>
+    <div class="lc-sl" id="lamp-b" role="slider" aria-label="Brightness" aria-valuemin="1" aria-valuemax="100" tabindex="0"><i class="lc-ic sun"></i><span class="lc-track"><span class="lc-fill"></span><span class="lc-thumb"></span></span><span class="lc-v" id="lamp-b-v"></span></div>
+    <div class="lc-sl kel" id="lamp-k" role="slider" aria-label="Color temperature" aria-valuemin="2700" aria-valuemax="6500" tabindex="0"><i class="lc-ic therm"></i><span class="lc-track"><span class="lc-thumb"></span></span><span class="lc-v" id="lamp-k-v"></span></div>
+    <div class="lc-wheel" id="lamp-wheel" role="slider" aria-label="Color"><i id="lamp-dot" hidden></i></div>
+    <div class="lc-ms" id="lamp-ms"></div>
   </section>'''
 hooks='function onBlank(askKey) { $("keyform").hidden = !askKey; }\nfunction onGood() { $("keyform").hidden = true; $("why").hidden = true; }\nfunction onBlind(p, steering) { for (const b of document.querySelectorAll("#blind button")) b.setAttribute("aria-pressed", String(b.dataset.p === "auto" ? steering : !steering && p != null && Math.abs(p - Number(b.dataset.p)) <= 12)); }\n'
 alerts='''const alertsBtn = $("alerts"), alertsNote = $("alerts-note");
@@ -116,15 +115,26 @@ function liveOpen() {
       } else lampState[s.lamp].online = s.online;
       if (sheetLamp === s.lamp) paintSheet();
     }
+    else if (m.event === "broadcast" && m.payload && m.payload.event === "done") {
+      // Tap to bulb: half the round trip minus the relay's own time is the network one way, then the bulb's acknowledgement.
+      const d = m.payload.payload, at = d && sentAt.get(d.t);
+      if (!at) return;
+      sentAt.delete(d.t);
+      recentMs.push(Math.max(0, (performance.now() - at - d.total) / 2) + d.bulb);
+      if (recentMs.length > 9) recentMs.shift();
+      const med = [...recentMs].sort((a, b) => a - b)[recentMs.length >> 1];
+      $("lamp-ms").textContent = "tap to lamp " + Math.round(med) + " ms";
+    }
   };
   live.onclose = () => { clearInterval(liveBeat); relays.clear(); setTimeout(liveOpen, 2000); };
 }
 document.addEventListener("visibilitychange", liveOpen);
 liveOpen();
-// Tapping a lamp opens its sheet: power, brightness, colour temperature and a colour wheel. Every change is a signed command
+// Tapping a lamp opens a small card beside it: power, brightness, colour temperature and a colour wheel. Every change is a signed command
 // (HMAC over "lamp|on|brightness|k|hue|sat|t", with a key from the lamp function) that the relay on the PC checks before touching the bulb.
 const lampNames = { pixar: "Pixar lamp", little: "Little lamp" }, lampState = { pixar: {}, little: {} }, pend = {}, lastSent = {}, pendTimer = {};
 let sheetLamp = null;
+const sentAt = new Map(), recentMs = [];
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
 async function lampFlush(id) {
   const f = pend[id]; pend[id] = null; pendTimer[id] = 0;
@@ -134,6 +144,7 @@ async function lampFlush(id) {
   const tk = await lampToken();
   if (!tk) { stale("Couldn't get a lamp key. Check the connection."); return; }
   const mac = await crypto.subtle.sign("HMAC", tk.signer, utf8.encode([id, c.on, c.brightness, c.k, c.hue, c.sat, t].map(val).join("|")));
+  sentAt.set(t, performance.now()); if (sentAt.size > 50) sentAt.delete(sentAt.keys().next().value);
   liveSend(TOPIC, "broadcast", { type: "broadcast", event: "cmd", payload: { ...c, exp: tk.exp, sig: hex(mac) } });
 }
 // Commands are signed with a 12-hour key from the lamp function (it checks the app key); the relay derives the same key itself.
@@ -150,27 +161,47 @@ function lampToken() {
     .catch(() => (lampTok = null))
     .finally(() => { lampTokP = null; });
 }
-// A dragged slider sends at most every 120 ms; the last position always goes out.
+// A dragged control sends at most every 80 ms; the last position always goes out. The relay fades each step over 0.2 s while
+// commands keep coming, so the bulb glides instead of stepping.
 function lampSend(id, f) {
   if (!key) return;
   const p = pend[id] || {};
   if (f.k != null) { delete p.hue; delete p.sat; }
   if (f.hue != null) delete p.k;
   pend[id] = { ...p, ...f };
-  const wait = 120 - (performance.now() - (lastSent[id] || 0));
+  const wait = 80 - (performance.now() - (lastSent[id] || 0));
   if (wait <= 0) lampFlush(id); else if (!pendTimer[id]) pendTimer[id] = setTimeout(() => lampFlush(id), wait);
 }
-const sheet = $("lampsheet"), lampB = $("lamp-b"), lampK = $("lamp-k"), wheel = $("lamp-wheel"), dot = $("lamp-dot");
+const card = $("lampcard"), lampB = $("lamp-b"), lampK = $("lamp-k"), wheel = $("lamp-wheel"), dot = $("lamp-dot");
+const K_LO = 2700, K_HI = 6500;
+// Thin sliders: grab anywhere on the row and drag; the thumb follows the finger every frame.
+function slider(el, lo, hi, onMove) {
+  const set = v => el.style.setProperty("--v", Math.max(0, Math.min(1, (v - lo) / (hi - lo))));
+  const at = e => { const r = el.querySelector(".lc-track").getBoundingClientRect(); return lo + Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (hi - lo); };
+  el.addEventListener("pointerdown", e => { el.setPointerCapture(e.pointerId); el.classList.add("drag"); const v = at(e); set(v); onMove(v); });
+  el.addEventListener("pointermove", e => { if (!el.hasPointerCapture(e.pointerId)) return; const v = at(e); set(v); onMove(v); });
+  const end = () => el.classList.remove("drag");
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+  el.addEventListener("keydown", e => { const step = (hi - lo) / 20, cur = lo + Number(el.style.getPropertyValue("--v") || 0) * (hi - lo);
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); set(cur + step); onMove(Math.min(hi, cur + step)); }
+    if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); set(cur - step); onMove(Math.max(lo, cur - step)); } });
+  return set;
+}
+const lit = id => { if (!lamps[id]) { lamps[id] = true; lampState[id].on = true; viz.lamps(lamps); } };
+const setB = slider(lampB, 1, 100, v => { const id = sheetLamp, b = Math.round(v); lampState[id].brightness = b; lit(id); paintSheet(); lampSend(id, { brightness: b }); });
+const setK = slider(lampK, K_LO, K_HI, v => { const id = sheetLamp, k = Math.round(v / 10) * 10; Object.assign(lampState[id], { k, mode: "ct" }); lit(id); paintSheet(); lampSend(id, { k }); });
 function paintSheet() {
   const id = sheetLamp, s = lampState[id], on = !!lamps[id];
   $("lamp-name").textContent = lampNames[id];
   $("lamp-on").setAttribute("aria-checked", String(on));
-  sheet.classList.toggle("off", !on);
+  card.classList.toggle("off", !on);
   $("lamp-note").textContent = !relays.size ? "Relay offline" : s.online === false ? "Bulb offline" : "";
-  if (document.activeElement !== lampB) lampB.value = s.brightness || 100;
-  if (document.activeElement !== lampK) lampK.value = s.k || 2700;
-  $("lamp-b-v").textContent = lampB.value + "%";
-  $("lamp-k-v").textContent = s.mode === "hs" ? "Color" : Math.round(lampK.value / 50) * 50 + " K";
+  const b = s.brightness || 100, k = s.k || K_LO;
+  if (!lampB.classList.contains("drag")) setB(b);
+  if (!lampK.classList.contains("drag")) setK(k);
+  lampB.setAttribute("aria-valuenow", b); lampK.setAttribute("aria-valuenow", k);
+  $("lamp-b-v").textContent = b + "%";
+  $("lamp-k-v").textContent = s.mode === "hs" ? "color" : Math.round(k / 50) * 50 + "K";
   dot.hidden = s.mode !== "hs" || s.hue == null;
   if (!dot.hidden) {
     const a = s.hue * Math.PI / 180, r = Math.min(1, (s.sat || 0) / 100) * 50;
@@ -178,23 +209,32 @@ function paintSheet() {
     dot.style.background = "hsl(" + s.hue + " " + (s.sat || 0) + "% " + (100 - (s.sat || 0) / 2) + "%)";
   }
 }
+// The card sits beside the lamp in the picture, on whichever side has room, kept inside the room view.
+function placeCard() {
+  if (!sheetLamp) return;
+  const [x, y] = viz.spot(sheetLamp), hero = $("room").getBoundingClientRect(), w = card.offsetWidth, h = card.offsetHeight, gap = 26, m = 8;
+  const right = x + gap + w <= hero.right - m || x - gap - w < hero.left + m;
+  const left = right ? Math.min(x + gap, hero.right - m - w) : x - gap - w;
+  const top = Math.max(hero.top + m, Math.min(y - h / 2, hero.bottom - m - h));
+  card.style.left = Math.max(m, left) + "px"; card.style.top = top + "px";
+  card.style.setProperty("--ox", right ? "0" : "100%");
+}
 function onLamp(id) {
   if (!key) return;
   sheetLamp = id; liveOpen(); lampToken();
-  sheet.hidden = false; $("lampback").hidden = false;
-  paintSheet();
+  card.hidden = false; $("lamp-ms").textContent = recentMs.length ? $("lamp-ms").textContent : "";
+  paintSheet(); placeCard();
 }
-function closeSheet() { sheetLamp = null; sheet.hidden = true; $("lampback").hidden = true; }
-$("lampback").addEventListener("click", closeSheet);
+function closeSheet() { sheetLamp = null; card.hidden = true; }
+// Any touch outside the card closes it; a touch on the other lamp then opens that one.
+document.addEventListener("pointerdown", e => { if (sheetLamp && !card.contains(e.target)) closeSheet(); }, true);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && sheetLamp) closeSheet(); });
+addEventListener("resize", placeCard);
 $("lamp-on").addEventListener("click", () => {
   const id = sheetLamp, on = !lamps[id];
   lamps[id] = on; lampState[id].on = on; viz.lamps(lamps); paintSheet();
   lampSend(id, { on });
 });
-const lit = id => { if (!lamps[id]) { lamps[id] = true; lampState[id].on = true; viz.lamps(lamps); } };
-lampB.addEventListener("input", () => { const id = sheetLamp, b = Number(lampB.value); lampState[id].brightness = b; lit(id); paintSheet(); lampSend(id, { brightness: b }); });
-lampK.addEventListener("input", () => { const id = sheetLamp, k = Number(lampK.value); Object.assign(lampState[id], { k, mode: "ct" }); lit(id); paintSheet(); lampSend(id, { k }); });
 function wheelAt(e) {
   const r = wheel.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
   const hue = Math.round((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360), sat = Math.round(Math.min(1, Math.hypot(dx, dy) / (r.width / 2)) * 100);
@@ -204,24 +244,34 @@ wheel.addEventListener("pointerdown", e => { wheel.setPointerCapture(e.pointerId
 wheel.addEventListener("pointermove", e => { if (wheel.hasPointerCapture(e.pointerId)) wheelAt(e); });
 '''
 pad='padding-top: calc(env(safe-area-inset-top, 0px) + clamp(8px, 1.8vh, 18px)); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(8px, 1.8vh, 18px));'
-sheetcss='''.sheet-back { position: fixed; inset: 0; z-index: 9; background: rgba(0, 0, 0, 0.4) }
-.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; max-width: 440px; margin: 0 auto; background: var(--card); border-radius: 22px 22px 0 0;
-  padding: 8px 20px calc(env(safe-area-inset-bottom, 0px) + 18px); display: flex; flex-direction: column; gap: 16px; animation: sheet-up 0.22s ease-out }
-@keyframes sheet-up { from { transform: translateY(100%) } }
-.grab { width: 36px; height: 5px; border-radius: 3px; background: var(--raised); margin: 0 auto }
-.sheet .row { min-height: 36px }
-.sh-title { font: 600 20px/1.2 var(--display); letter-spacing: -0.01em }
-.sl { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; font-size: 15px; font-weight: 500 }
-.sl .note { font-variant-numeric: tabular-nums }
-.sl input { grid-column: 1 / -1; width: 100%; margin: 0; height: 34px; border-radius: 17px; -webkit-appearance: none; appearance: none; touch-action: none;
-  background: linear-gradient(90deg, #3a3a3c, #fff6e6) }
-#lamp-k { background: linear-gradient(90deg, #ffa84f, #fff1dc 45%, #d6e4ff) }
-.sl input::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5) }
-.sl input::-moz-range-thumb { width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5) }
-.wheel { position: relative; width: min(60vw, 28vh, 230px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; touch-action: none;
+sheetcss='''.lampcard { position: fixed; z-index: 10; width: 196px; padding: 10px 12px 8px; border-radius: 18px; display: flex; flex-direction: column; gap: 9px;
+  background: rgba(28, 28, 30, 0.72); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+  border: 0.5px solid rgba(255, 255, 255, 0.14); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); animation: lc-in 0.16s ease-out; transform-origin: var(--ox, 0) 50% }
+@keyframes lc-in { from { opacity: 0; transform: scale(0.9) } }
+.lc-head { display: flex; align-items: center; gap: 6px; font: 600 14px/1.2 var(--display) }
+.lc-note { flex: 1; font: 500 11px/1.2 var(--body); color: var(--dim); text-align: right }
+.lc-pow { flex: none; width: 30px; height: 30px; margin-left: auto; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.14); position: relative }
+.lc-pow::after { content: ""; position: absolute; inset: 7px; background: currentColor; -webkit-mask: var(--pow) center / contain no-repeat; mask: var(--pow) center / contain no-repeat }
+.lc-pow[aria-checked="true"] { background: #ffd57a; color: #1c1c1e }
+.lampcard { --pow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E") }
+.lc-sl { display: flex; align-items: center; gap: 7px; height: 26px; touch-action: none; cursor: pointer; outline: none }
+.lc-ic { flex: none; width: 13px; height: 13px; background: var(--dim) }
+.lc-ic.sun { -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/%3E%3C/svg%3E") center / contain no-repeat }
+.lc-ic.therm { -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z'/%3E%3C/svg%3E") center / contain no-repeat }
+.lc-track { position: relative; flex: 1; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.16) }
+.lc-fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--v, 0) * 100%); border-radius: 3px; background: #fff6e6 }
+.kel .lc-track { background: linear-gradient(90deg, #ffa84f, #fff1dc 45%, #cfe0ff) }
+.lc-thumb { position: absolute; top: 50%; left: calc(var(--v, 0) * 100%); width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); transition: transform 0.12s }
+.lc-sl.drag .lc-thumb { transform: scale(1.25) }
+.lc-v { flex: none; width: 42px; text-align: right; font: 500 11px/1 var(--body); color: var(--dim); font-variant-numeric: tabular-nums }
+.lc-wheel { position: relative; width: 104px; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; touch-action: none; cursor: crosshair;
   background: radial-gradient(circle closest-side, #fff, rgba(255, 255, 255, 0)), conic-gradient(from 90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) }
-.wheel i { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5); pointer-events: none }
-.sheet.off .sl, .sheet.off .wheel { opacity: 0.45 }
+.lc-wheel i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); pointer-events: none }
+.lc-ms { min-height: 12px; font: 500 10px/1.2 var(--body); color: var(--dim); text-align: center; font-variant-numeric: tabular-nums }
+.lampcard.off .lc-sl, .lampcard.off .lc-wheel { opacity: 0.4 }
 '''
 out=head+'<style>\n'+css.replace('PADBLOCK',pad)+sheetcss+'</style>\n</head>\n<body>\n'+html.replace('EXTRA',extra)+'<script>\n'+pre+hooks+core+tail+alerts+'</script>\n</body>\n</html>\n'
 open(p,'w').write(out)

@@ -556,6 +556,11 @@ const viz = (() => {
   size(); kick();
   return {
     lamps(state) { lampOn.pixar = state.pixar !== false; lampOn.little = state.little !== false; bake(); if (still) kick(); },
+    // Where a lamp is on screen (client px), for the lamp card.
+    spot(id) {
+      const r = cv.getBoundingClientRect(), at = id === "pixar" ? mix(JOINT, BULB, 0.5) : [MINI[0], MINI[1] + 0.18, MINI[2]], p = P(at[0], at[1], at[2]);
+      return [r.left + p[0], r.top + p[1]];
+    },
     // Which lamp a tap landed on, if any. The target is generous because the lamps are small on a phone.
     hit(clientX, clientY) {
       const r = cv.getBoundingClientRect(), x = clientX - r.left, y = clientY - r.top, reach = Math.max(26, 0.3 * sc);

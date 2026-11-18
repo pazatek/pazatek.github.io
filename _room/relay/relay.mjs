@@ -85,7 +85,8 @@ async function attach(name, id, controller) {
 async function readState(name) {
   const l = L[name];
   if (!l?.onOff) return { lamp: name, online: false, t: Date.now() };
-  const g = async (c, a) => { try { return await c?.attributes[a]?.get?.(); } catch { return null; } };
+  // From the subscription cache: reading the bulb over the network after every command kept it busy and slowed the next one.
+  const g = async (c, a) => { try { const at = c?.attributes[a]; const v = at?.getLocal?.(); return v !== undefined ? v : await at?.get?.(); } catch { return null; } };
   const [on, level, mode, mireds, hue, sat] = await Promise.all([g(l.onOff, "onOff"), g(l.level, "currentLevel"), g(l.color, "colorMode"),
     g(l.color, "colorTemperatureMireds"), g(l.color, "currentHue"), g(l.color, "currentSaturation")]);
   return {
@@ -101,29 +102,38 @@ async function readState(name) {
 function enqueue(c) {
   const l = L[c.lamp];
   if (!l) return log("unknown lamp", c.lamp);
-  l.pending = { ...(l.pending || {}), ...c };
+  l.pending = { ...(l.pending || {}), ...c, rx: performance.now() };
   if (!l.busy) run(l);
 }
 async function run(l) {
   l.busy = true;
   while (l.pending) {
     const c = l.pending; l.pending = null;
-    const t0 = performance.now(), did = [];
+    const t0 = performance.now(), did = [], jobs = [];
+    // While a slider is being dragged (commands under 400 ms apart) each step fades over 0.2 s so the bulb glides instead of
+    // stepping; a single tap changes at once.
+    const tt = t0 - (l.lastCmd || 0) < 400 ? 2 : 0;
+    l.lastCmd = t0;
     try {
       if (!l.onOff) throw new Error("not connected yet");
-      if (c.on === false) { await l.onOff.off(); did.push("off"); }
+      if (c.on === false) { jobs.push(l.onOff.off()); did.push("off"); }
       else {
+        // Colour and brightness go out together rather than one after the other.
         if (c.hue != null && c.sat != null) {
-          await l.color.moveToHueAndSaturation({ hue: Math.round((c.hue % 360) * 254 / 360), saturation: Math.round(c.sat * 2.54), transitionTime: 0, ...NOOPTS });
+          jobs.push(l.color.moveToHueAndSaturation({ hue: Math.round((c.hue % 360) * 254 / 360), saturation: Math.round(c.sat * 2.54), transitionTime: tt, ...NOOPTS }));
           did.push(`hs ${c.hue}/${c.sat}`);
         } else if (c.k != null) {
-          await l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: 0, ...NOOPTS });
+          jobs.push(l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: tt, ...NOOPTS }));
           did.push(`k ${c.k}`);
         }
-        if (c.brightness != null) { await l.level.moveToLevelWithOnOff({ level: Math.round(c.brightness * 2.54), transitionTime: 0, ...NOOPTS }); did.push(`b ${c.brightness}`); }
-        else if (c.on === true) { await l.onOff.on(); did.push("on"); }
+        if (c.brightness != null) { jobs.push(l.level.moveToLevelWithOnOff({ level: Math.round(c.brightness * 2.54), transitionTime: tt, ...NOOPTS })); did.push(`b ${c.brightness}`); }
+        else if (c.on === true) { jobs.push(l.onOff.on()); did.push("on"); }
       }
-      log(l.name, did.join(", "), `${(performance.now() - t0).toFixed(0)} ms`, `(sent ${Date.now() - c.t} ms ago)`);
+      await Promise.all(jobs);
+      // Lets the app time the whole trip on its own clock: its round trip minus `total` is the network both ways.
+      const now = performance.now();
+      channel?.send({ type: "broadcast", event: "done", payload: { lamp: l.name, t: c.t, total: Math.round(now - c.rx), bulb: Math.round(now - t0) } });
+      log(l.name, did.join(", "), tt ? "(fade)" : "", `${(performance.now() - t0).toFixed(0)} ms`, `(sent ${Date.now() - c.t} ms ago)`);
     } catch (e) {
       log(l.name, "command failed:", e?.message ?? e);
     }
@@ -145,7 +155,7 @@ function join_() {
   channel
     .on("broadcast", { event: "cmd" }, ({ payload: c }) => {
       const bad = verify(c);
-      if (bad) { if (bad === "no secret yet") fetchSecret().catch(() => {}); return log("rejected cmd:", bad, c?.lamp ?? ""); }
+      if (bad) { if (bad === "no secret yet") fetchSecret().catch(() => {}); return log("rejected cmd:", bad, c?.lamp ?? "", typeof c?.exp === "number" ? "(12 h key)" : "(no exp: old app version or test key)"); }
       enqueue({ lamp: c.lamp, on: c.on, brightness: num(c.brightness, 1, 100), k: num(c.k, 2700, 6500), hue: num(c.hue, 0, 360), sat: num(c.sat, 0, 100), t: c.t });
     })
     .on("broadcast", { event: "hello" }, () => { for (const n of Object.keys(L)) stateSoon(n); })
