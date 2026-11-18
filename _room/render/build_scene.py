@@ -35,7 +35,7 @@ BLEND = arg("blend")
 # ---- room constants (core.js) ----
 W, D, DM, NX, H, T = 3.33, 3.685, 2.865, 1.65, 2.4, 0.09
 WX0, WX1, WY0, WY1 = 0.14, 1.46, 0.92, 2.0
-AIM, JOINT = (0.8, 1.46, D), (0.3, 0.68, 3.1)
+AIM, JOINT = (0.8, 1.46, D), (0.27, 0.92, 2.88)  # FORSÅ stands on the PC (photos, 2026-11-17)
 MINI = (1.56, 0.95, 0.27)
 FAN = (1.665, 2.1, 1.435)
 
@@ -127,7 +127,7 @@ def planks(name, base="#a89f93", dark="#8a8275", rough=0.42):
     return m
 
 M = {
-    "wall": add_noise_bump(material("wall", "#e4e1db", 0.92), 80, 0.02),
+    "wall": add_noise_bump(material("wall", "#e7e7e3", 0.92), 80, 0.02),
     "trim": material("trim", "#f4f4f2", 0.35),
     "floor": planks("floor"),
     "desk_top": material("desk_top", "#1b1b1e", 0.42),
@@ -145,21 +145,63 @@ M = {
     "nickel": material("nickel", "#d8d9d6", 0.16, 1.0),
     "black_matte": material("black_matte", "#141416", 0.55),
     "black_metal": material("black_metal", "#1a1a1c", 0.4, 0.8),
-    "ptac": material("ptac", "#e3d6b8", 0.55),
-    "ptac_grille": material("ptac_grille", "#a99c7e", 0.6),
+    "ptac": material("ptac", "#e7e1cf", 0.5),
+    "ptac_grille": material("ptac_grille", "#bdb6a3", 0.6),
     "mirror": material("mirror", "#ffffff", 0.02, 1.0),
     "mirror_frame": material("mirror_frame", "#c8c8c8", 0.3, 1.0),
     "frame_wood": wood("frame_wood", "#d9b98a", "#b89466", 10.0, 0.5),
     "mat_paper": material("mat_paper", "#f7f5f0", 0.9),
     "glass": material("glass", "#ffffff", 0.0, **{"Transmission Weight": 1.0, "IOR": 1.5}),
-    "blind": material("blind", "#e6e2d8", 0.95, **{"Sheen Weight": 0.4}),
+    "blind": material("blind", "#f2f1ec", 0.95, **{"Sheen Weight": 0.4}),
     "sword_blade": material("sword_blade", "#2b2b30", 0.25, 0.9),
     "gold": material("gold", "#c9a44a", 0.3, 1.0),
     "grass": material("grass", "#4f8a3f", 0.8),
-    "slab": material("slab", "#2a2826", 1.0),
+    "desk_wood": wood("desk_wood", "#6e6156", "#4b4239", 7.0, 0.55),
+    "desk_mat": material("desk_mat", "#141416", 0.95, **{"Sheen Weight": 0.3}),
+    "oak": wood("oak", "#c9ab84", "#a88b65", 6.0, 0.45),
+    "black_frame": material("black_frame", "#18181a", 0.45, 0.6),
+    "fleece": material("fleece", "#e2602a", 0.95, **{"Sheen Weight": 1.0}),
+    "printer_grey": material("printer_grey", "#cfd0ce", 0.45),
+    "printer_dark": material("printer_dark", "#3b3c3f", 0.45),
+    "laptop": material("laptop", "#2b2c2f", 0.35, 0.8),
+    "photo_print": material("photo_print", "#3c4a35", 0.6),
+    "slab": material("slab", "#151414", 1.0, **{"Specular IOR Level": 0.0}),
 }
 for name, hexc in (("art_teal", "#1aa39a"), ("art_yellow", "#f2c230"), ("art_green", "#1e5a3a"), ("art_navy", "#1b3a7a")):
     M[name] = material(name, hexc, 0.85)
+
+def image_material(name, path, rough=0.5, uv=True):
+    m = material(name, "#ffffff", rough)
+    nt = m.node_tree
+    tex = nt.nodes.new("ShaderNodeTexImage"); tex.image = bpy.data.images.load(path)
+    if uv:
+        nt.links.new(nt.nodes.new("ShaderNodeUVMap").outputs["UV"], tex.inputs["Vector"])
+    nt.links.new(tex.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
+    return m, tex
+
+import os
+HERE = os.path.dirname(os.path.abspath(__file__))
+M["floor_photo"], _ft = image_material("floor_photo", os.path.join(HERE, "tex", "floor_planks.jpg"), 0.4)
+_ft.extension = "REPEAT"
+M["poster_fuji"], _ = image_material("poster_fuji", os.path.join(HERE, "tex", "poster_fuji.jpg"), 0.6)
+
+def stripes(name, base, line, period=0.012, width=0.25, axis="Y"):
+    """Pinstripe fabric: thin lines every `period` metres along one Blender axis."""
+    m = material(name, base, 0.9, **{"Sheen Weight": 0.8})
+    nt = m.node_tree
+    coord = nt.nodes.new("ShaderNodeTexCoord"); sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(coord.outputs["Object"], sep.inputs["Vector"])
+    frac = nt.nodes.new("ShaderNodeMath"); frac.operation = "WRAP"; frac.inputs[1].default_value = 0; frac.inputs[2].default_value = period
+    nt.links.new(sep.outputs["X" if axis == "X" else "Y"], frac.inputs[0])
+    lt = nt.nodes.new("ShaderNodeMath"); lt.operation = "LESS_THAN"; lt.inputs[1].default_value = period * width
+    nt.links.new(frac.outputs[0], lt.inputs[0])
+    mix = nt.nodes.new("ShaderNodeMix"); mix.data_type = "RGBA"
+    mix.inputs[6].default_value = hexcol(base); mix.inputs[7].default_value = hexcol(line)
+    nt.links.new(lt.outputs[0], mix.inputs[0]); nt.links.new(mix.outputs[2], nt.nodes["Principled BSDF"].inputs["Base Color"])
+    return m
+
+M["sheet"] = stripes("sheet", "#f1f0ed", "#7f8b99", 0.011, 0.3, "X")
+M["duvet_stripe"] = stripes("duvet_stripe", "#c9ced6", "#f2f2f0", 0.016, 0.35, "X")
 
 # The lamp shades: fabric that glows when lit from inside.
 def shade_material(name, color):
@@ -214,13 +256,27 @@ def cylinder(p0, p1, r0, r1=None, mat=None, name="cyl", verts=32, cap=True, coll
     return link(obj, coll)
 
 # ---- shell: floor, walls with the window, closet with mirror doors ----
-for k, z0 in enumerate([i * 0.21 for i in range(int(D / 0.21) + 1)]):
-    z1 = min(D, z0 + 0.21)
-    if z1 <= z0:
+def plank(x0, x1, z0, z1, strip, off):
+    mesh = bpy.data.meshes.new("plank")
+    a, b = B(x0, -0.02, z0), B(x1, 0, z1)
+    verts = [(a.x, a.y, b.z), (b.x, a.y, b.z), (b.x, b.y, b.z), (a.x, b.y, b.z), (a.x, a.y, a.z), (b.x, a.y, a.z), (b.x, b.y, a.z), (a.x, b.y, a.z)]
+    faces = [(0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+    mesh.from_pydata(verts, [], faces); mesh.update()
+    uv = mesh.uv_layers.new(name="UVMap")
+    for poly in mesh.polygons:
+        for li in poly.loop_indices:
+            v = mesh.vertices[mesh.loops[li].vertex_index].co
+            # 1 texture width = 1.02 m of board; v picks the strip (0..2) in the stacked atlas
+            uv.data[li].uv = (v.x / 1.02 + off, (strip + 0.02 + 0.96 * (v.y - a.y) / max(1e-6, b.y - a.y)) / 3)
+    obj = bpy.data.objects.new("plank", mesh); C_ROOM.objects.link(obj); obj.data.materials.append(M["floor_photo"])
+    return obj
+
+PW = 0.19
+for k in range(int(D / PW) + 1):
+    z0, z1 = k * PW, min(D, (k + 1) * PW)
+    if z1 - z0 < 0.005:
         continue
-    xe = W if z0 < DM else NX
-    plank = box(0, xe, -0.02, 0, z0 + 0.001, z1 - 0.001, M["floor"], "plank", bevel=0.0015)
-    plank["tone"] = random.random()
+    plank(0, W if z0 < DM else NX, z0 + 0.0008, z1 - 0.0008, random.randrange(3), random.random() * 3)
 box(0, W + T, -0.18, -0.02, 0, D + T, M["slab"], "slab", bevel=0)
 
 # Window wall (z = D), built around the opening.
@@ -248,8 +304,13 @@ for a, b, z in ((WX0, wm, D - 0.02), (wm, WX1, D - 0.045)):
     for (x0, x1, y0, y1) in ((a, b, WY0, WY0 + 0.035), (a, b, WY1 - 0.035, WY1), (a, a + 0.035, WY0, WY1), (b - 0.035, b, WY0, WY1)):
         box(x0, x1, y0, y1, z - 0.012, z + 0.012, M["trim"], "sash", bevel=0.002)
     box(a + 0.035, b - 0.035, WY0 + 0.035, WY1 - 0.035, z - 0.003, z + 0.003, M["glass"], "pane", bevel=0)
-# Roller blind, rolled up under the header.
-cylinder((WX0 - 0.04, WY1 - 0.02, D - 0.06), (WX1 + 0.04, WY1 - 0.02, D - 0.06), 0.03, mat=M["blind"], name="blind_roll")
+# Roller blind in a white cassette; BLIND_DOWN is how far it is pulled (0 up, 1 down).
+BLIND_DOWN = float(arg("blind", 0.6))
+box(WX0 - 0.05, WX1 + 0.05, WY1 - 0.07, WY1 + 0.005, D - 0.09, D - 0.035, M["trim"], "blind_cassette", bevel=0.004)
+if BLIND_DOWN > 0.01:
+    yb = WY1 - 0.07 - BLIND_DOWN * (WY1 - WY0 - 0.04)
+    box(WX0 - 0.03, WX1 + 0.03, yb, WY1 - 0.07, D - 0.068, D - 0.064, M["blind"], "blind_fabric", bevel=0)
+    box(WX0 - 0.03, WX1 + 0.03, yb - 0.02, yb, D - 0.072, D - 0.060, M["trim"], "blind_bar", bevel=0.002)
 # Outside: lawn, so the window shows something like the real view.
 hidden_from_camera(box(-3, 5, -0.4, -0.3, D + T, D + 8, M["grass"], "lawn", bevel=0))
 
@@ -259,49 +320,131 @@ for x0, x1 in ((1.85, 2.585), (2.595, W)):
     box(x0, x1, 0.02, 0.04, DM - 0.016, DM, M["mirror_frame"], "mirror_track", bevel=0.001)
     box(x0, x1, 2.0, 2.03, DM - 0.016, DM, M["mirror_frame"], "mirror_track", bevel=0.001)
 
-# ---- heat/AC unit under the window ----
-box(0.35, 1.35, 0.28, 0.72, D - 0.24, D, M["ptac"], "ptac", bevel=0.01)
-for i in range(18):
-    x = 0.47 + i * 0.043
-    box(x, x + 0.022, 0.718, 0.724, D - 0.19, D - 0.07, M["ptac_grille"], "ptac_slat", bevel=0)
+# ---- heat/AC unit: GE Zoneline, cream, louvred front, vent grille and control door on top ----
+PX0, PX1, PY0, PY1, PD = 0.35, 1.35, 0.28, 0.72, D - 0.21
+box(PX0, PX1, PY0, PY1, PD, D, M["ptac"], "ptac", bevel=0.035)
+for i in range(11):
+    y = PY0 + 0.03 + i * 0.024
+    box(PX0 + 0.02, PX1 - 0.02, y, y + 0.012, PD - 0.006, PD + 0.004, M["ptac"], "ptac_louvre", bevel=0.003)
+box(PX0 + 0.05, PX0 + 0.72, PY1 - 0.004, PY1 + 0.002, PD + 0.03, D - 0.05, M["ptac_grille"], "ptac_vent", bevel=0)
+for i in range(4):
+    x = PX0 + 0.05 + i * 0.17
+    box(x, x + 0.006, PY1, PY1 + 0.004, PD + 0.03, D - 0.05, M["ptac"], "ptac_vent_rib", bevel=0)
+box(PX0 + 0.76, PX1 - 0.05, PY1 - 0.003, PY1 + 0.003, PD + 0.03, D - 0.05, M["ptac"], "ptac_door", bevel=0.004)
 
-# ---- desk, monitor, keyboard, PC ----
-for lx, lz in ((0.02, 2.5), (0.48, 2.5), (0.02, 1.62), (0.48, 1.62)):
-    box(lx, lx + 0.05, 0, 0.68, lz, lz + 0.05, M["desk_leg"], "desk_leg")
-box(0, 0.55, 0.68, 0.76, 1.605, 2.565, M["desk_top"], "desk_top", bevel=0.006)
-box(0.30, 0.37, 0.76, 0.785, 2.36, 2.42, M["white_plastic"], "mouse", bevel=0.01)
-box(0.28, 0.42, 0.76, 0.778, 1.88, 2.26, M["white_plastic"], "keyboard", bevel=0.004)
-box(0.10, 0.135, 0.9, 1.28, 1.74, 2.36, M["black_matte"], "monitor", bevel=0.004)
-box(0.135, 0.137, 0.915, 1.265, 1.755, 2.345, M["screen"], "screen", bevel=0)
-cylinder((0.07, 0.76, 1.68), (0.07, 1.14, 1.68), 0.018, mat=M["black_metal"], name="monitor_post")
-cylinder((0.05, 1.12, 1.68), (0.10, 1.09, 2.05), 0.012, mat=M["black_metal"], name="monitor_arm")
-box(0.05, 0.47, 0, 0.38, 2.585, 2.855, M["white_plastic"], "pc", bevel=0.008)
-box(0.09, 0.43, 0.05, 0.33, 2.583, 2.586, M["pc_glass"], "pc_glass", bevel=0)
+# ---- desk: rustic wood top on a black metal frame, black desk mat ----
+for lx, lz in ((0.01, 2.53), (0.51, 2.53), (0.01, 1.605), (0.51, 1.605)):
+    box(lx, lx + 0.035, 0, 0.73, lz, lz + 0.035, M["black_frame"], "desk_leg", bevel=0.003)
+for lz in (1.605, 2.53):
+    box(0.01, 0.545, 0.1, 0.13, lz, lz + 0.035, M["black_frame"], "desk_rail", bevel=0.002)
+    box(0.01, 0.545, 0.69, 0.73, lz, lz + 0.035, M["black_frame"], "desk_rail", bevel=0.002)
+box(0.0, 0.03, 0.69, 0.73, 1.605, 2.565, M["black_frame"], "desk_rail", bevel=0.002)
+box(0, 0.56, 0.73, 0.76, 1.6, 2.57, M["desk_wood"], "desk_top", bevel=0.004)
+box(0.12, 0.55, 0.76, 0.764, 1.72, 2.47, M["desk_mat"], "desk_mat", bevel=0.002)
+box(0.30, 0.42, 0.764, 0.79, 1.95, 2.28, M["white_plastic"], "keyboard", bevel=0.006)
+box(0.305, 0.41, 0.79, 0.794, 1.96, 2.27, M["mat_paper"], "keycaps", bevel=0.002)
+# headphones: two cups and a band, lying on the mat
+for zc in (2.33, 2.43):
+    cylinder((0.44, 0.764, zc), (0.44, 0.80, zc), 0.045, mat=M["white_plastic"], name="ear_cup", verts=24)
+cylinder((0.40, 0.79, 2.33), (0.40, 0.79, 2.43), 0.012, mat=M["white_plastic"], name="headband", verts=12)
+# monitor (MSI 27") on a gas-spring arm clamped at the back edge
+box(0.06, 0.09, 0.68, 0.79, 2.12, 2.20, M["black_frame"], "monitor_clamp", bevel=0.003)
+cylinder((0.075, 0.76, 2.16), (0.075, 1.0, 2.16), 0.018, mat=M["black_frame"], name="arm_post")
+cylinder((0.075, 1.0, 2.16), (0.13, 1.02, 2.06), 0.016, mat=M["black_frame"], name="arm_seg")
+box(0.13, 0.155, 0.92, 1.28, 1.76, 2.37, M["black_matte"], "monitor", bevel=0.004)
+box(0.155, 0.157, 0.935, 1.27, 1.772, 2.358, M["screen"], "screen", bevel=0)
+# laptop on a second arm, reaching toward the window
+cylinder((0.06, 0.76, 2.50), (0.06, 1.02, 2.50), 0.018, mat=M["black_frame"], name="laptop_post")
+cylinder((0.06, 1.02, 2.50), (0.30, 1.07, 2.78), 0.016, mat=M["black_frame"], name="laptop_arm")
+box(0.24, 0.52, 1.05, 1.062, 2.72, 3.02, M["black_frame"], "laptop_tray", bevel=0.002)
+box(0.25, 0.51, 1.062, 1.075, 2.73, 3.01, M["laptop"], "laptop_base", bevel=0.003)
+box(0.24, 0.252, 1.075, 1.29, 2.73, 3.01, M["laptop"], "laptop_lid", bevel=0.003)
+box(0.252, 0.254, 1.09, 1.28, 2.745, 2.995, M["screen"], "laptop_screen", bevel=0)
+# Elgato boom arm and mic at the door end
+box(0.03, 0.08, 0.68, 0.79, 1.61, 1.66, M["black_frame"], "boom_clamp", bevel=0.003)
+cylinder((0.055, 0.79, 1.635), (0.055, 0.92, 1.635), 0.016, mat=M["black_frame"], name="boom_post")
+cylinder((0.055, 0.92, 1.635), (0.42, 1.22, 1.62), 0.018, mat=M["black_frame"], name="boom")
+cylinder((0.42, 1.12, 1.62), (0.42, 1.27, 1.62), 0.022, mat=M["black_metal"], name="mic")
+bpy.ops.mesh.primitive_uv_sphere_add(radius=0.034, location=B(0.42, 1.30, 1.62)); _o = link(bpy.context.active_object); _o.data.materials.append(M["desk_mat"]); _o.scale.z = 1.25
 
-# ---- bed ----
-box(1.80, 3.30, 0.12, 0.34, 0.065, 2.035, M["bed_frame"], "bed_base", bevel=0.02)
-for (x, z) in ((1.84, 0.1), (3.22, 0.1), (1.84, 1.95), (3.22, 1.95)):
-    box(x, x + 0.04, 0, 0.12, z, z + 0.04, M["black_matte"], "bed_foot")
-duvet = box(1.80, 3.30, 0.34, 0.72, 0.065, 2.035, M["duvet"], "mattress", bevel=0.05)
-for i in range(int(1.5 / 0.075)):
-    x = 1.85 + i * 0.075
-    box(x, x + 0.012, 0.719, 0.723, 0.1, 2.0, M["stripe"], "stripe", bevel=0)
-for px in (1.9, 2.6):
-    p = box(px, px + 0.6, 0.72, 0.85, 0.12, 0.52, M["pillow"], "pillow", bevel=0.06)
-box(1.80, 3.30, 0.12, 1.1, 0, 0.065, M["headboard"], "headboard", bevel=0.02)
+# ---- PC: white case, perforated top, glass side toward the desk ----
+PCY = 0.42
+box(0.05, 0.47, 0.0, PCY, 2.585, 2.855, M["white_plastic"], "pc", bevel=0.006)
+box(0.08, 0.44, 0.04, PCY - 0.03, 2.583, 2.586, M["pc_glass"], "pc_glass", bevel=0)
+box(0.40, 0.47, PCY - 0.004, PCY + 0.001, 2.62, 2.82, M["mat_paper"], "pc_io", bevel=0)
 
-# ---- dresser with the little lamp and the sword stand ----
-box(0.80, 1.77, 0, 0.95, 0, 0.435, M["dresser"], "dresser", bevel=0.006)
-for y in (0.32, 0.635):
-    box(0.80, 1.77, y - 0.004, y + 0.004, 0.433, 0.437, M["black_matte"], "drawer_gap", bevel=0)
-box(1.284, 1.287, 0.02, 0.93, 0.433, 0.437, M["black_matte"], "drawer_gap", bevel=0)
-box(0.88, 0.98, 0.95, 1.04, 0.28, 0.38, M["white_plastic"], "white_box", bevel=0.004)
-box(0.98, 1.60, 0.95, 0.975, 0.03, 0.13, M["black_matte"], "sword_base")
-for x in (1.0, 1.55):
+# FORSÅ ("pixar") stands on the PC; its dome points at the window wall.
+base, elbow = (0.26, PCY + 0.02, 2.71), (0.25, PCY + 0.26, 2.79)
+cylinder((0.26, PCY, 2.71), base, 0.075, 0.068, mat=M["nickel"], name="forsa_base", verts=48)
+for a, b in ((base, elbow), (elbow, JOINT)):
+    for dz in (-0.012, 0.012):
+        cylinder((a[0], a[1], a[2] + dz), (b[0], b[1], b[2] + dz), 0.005, mat=M["nickel"], name="forsa_arm", verts=10)
+    cylinder((a[0] + 0.015, a[1], a[2]), (b[0] + 0.015, b[1], b[2]), 0.0035, mat=M["nickel"], name="forsa_spring", verts=8)
+for j in (elbow, JOINT):
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.013, location=B(*j)); o = bpy.context.active_object; o.data.materials.append(M["nickel"]); bpy.ops.object.shade_smooth(); link(o)
+bpy.ops.mesh.primitive_uv_sphere_add(radius=0.085, location=B(*tuple(j + d * 0.09 for j, d in zip(JOINT, AIMDIR))), segments=64, ring_count=32)
+shell = link(bpy.context.active_object); shell.name = "forsa_shade"; shell.data.materials.append(M["nickel"]); bpy.ops.object.shade_smooth()
+# cut the dome open on the side it shines from: keep the half behind the bulb
+shell.rotation_mode = "QUATERNION"; shell.rotation_quaternion = B(*AIMDIR).to_track_quat("Z", "Y")
+import bmesh
+_bm = bmesh.new(); _bm.from_mesh(shell.data)
+bmesh.ops.delete(_bm, geom=[v for v in _bm.verts if v.co.z > 0.01], context="VERTS")
+_bm.to_mesh(shell.data); _bm.free()
+shell.modifiers.new("solid", "SOLIDIFY").thickness = 0.0015
+bpy.ops.mesh.primitive_uv_sphere_add(radius=0.03, location=B(*tuple(j + d * 0.1 for j, d in zip(JOINT, AIMDIR))))
+pixar_bulb = link(bpy.context.active_object); pixar_bulb.name = "pixar_bulb"; pixar_bulb.data.materials.append(M["frost"])
+
+# ---- bed: black metal platform frame, oak-plank headboard, striped sheets, orange fleece ----
+BX0, BX1, BZ0, BZ1, RAIL, MTOP = 1.80, 3.30, 0.065, 2.035, 0.30, 0.54
+for x in (BX0, BX1 - 0.03):
+    box(x, x + 0.03, RAIL - 0.05, RAIL, BZ0, BZ1, M["black_frame"], "bed_rail", bevel=0.002)
+box(BX0, BX1, RAIL - 0.05, RAIL, BZ1 - 0.03, BZ1, M["black_frame"], "bed_rail", bevel=0.002)
+for i in range(14):
+    z = BZ0 + 0.06 + i * 0.135
+    box(BX0 + 0.03, BX1 - 0.03, RAIL - 0.02, RAIL, z, z + 0.05, M["black_frame"], "bed_slat", bevel=0)
+for x in (BX0, (BX0 + BX1) / 2 - 0.015, BX1 - 0.03):
+    for z in (BZ0 + 0.02, (BZ0 + BZ1) / 2, BZ1 - 0.04):
+        box(x, x + 0.03, 0, RAIL - 0.05, z, z + 0.03, M["black_frame"], "bed_leg", bevel=0.002)
+box(BX0 + 0.01, BX1 - 0.01, RAIL, MTOP, BZ0 + 0.01, BZ1 - 0.01, M["sheet"], "mattress", bevel=0.04)
+for px0 in (1.95, 2.65):
+    p = box(px0, px0 + 0.58, MTOP - 0.01, MTOP + 0.13, 0.11, 0.52, M["sheet"], "pillow", bevel=0.06)
+# duvet folded back toward the foot, the orange Illinois fleece on top of it
+box(BX0 + 0.03, BX1 - 0.03, MTOP - 0.005, MTOP + 0.06, 1.35, BZ1 - 0.02, M["duvet_stripe"], "duvet", bevel=0.03)
+box(BX0 + 0.06, BX1 - 0.06, MTOP + 0.06, MTOP + 0.11, 1.30, 1.55, M["duvet_stripe"], "duvet_fold", bevel=0.025)
+box(BX0 + 0.02, BX0 + 0.75, MTOP + 0.06, MTOP + 0.1, 1.45, 1.98, M["fleece"], "fleece", bevel=0.02)
+# headboard against the door wall: black frame, three oak planks
+HB = 1.02
+# It stands against the cut-away door wall, so like that wall it is hidden from the camera but still shades the bed.
+hb = [box(x, x + 0.03, 0, HB, 0.0, 0.03, M["black_frame"], "hb_post", bevel=0.002) for x in (BX0, BX1 - 0.03)]
+hb.append(box(BX0, BX1, HB - 0.03, HB, 0.0, 0.03, M["black_frame"], "hb_top", bevel=0.002))
+for i, (y0_, y1_) in enumerate(((0.38, 0.55), (0.585, 0.755), (0.79, 0.96))):
+    hb.append(box(BX0 + 0.03, BX1 - 0.03, y0_, y1_, 0.004, 0.026, M["oak"], "hb_plank", bevel=0.002))
+    hb.append(box(BX0 + 0.03, BX1 - 0.03, y1_, y1_ + 0.035, 0.008, 0.022, M["black_frame"], "hb_bar", bevel=0))
+for o in hb:
+    hidden_from_camera(o)
+
+# ---- dresser: two stacked two-drawer units, light oak with black edges and bar handles ----
+DX0, DX1, DZ1 = 0.80, 1.77, 0.435
+for y0_, y1_ in ((0.0, 0.47), (0.475, 0.95)):
+    box(DX0, DX1, y0_, y1_, 0, DZ1, M["black_frame"], "dresser_carcass", bevel=0.004)
+    box(DX0 + 0.015, DX1 - 0.015, y0_ + 0.015, y1_ - 0.015, DZ1 - 0.002, DZ1 + 0.004, M["oak"], "drawer_front", bevel=0.002)
+    box(DX0 - 0.002, DX0, y0_ + 0.015, y1_ - 0.015, 0.015, DZ1 - 0.015, M["oak"], "dresser_side", bevel=0)
+    mid = (y0_ + y1_) / 2
+    box(DX0 + 0.015, DX1 - 0.015, mid - 0.003, mid + 0.003, DZ1 + 0.003, DZ1 + 0.005, M["black_frame"], "drawer_gap", bevel=0)
+    for yh in (y1_ - 0.05, mid - 0.05):
+        box(1.17, 1.40, yh, yh + 0.018, DZ1 + 0.004, DZ1 + 0.02, M["black_frame"], "drawer_handle", bevel=0.002)
+box(DX0 + 0.01, DX1 - 0.01, 0.95, 0.953, 0.01, DZ1 - 0.01, M["oak"], "dresser_top", bevel=0)
+# CO2 meter, mug
+box(1.18, 1.30, 0.953, 1.03, 0.30, 0.33, M["white_plastic"], "co2_meter", bevel=0.006)
+cylinder((1.62, 0.953, 0.33), (1.62, 1.06, 0.33), 0.04, mat=M["white_plastic"], name="mug", verts=32)
+# sword stand: black two-tier rack with two katanas
+box(0.98, 1.60, 0.953, 0.975, 0.03, 0.13, M["black_matte"], "sword_base")
+for x in (1.02, 1.52):
     box(x, x + 0.03, 0.975, 1.27, 0.06, 0.10, M["black_matte"], "sword_post")
-for y in (1.08, 1.21):
-    cylinder((0.86, y, 0.08), (1.72, y + 0.02, 0.08), 0.009, mat=M["sword_blade"], name="sword")
-    cylinder((1.06, y - 0.03, 0.08), (1.06, y + 0.04, 0.08), 0.012, mat=M["gold"], name="guard")
+for y, L in ((1.10, 0.95), (1.25, 1.05)):
+    cylinder((1.29 - L / 2, y, 0.08), (1.29 + L / 2, y + 0.025, 0.08), 0.013, mat=M["black_metal"], name="saya")
+    cylinder((1.29 - L / 2 - 0.25, y - 0.012, 0.08), (1.29 - L / 2, y, 0.08), 0.012, mat=M["black_matte"], name="tsuka")
+    cylinder((1.29 - L / 2 - 0.004, y - 0.03, 0.08), (1.29 - L / 2 + 0.004, y + 0.03, 0.08), 0.03, mat=M["gold"], name="tsuba", verts=24)
 
 # STORSEGEL table lamp ("little"): three ash legs and a white linen drum.
 cx, y0, cz = MINI
@@ -310,34 +453,35 @@ for a in (0.5, 2.6, 4.7):
 cylinder((cx, y0 + 0.13, cz), (cx, y0 + 0.30, cz), 0.088, mat=M["linen"], name="storsegel_shade", verts=64, cap=False)
 little_bulb = cylinder((cx, y0 + 0.17, cz), (cx, y0 + 0.24, cz), 0.022, mat=M["frost"], name="little_bulb", verts=24)
 
-# FORSÅ work lamp ("pixar"): weighted base, two arms, nickel dome aimed at the window.
-base, elbow = (0.24, 0.028, 3.06), (0.24, 0.38, 2.94)
-cylinder((0.24, 0, 3.06), base, 0.078, 0.07, mat=M["nickel"], name="forsa_base", verts=48)
-for a, b in ((base, elbow), (elbow, JOINT)):
-    cylinder(a, b, 0.007, mat=M["nickel"], name="forsa_arm", verts=12)
-    cylinder(tuple(c + 0.012 for c in a), tuple(c + 0.012 for c in b), 0.003, mat=M["nickel"], name="forsa_spring", verts=8)
-for j in (elbow, JOINT):
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.014, location=B(*j)); o = bpy.context.active_object; o.data.materials.append(M["nickel"]); bpy.ops.object.shade_smooth(); link(o)
-dome0 = tuple(j + d * 0.02 for j, d in zip(JOINT, AIMDIR)); dome1 = tuple(j + d * 0.17 for j, d in zip(JOINT, AIMDIR))
-cylinder(dome0, dome1, 0.032, 0.075, mat=M["nickel"], name="forsa_shade", verts=64, cap=False)
-shell = bpy.context.active_object
-shell.modifiers.new("solid", "SOLIDIFY").thickness = 0.0015
-pixar_bulb = bpy.ops.mesh.primitive_uv_sphere_add(radius=0.03, location=B(*tuple(j + d * 0.1 for j, d in zip(JOINT, AIMDIR))))
-pixar_bulb = link(bpy.context.active_object); pixar_bulb.name = "pixar_bulb"; pixar_bulb.data.materials.append(M["frost"])
-
-# ---- posters on the bed wall ----
+# ---- posters on the bed wall: light wood frames, white mats ----
 px = W - 0.002
-for pz, upper, lower in ((2.305, "art_teal", "art_teal"), (1.425, "art_yellow", "art_green"), (0.555, "art_navy", "art_navy")):
+POSTERS = ((2.305, ("#1aa39a", "#d65a8c")), (1.425, ("#2f6b3a", "#e8762b")), (0.555, None))
+for pz, cols in POSTERS:
     box(px - 0.025, px, 1.14, 2.05, pz - 0.305, pz + 0.305, M["frame_wood"], "poster_frame", bevel=0.003)
     box(px - 0.027, px - 0.025, 1.17, 2.02, pz - 0.275, pz + 0.275, M["mat_paper"], "poster_mat", bevel=0)
-    if upper == lower:
-        box(px - 0.029, px - 0.027, 1.24, 1.95, pz - 0.205, pz + 0.205, M[upper], "poster_art", bevel=0)
+    if cols is None:
+        mesh = bpy.data.meshes.new("poster_art")
+        corners = [B(px - 0.029, 1.22, pz + 0.215), B(px - 0.029, 1.22, pz - 0.215), B(px - 0.029, 1.97, pz - 0.215), B(px - 0.029, 1.97, pz + 0.215)]
+        mesh.from_pydata(corners, [], [(0, 1, 2, 3)]); mesh.update()
+        uv = mesh.uv_layers.new(name="UVMap")
+        for li, (u, v) in zip(range(4), ((0, 0), (1, 0), (1, 1), (0, 1))):
+            uv.data[li].uv = (u, v)
+        o = bpy.data.objects.new("poster_fuji", mesh); C_ROOM.objects.link(o); o.data.materials.append(M["poster_fuji"])
     else:
-        # diagonal split: one triangle each colour
-        for mat, tri in ((M[upper], ((1.95, pz + 0.205), (1.95, pz - 0.205), (1.24, pz + 0.205))), (M[lower], ((1.95, pz - 0.205), (1.24, pz - 0.205), (1.24, pz + 0.205)))):
-            mesh = bpy.data.meshes.new("poster_tri")
-            mesh.from_pydata([B(px - 0.029, y, z) for y, z in tri], [], [(0, 1, 2)])
-            o = bpy.data.objects.new("poster_tri", mesh); C_ROOM.objects.link(o); o.data.materials.append(mat)
+        box(px - 0.029, px - 0.027, 1.22, 1.97, pz - 0.215, pz + 0.215, material("poster_bg", cols[0], 0.8), "poster_art", bevel=0)
+        box(px - 0.031, px - 0.029, 1.35, 1.75, pz - 0.12, pz + 0.08, material("poster_fg", cols[1], 0.8), "poster_figure", bevel=0)
+
+# framed photo on the closet's side wall, next to the window
+box(NX - 0.022, NX, 1.22, 1.56, 3.05, 3.55, M["frame_wood"], "photo_frame", bevel=0.003)
+box(NX - 0.024, NX - 0.022, 1.26, 1.52, 3.09, 3.51, M["mat_paper"], "photo_mat", bevel=0)
+box(NX - 0.026, NX - 0.024, 1.31, 1.47, 3.17, 3.43, M["photo_print"], "photo", bevel=0)
+
+# corner between the AC and the closet: printer with the router on it
+box(1.38, 1.63, 0.0, 0.2, D - 0.40, D - 0.02, M["printer_grey"], "printer", bevel=0.01)
+box(1.38, 1.63, 0.06, 0.12, D - 0.402, D - 0.38, M["printer_dark"], "printer_tray", bevel=0.003)
+box(1.41, 1.60, 0.2, 0.245, D - 0.36, D - 0.08, M["black_matte"], "router", bevel=0.006)
+for (ax, az) in ((1.42, D - 0.34), (1.59, D - 0.34), (1.42, D - 0.10), (1.59, D - 0.10)):
+    cylinder((ax, 0.245, az), (ax, 0.40, az + 0.02), 0.007, mat=M["black_matte"], name="antenna", verts=8)
 
 # ---- ceiling fan: Hampton Bay Mena 44", matte black, five blades, LED light kit ----
 fx, fy, fz = FAN

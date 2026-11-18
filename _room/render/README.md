@@ -12,4 +12,6 @@ app's own orthographic isometric camera, so a render lines up pixel for pixel wi
   summing the layers in a shader, each scaled by its lamp's live RGB. That part isn't built yet.
 - Timing: about 3-5 minutes per 1100 px frame at 128 samples on the M3 Pro.
 
-Still to model from photos: the real floor, wall colour, bedding, dresser, desk, PC, blind, posters, door.
+Modelled from Piotr's photos (2026-11-17): floor (texture cut from his photo, `tex/floor_planks.jpg`), bed (black metal frame, oak-plank headboard, pinstripe sheets, orange fleece), stacked oak/black dresser with the sword rack, desk (rustic wood, black frame, mat, monitor and laptop arms, mic boom), white PC with the FORSÅ on top, GE Zoneline AC, roller blind, printer and router, the blue Fuji poster (`tex/poster_fuji.jpg`). The headboard is hidden from the camera like the cut-away wall it stands against.
+
+Still placeholders: the other two posters, the framed photo, window and AC heights (from core.js, not measured).
