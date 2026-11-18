@@ -203,7 +203,13 @@ async function tick(key: string) {
   const held = snap.blind?.hold_until && Date.parse(snap.blind.hold_until) > now, steering = !!(blind && snap.blind.steering && mode !== "away");
   await rest("room_log", "POST", { percent: blind?.percent ?? null, mode, steering, bed_f: bedF, desk_f: base.deskF, out_f: base.outF, watts: base.watts }).catch(() => {});
   let moved = null;
-  if (steering) {
+  // Awake, the window stays shut, so the blind has nothing to throttle: it stays fully down (Piotr, 2026-11-17). It only
+  // steers at night, when the window is open a quarter. (Awake it used to keep raising the blind for CO2, which does nothing
+  // with the window shut.)
+  if (steering && mode === "awake") {
+    if (blind!.percent < 100) moved = await moveBlind(100, blind!.percent, key).catch(() => null);
+  }
+  else if (steering) {
     const at = await (await fetch(`${BASE}/rest/v1/room_blind?id=eq.1&select=steered_at`, { headers: dbHeaders })).json().catch(() => null);
     const steeredAt = at?.[0]?.steered_at ? Date.parse(at[0].steered_at) : null;
     moved = await steer({ ...blind!, steeredAt }, mode === "sleep", base, key, now).catch(() => null);
