@@ -186,7 +186,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 M["floor_photo"], _ft = image_material("floor_photo", os.path.join(HERE, "tex", "floor_planks.jpg"), 0.4)
 _ft.extension = "REPEAT"
 for _n in ("jotaro", "jolyne", "giorno"):
-    M["poster_" + _n], _ = image_material("poster_" + _n, os.path.join(HERE, "tex", f"poster_{_n}.jpg"), 0.35)
+    M["poster_" + _n], _ = image_material("poster_" + _n, os.path.join(HERE, "tex", f"poster_{_n}.jpg"), 0.85)
 # RÖDALM birch effect: pale, fine-grained foil
 M["birch"] = wood("birch", "#dcc6a0", "#c9ae86", 14.0, 0.45)
 
@@ -306,7 +306,41 @@ box(0, NX, 0, WY0, D, D + T, M["wall"], "wall_win_low", bevel=0)
 box(0, NX, WY1, H, D, D + T, M["wall"], "wall_win_high", bevel=0)
 box(0, WX0, WY0, WY1, D, D + T, M["wall"], "wall_win_l", bevel=0)
 box(WX1, NX, WY0, WY1, D, D + T, M["wall"], "wall_win_r", bevel=0)
-box(NX, W + T, 0, H, DM, D + T, M["wall"], "closet_block", bevel=0)
+# The closet behind the mirror doors, open at the top like the rest of the cut-away: walls, a rod, hanging clothes, boxes.
+CF = DM + 0.05                                           # inside face of the door wall
+box(NX, NX + T, 0, H, DM, D + T, M["wall"], "closet_wall_l", bevel=0)
+box(W, W + T, 0, H, DM, D + T, M["wall"], "closet_wall_r", bevel=0)
+box(NX, W + T, 0, H, D, D + T, M["wall"], "closet_wall_back", bevel=0)
+box(NX + T, 1.85, 0, H, DM, CF, M["wall"], "closet_front", bevel=0)
+box(1.85, W, 2.03, H, DM, CF, M["wall"], "closet_header", bevel=0)
+box(NX + T, W, -0.02, 0, CF, D, M["floor"], "closet_floor", bevel=0)
+# covered by its ceiling (Piotr), so the closet is filled in solid: no gaps to look into
+box(NX + T, W, 0, H - 0.001, CF, D, M["wall"], "closet_solid", bevel=0)
+cylinder((NX + T, 1.66, D - 0.36), (W, 1.66, D - 0.36), 0.012, mat=M["nickel"], name="closet_rod", verts=12)
+# shelf above the rod: from this angle it's all you can see of the closet, so it carries bins and folded clothes
+box(NX + T, W, 1.86, 1.88, D - 0.40, D, M["trim"], "closet_shelf", bevel=0.003)
+_sx = NX + T + 0.04
+for kind, w_, h_, col in (("bin", 0.36, 0.24, "#c9b28a"), ("fold", 0.30, 0.16, "#2b2f3a"), ("fold", 0.30, 0.20, "#7b8496"), ("bin", 0.34, 0.22, "#e8e6e1"),
+                          ("fold", 0.28, 0.12, "#e2602a"), ("bin", 0.30, 0.26, "#3d5a80")):
+    if _sx + w_ > W - 0.03:
+        break
+    if kind == "bin":
+        box(_sx, _sx + w_, 1.88, 1.88 + h_, D - 0.36, D - 0.04, material("shelf_bin", col, 0.75), "shelf_box", bevel=0.01)
+    else:
+        for k in range(int(h_ / 0.04)):
+            box(_sx + 0.01 * (k % 2), _sx + w_ - 0.01 * ((k + 1) % 2), 1.88 + k * 0.04, 1.88 + (k + 1) * 0.04 - 0.004, D - 0.34, D - 0.06,
+                material("folded", col, 0.95, **{"Sheen Weight": 0.6}), "shelf_box", bevel=0.012)
+    _sx += w_ + 0.05
+random.seed(11)
+_cols = ["#2b2f3a", "#1d1f26", "#e8e6e1", "#7b8496", "#3d5a80", "#e2602a", "#556b2f", "#c9c4bb", "#202024", "#8a2b2b"]
+x = NX + T + 0.07
+while x < W - 0.05:
+    hgt = random.uniform(0.62, 1.0)
+    box(x, x + 0.035, 1.64 - hgt, 1.64, D - 0.58, D - 0.14, material("garment", random.choice(_cols), 0.95, **{"Sheen Weight": 0.6}), "garment", bevel=0.012)
+    x += random.uniform(0.045, 0.085)
+for bx0, bw, bh, col in ((NX + 0.15, 0.4, 0.3, "#c9b28a"), (NX + 0.62, 0.35, 0.22, "#2b2f3a"), (W - 0.5, 0.42, 0.34, "#c9b28a")):
+    box(bx0, bx0 + bw, 0, bh, D - 0.45, D - 0.08, material("closet_box", col, 0.8), "closet_box", bevel=0.005)
+
 box(W, W + T, 0, H, 0, DM, M["wall"], "wall_posters", bevel=0)
 # Walls the camera looks through (the app's cutaway) still bounce light and keep daylight out, as in the real room.
 for o in (box(-T, 0, 0, H, -T, D + T, M["wall"], "wall_desk_near", bevel=0), box(-T, W + T, 0, H, -T, 0, M["wall"], "wall_door_near", bevel=0),
@@ -511,13 +545,14 @@ cylinder((HX, 0.0, HZ), (HX, 0.01, HZ), 0.185, mat=M["hamper"], name="hamper_flo
 cylinder((HX, 0.0, HZ), (HX, 0.05, HZ), 0.188, 0.19, mat=material("hamper_band", "#8e8268", 0.8), name="hamper_band", verts=48, cap=False)
 for i, (dx, dz, dy, r, col) in enumerate(((0.0, 0.0, 0.62, 0.17, "#2b2f3a"), (-0.07, 0.06, 0.66, 0.11, "#1d1f26"), (0.08, -0.05, 0.64, 0.10, "#e8e6e1"),
                                          (-0.12, -0.09, 0.6, 0.09, "#7b8496"), (0.1, 0.09, 0.61, 0.08, "#f2f1ee"))):
+    r = min(r, 0.18 - math.hypot(dx, dz))              # keep every heap inside the rim
     bpy.ops.mesh.primitive_uv_sphere_add(radius=r, location=B(HX + dx, dy, HZ + dz), segments=24, ring_count=12)
     lump = link(bpy.context.active_object); lump.name = "laundry"; lump.scale.z = 0.45
     lump.data.materials.append(material("laundry", col, 0.95, **{"Sheen Weight": 0.6}))
     for poly in lump.data.polygons:
         poly.use_smooth = True
 # a towel hanging over the side toward the bed
-box(HX - 0.2, HX - 0.17, 0.25, 0.62, HZ - 0.08, HZ + 0.08, material("towel", "#7b8496", 0.95, **{"Sheen Weight": 0.6}), "towel", bevel=0.01)
+box(HX - 0.232, HX - 0.215, 0.3, 0.615, HZ - 0.08, HZ + 0.08, material("towel", "#7b8496", 0.95, **{"Sheen Weight": 0.6}), "towel", bevel=0.01)
 
 # ---- posters on the bed wall: the three 20 x 28 in prints in IKEA RÖDALM 61 x 91 cm frames ----
 # Frame 63 x 93 cm outside, 3 cm deep, birch effect, about 1.6 cm of face; white mat with a 49 x 69 cm window.
@@ -542,7 +577,7 @@ def picture(u, v, pz, yc, tex_mat, xw=W, out_w=0.63, out_h=0.93, mat_w=0.49, mat
         uvl.data[li].uv = uvv
     o = bpy.data.objects.new("print", mesh); C_ROOM.objects.link(o); o.data.materials.append(tex_mat)
     # glass in front, so the prints catch soft reflections like the real frames
-    box(xf - 0.001, xf + 0.001, yc - hh + face, yc + hh - face, pz - hw + face, pz + hw - face, M["glass"], "rodalm_glass", bevel=0)
+    # (no glass: its reflections made the prints look dark and shiny in the render)
 
 for pz, name in ((0.555, "jotaro"), (1.425, "jolyne"), (2.305, "giorno")):
     picture(None, None, pz, 1.595, M["poster_" + name])
@@ -640,7 +675,7 @@ recv = bpy.data.collections.new("cutaway_receivers")
 for o in C_ROOM.objects:
     if o.name.split(".")[0] in ("hb_post", "hb_top", "hb_plank", "hb_bar", "dresser_carcass", "dresser_side", "dresser_top"):
         recv.objects.link(o)
-cut = light("AREA", "cutaway_fill", B(2.0, 1.1, -0.9), 30, C_FILL, direction=Vector((-0.2, 1, 0.15)))
+cut = light("AREA", "cutaway_fill", B(2.0, 1.1, -0.9), 1, C_FILL, direction=Vector((-0.2, 1, 0.15)))
 cut.data.size = 2.5
 cut.light_linking.receiver_collection = recv
 # An empty blocker collection counts as "everything blocks", so it holds one tiny cube far away: nothing in the room blocks.
@@ -652,16 +687,26 @@ cut.light_linking.blocker_collection = _nb
 # Caps: the tops of the walls and the cut ends where the camera slices through the room. In the real room they touch the
 # ceiling and the hidden walls, so they would render black; like the app's drawing, they get an even light of their own.
 caps = bpy.data.collections.new("caps"); scene.collection.children.link(caps)
-M["cap"] = material("cap", "#dcdad6", 0.9)
+# Same tone as the walls themselves render (Piotr: not white). The closet is drawn like a cut section: its walls are rims of
+# that tone around a dark charcoal fill, so its top reads as "solid, sliced through" rather than a bright slab.
+M["cap"] = material("cap", "#8d8a84", 0.9)
 M["cap_slab"] = material("cap_slab", "#45423f", 0.95)
-for args in ((0, NX, H, H + 0.002, D, D + T), (NX, W + T, H, H + 0.002, DM, D + T), (W, W + T, H, H + 0.002, 0, DM),      # wall tops
+M["poche"] = material("poche", "#2c2a28", 0.95)
+for args in ((0, NX, H, H + 0.002, D, D + T), (W, W + T, H, H + 0.002, 0, DM),                                            # wall tops
+             (NX, W + T, H, H + 0.002, DM, D + T),                                                                        # closet: its ceiling, one surface with the wall tops (Piotr)
              (-0.002, 0, 0, H, D, D + T),                                                                              # window wall, cut end
              (W, W + T, 0, H, -0.002, 0)):                                                                             # poster wall, cut end
     o = box(*args, M["cap"], "cap", bevel=0, coll=caps)
+# The closet is open at the top, but the (hidden) ceiling keeps it dark; a linked light from above shows what's inside.
+_closet = bpy.data.collections.new("closet_receivers")
+for o in C_ROOM.objects:
+    if o.name.split(".")[0] in ("closet_floor", "closet_shelf", "closet_rod", "garment", "closet_box", "shelf_box", "closet_wall_l", "closet_wall_r", "closet_wall_back", "closet_front", "closet_header"):
+        _closet.objects.link(o)
+# (the closet is covered by its ceiling now, so no light inside)
 for args in ((-0.002, 0, -0.18, -0.02, 0, D + T), (0, W + T, -0.18, -0.02, -0.002, 0)):                                # floor slab edges
     box(*args, M["cap_slab"], "cap_slab", bevel=0, coll=caps)
 nothing = bpy.data.collections.new("no_blockers")
-caplight = light("SUN", "cap_light", (0, 0, 10), 3.0, C_FILL, direction=Vector((0.55, 0.7, -0.45)))
+caplight = light("SUN", "cap_light", (0, 0, 10), 1.6, C_FILL, direction=Vector((0.55, 0.7, -0.45)))
 caplight.light_linking.receiver_collection = caps
 caplight.light_linking.blocker_collection = _nb
 caplight.data.angle = math.radians(30)
@@ -769,5 +814,5 @@ else:
 scene.render.filepath = os.path.join(here, OUT)
 if BLEND:
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(here, BLEND))
-bpy.ops.render.render(write_still=True)
+if not arg("probe", flag=True): bpy.ops.render.render(write_still=True)
 print("RENDERED", scene.render.filepath, scene.render.resolution_x, scene.render.resolution_y, "layer", LAYER)
