@@ -97,7 +97,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
 .lc-wheel { position: relative; width: 104px; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; touch-action: none; cursor: crosshair;
   background: radial-gradient(circle closest-side, #fff, rgba(255, 255, 255, 0)), conic-gradient(from 90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00) }
 .lc-wheel i { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); pointer-events: none }
-.lc-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px }
+.lc-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px }
 .lc-pre { border: 0; border-radius: 12px; padding: 8px 2px 7px; background: rgba(255, 255, 255, 0.08); color: var(--ink); font: 500 11px/1.2 var(--body);
   display: flex; flex-direction: column; align-items: center; gap: 6px }
 .lc-pre i { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25) }
@@ -140,6 +140,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
       <button type="button" class="lc-pre" data-pre="white" aria-pressed="false"><i style="background:#ffd9a3"></i>Warm white</button>
       <button type="button" class="lc-pre" data-pre="amber" aria-pressed="false"><i style="background:#ff8b16"></i>Amber</button>
       <button type="button" class="lc-pre" data-pre="red" aria-pressed="false"><i style="background:#ff2a1a"></i>Red</button>
+      <button type="button" class="lc-pre" data-pre="cool" aria-pressed="false"><i style="background:#eef3ff"></i>Daylight</button>
     </div>
     <div class="lc-ms" id="lamp-ms"></div>
   </section>
@@ -1157,10 +1158,10 @@ function lampSend(id, f) {
   if (wait <= 0) lampFlush(id); else if (!pendTimer[id]) pendTimer[id] = setTimeout(() => lampFlush(id), wait);
 }
 const card = $("lampcard");
-// Only three lights are ever wanted (Piotr, 2026-11-17), always at full brightness: warm white is the bulbs' warmest white,
+// Only four lights are ever wanted (Piotr, 2026-11-17), always at full brightness (daylight is 6500K, the bulbs' coolest): warm white is the bulbs' warmest white,
 // amber is 2000K (the relay sends that blackbody's exact xy point), red is pure hue 0.
-const PRESETS = { white: { k: 2700, brightness: 100 }, amber: { k: 2000, brightness: 100 }, red: { hue: 0, sat: 100, brightness: 100 } };
-const presetOf = s => (s.mode === "hs" ? (s.sat > 60 && (s.hue < 20 || s.hue > 340) ? "red" : null) : s.k != null && s.k < 2400 ? "amber" : s.k != null ? "white" : null);
+const PRESETS = { white: { k: 2700, brightness: 100 }, amber: { k: 2000, brightness: 100 }, red: { hue: 0, sat: 100, brightness: 100 }, cool: { k: 6500, brightness: 100 } };
+const presetOf = s => (s.mode === "hs" ? (s.sat > 60 && (s.hue < 20 || s.hue > 340) ? "red" : null) : s.k != null && s.k < 2400 ? "amber" : s.k != null && s.k >= 5000 ? "cool" : s.k != null ? "white" : null);
 function paintSheet() {
   const id = sheetLamp, s = lampState[id], on = !!lamps[id];
   viz.light(id, { ...s, on });
