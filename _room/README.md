@@ -40,7 +40,9 @@ Commit and push `room/` to `main`, then republish `artifact.html` to the artifac
 
 - Secrets (SwitchBot, Tuya, the app key) live in Supabase edge function secrets or on the phone. Never commit or print them. The publishable key in the site code is meant to be public.
 - Blind: 0% is fully up, 100% fully down. Speed stays at 20 (40 is too loud, creeping was rejected). The Tuya commands `border`, `control_back` and `reset` stay blocked.
-- Phone alerts: at most one every 15 minutes, of any kind (Piotr, 2026-11-17).
+- Phone alerts: at most one every 15 minutes, of any kind (Piotr, 2026-11-17). No temperatures in alerts, just which way the room is heading ("Hey, it might get too cold soon. Close the window.").
+- Each alert is saved before it is sent. A failed save once repeated an alert every minute: the blind phases `wide`/`narrow` weren't in room_notify's phase check.
+- Awake with the blind steering: the window stays shut, opening a quarter only when the room gets too warm (`vent`) or an eighth for CO2 >= 1200 (`air`). The model says an open window can't hold 73-74°F in cold weather even with the blind down. The blind and a quarter window are the night setup.
 - Comfort bands: awake 73 to 74°F (aim 73.5, Piotr 2026-11-17), sleep 60 to 67°F (aim 64), the 60-67°F range sleep guidance gives; letting it sit near 60 is fine (Piotr, 2026-11-16).
 - Overnight the window stays at a quarter and the blind is the throttle.
 

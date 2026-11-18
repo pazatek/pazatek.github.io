@@ -49,7 +49,7 @@ function render() {
   viz.daylight(snap.outdoor && snap.outdoor.sun_wm2 != null ? Number(snap.outdoor.sun_wm2) : 0);
   $("tag").textContent = st.mode === "away" ? "Nobody home" : a.aim ? (a.phase === "wide" ? "Blind maxed, still warm" : a.phase === "narrow" ? "Blind maxed, still cool" : "Blind holding " + a.aim + "°") : st.mode === "sleep"
     ? (a.phase === "precool" ? "Cooling to " + (K.HI - 1) + "°" : a.phase === "warm" ? "Warming to " + (K.LO + 1) + "°" : a.fan === "low" ? "Mild night" : "Holding " + K.TARGET + "°")
-    : (a.fan === "low" ? "Desk above " + K.AW_HI + "°" : a.phase === "cold" ? "Desk below " + K.AW_LO + "°" : "Holding CO2");
+    : (a.phase === "vent" ? "Letting heat out" : a.phase === "air" ? "Airing out" : a.fan === "low" ? "Desk above " + K.AW_HI + "°" : a.phase === "cold" ? "Desk below " + K.AW_LO + "°" : s.blind && a.window === 0 ? "Window shut, keeping warm" : "Holding CO2");
   const lo = st.mode === "sleep" ? K.LO : K.AW_LO, hi = st.mode === "sleep" ? K.HI : K.AW_HI;
   show("t-desk", s.deskF == null ? "--" : f1(s.deskF) + "\u00B0", s.deskF == null, s.deskF == null ? "" : roomColor(s.deskF, lo, hi));
   show("t-bed", f1(s.bedF) + "\u00B0", false, roomColor(s.bedF, lo, hi));

@@ -45,6 +45,7 @@ type Advice = { door: string; window: number; fan: string; phase: string | null;
 
 function advise(s: In): Advice {
   if (s.mode === "away") return { door: "open", window: 0, fan: "off", phase: null, what: "Nobody is home" };
+  if (s.blind && s.mode !== "sleep") return awakeWindow(s);
   if (s.blind) {
     // After dark the blind does the fine control, so the window stays at a quarter. It only changes when the blind has run out of travel.
     const sleep = s.mode === "sleep", t = sleep ? s.bedF : (s.deskF != null ? s.deskF : s.bedF), aim = sleep ? K.TARGET : K.AW_AIM;
@@ -84,11 +85,36 @@ function advise(s: In): Advice {
     what: s.co2 != null && s.co2 >= K.CO2_HI ? `CO2 is ${Math.round(s.co2)} ppm` : `Desk is back to ${f1(t)}°F` };
 }
 
+// Awake in cold weather an open window can't hold 73-74°F even with the blind fully down (the model: a quarter-open window at
+// 30°F out settles 62-67°F), so the window stays shut and only opens when the room gets too warm, or an eighth for stale air.
+function awakeWindow(s: In): Advice {
+  const t = s.deskF != null ? s.deskF : s.bedF;
+  let phase = s.phase === "vent" || s.phase === "air" ? s.phase : null;
+  if (t > K.AW_HI + 0.3) phase = "vent"; else if (phase === "vent" && t <= K.AW_AIM) phase = null;
+  if (phase !== "vent") {
+    if (s.co2 != null && s.co2 >= 1200) phase = "air"; else if (phase === "air" && s.co2 != null && s.co2 < 900) phase = null;
+  }
+  if (phase === "vent") return { door: "closed", window: 6.5, fan: "off", phase, what: `Desk is ${f1(t)}°F, too warm` };
+  if (phase === "air") return { door: "closed", window: 3.25, fan: "off", phase, what: `CO2 is ${Math.round(s.co2!)} ppm` };
+  return { door: "closed", window: 0, fan: "off", phase: null, what: `Desk is ${f1(t)}°F` };
+}
+
 // The window is only ever set to closed, an eighth, a quarter, half or full; inches are stored rounded (0, 3, 7, 13, 26).
 const STEPS = [3.25, 6.5, 13, 26];
 const snapInches = (inches: number) => (inches < 1.6 ? 0 : Math.round(STEPS.reduce((best, s) => (Math.abs(Math.log(inches / s)) < Math.abs(Math.log(inches / best)) ? s : best))));
 const adviseSnapped = (s: In): Advice => { const a = advise(s); a.window = snapInches(a.window); if (a.holdW != null) a.holdW = snapInches(a.holdW); return a; };
 const windowPhrase = (w: number) => (w <= 0 ? "close the window" : w >= 26 ? "open the window fully" : w >= 13 ? "open the window halfway" : w >= 6 ? "open the window a quarter" : "open the window an eighth");
+// The opening line of a phone alert: no numbers, just which way the room is about to go (Piotr, 2026-11-17).
+function heads(a: Advice, last: Record<string, unknown> | null, mode: string) {
+  if (mode === "away") return "Nobody's home.";
+  if (a.phase === "air") return "Hey, the air's getting stuffy.";
+  const when = mode === "sleep" ? "tonight" : "soon", w0 = last && last.window_in != null ? Number(last.window_in) : null;
+  const warmer = ["cold", "warm", "narrow"].includes(a.phase ?? "") || (w0 != null && a.window < w0 - 0.5) || (a.door === "open" && (!last || last.door !== "open"));
+  const cooler = ["precool", "wide", "vent"].includes(a.phase ?? "") || (w0 != null && a.window > w0 + 0.5) || (a.fan !== "off" && (!last || last.fan === "off"));
+  if (warmer && !cooler) return `Hey, it might get too cold ${when}.`;
+  if (cooler && !warmer) return `Hey, it might get too warm ${when}.`;
+  return "Heads up.";
+}
 function actions(a: Advice, last: Record<string, unknown> | null) {
   const all = !last || last.door == null || last.window_in == null || last.fan == null;
   const out: string[] = [];
@@ -152,9 +178,11 @@ async function tick(key: string) {
   const sinceSent = d.last_sent ? now - Date.parse(d.last_sent) : Infinity;
   const log = async (row: Record<string, unknown>, text: string | null) => {
     if (text && sinceSent < ALERT_GAP_MIN * 60000) return { skip: `sent one less than ${ALERT_GAP_MIN} minutes ago`, held: text };
+    // Saved before sending: if the save fails, nothing goes out, so a failing save can't repeat an alert every minute.
+    const willSend = !!(text && subs.length && d.vapid_private);
+    await rest("room_notify", "POST", { ...row, notified: willSend, message: text });
     let sent = 0, errors: string[] = [];
-    if (text && subs.length && d.vapid_private) ({ sent, errors } = await push(subs, text, d.vapid_private));
-    await rest("room_notify", "POST", { ...row, notified: sent > 0, message: text });
+    if (willSend) ({ sent, errors } = await push(subs, text!, d.vapid_private));
     return { ...row, message: text, sent, errors };
   };
 
@@ -186,7 +214,7 @@ async function tick(key: string) {
 
   if (mode === "awake" && d.local_hour < 3 && (!d.last_bedtime || now - Date.parse(d.last_bedtime) > 12 * 3600000)) {
     const a = adviseSnapped({ ...base, mode: "sleep", phase: null, blind: steered });
-    const text = `Bedtime setup. ${actions(a, null)}.` + (a.phase === "precool" ? ` When the bed reads ${K.HI - 1}°F, ${windowPhrase(a.holdW!)} and fan off.` : "");
+    const text = `Bedtime. ${actions(a, null)}.` + (a.phase === "precool" ? ` Once it's cooled down, ${windowPhrase(a.holdW!)} and fan off.` : "");
     return await log({ kind: "bedtime", mode: "sleep", phase: a.phase, door: a.door, window_in: a.window, fan: a.fan }, text);
   }
   if (mode === "awake" && last && last.kind === "bedtime" && now - Date.parse(String(last.ts)) < 3 * 3600000) return { skip: "bedtime setup sent, waiting for sleep" };
@@ -196,8 +224,8 @@ async function tick(key: string) {
   if (!changed) return { skip: "no change", advice: a, blind: moved };
   const row = { kind: "advice", mode, phase: a.phase, door: a.door, window_in: a.window, fan: a.fan };
   if (mode === "sleep") return await log(row, null);
-  const act = actions(a, last && last.kind !== "offline" ? last : null);
-  return await log(row, act ? `${a.what}. ${act}.` : `${a.what}.`);
+  const prev = last && last.kind !== "offline" ? last : null, act = actions(a, prev);
+  return await log(row, act ? `${heads(a, prev, mode)} ${act}.` : heads(a, prev, mode));
 }
 
 // ---- Live Activity on the iPhone (the Room app in _room/ios): readings on the lock screen and in the Dynamic Island ----
