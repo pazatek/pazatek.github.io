@@ -39,4 +39,4 @@ commands from the Room Coach app over the Supabase Realtime channel `room-lights
 - pixar: node 1, at 192.168.50.50.
 - Measured 2026-11-17 from the PC (bench.mjs, 10 taps): about 32 ms through Supabase one way and 153 ms for the bulb to acknowledge, so about 185 ms tap to lamp. An occasional 1.7 s outlier is the bulb's Wi-Fi dropping a packet and resending.
 - From the phone it was about 100 ms to reach the PC. The PC's clock is about 0.66 s fast, so the log's "sent … ago" reads high by that much.
-- little: not paired yet.
+- little: node 2, at 192.168.50.212 (paired from Apple Home pairing mode, 2026-11-17). About 295 ms to acknowledge.
