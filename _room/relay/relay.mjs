@@ -127,10 +127,11 @@ async function run(l) {
         } else if (c.k != null && c.k < 2700) {
           // Warmer than the white LEDs go. The exact xy point (planckXY) came out yellow-green on the Govee bulbs and differently
           // on each brand, so amber is a full-saturation hue, tuned per lamp by eye in AMBER_HUE.
-          const hue = AMBER_HUE[l.name] ?? AMBER_HUE.default;
-          jobs.push(l.color.moveToHueAndSaturation({ hue: Math.round(hue * 254 / 360), saturation: 254, transitionTime: tt, ...NOOPTS }));
+          const am = AMBER[l.name] ?? AMBER.default;
+          if (am.xy) jobs.push(l.color.moveToColor({ colorX: Math.round(am.xy[0] * 65536), colorY: Math.round(am.xy[1] * 65536), transitionTime: tt, ...NOOPTS }));
+          else jobs.push(l.color.moveToHueAndSaturation({ hue: Math.round(am.hue * 254 / 360), saturation: 254, transitionTime: tt, ...NOOPTS }));
           l.lastK = c.k; l.amber = true;
-          did.push(`amber (k ${c.k}, hue ${hue})`);
+          did.push(`amber (k ${c.k}, ${JSON.stringify(am)})`);
         } else if (c.k != null) {
           jobs.push(l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: tt, ...NOOPTS }));
           did.push(`k ${c.k}`);
@@ -178,7 +179,10 @@ function join_() {
     });
 }
 // Amber (the app's 2000K button), as a hue in degrees per lamp: lower is redder. Tune by eye; 0 is pure red.
-const AMBER_HUE = { default: 22, pixar: 30, little: 30, basket: 14 };  // Govees looked pinkish at 22, the basket bulb yellow (Piotr, 2026-11-17)
+// Amber (the app's 2000K button), per lamp: a hue in degrees (lower is redder) or an xy point on the edge of the spectrum.
+// The basket bulb is right at hue 14 (Piotr, 2026-11-17). The Govees looked washed out (pinkish/yellowish) on hue: testing
+// pixar on a pure spectral orange (~605 nm) and little on hue 25.
+const AMBER = { default: { hue: 22 }, pixar: { hue: 28 }, little: { hue: 28 }, basket: { hue: 14 } };  // matched by eye to the basket bulb, 2026-11-17
 
 // CIE 1931 xy of a blackbody (Kim et al. cubic fit, valid 1667-4000K). 2000K -> (0.5269, 0.4133).
 function planckXY(T) {
