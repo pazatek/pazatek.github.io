@@ -93,9 +93,9 @@ async function readState(name) {
     lamp: name, online: !!l.node.isConnected, on: !!on,
     brightness: level == null ? null : Math.max(1, Math.round(level / 2.54)),
     // below the bulbs' warmest white (2700K) the colour is an xy point; report the Kelvin it was set to
-    k: mode === 1 ? (l.lastK || 2000) : mireds ? Math.round(1e6 / mireds) : null,
+    k: l.amber ? (l.lastK || 2000) : mireds ? Math.round(1e6 / mireds) : null,
     hue: hue == null ? null : Math.round(hue * 360 / 254), sat: sat == null ? null : Math.round(sat * 100 / 254),
-    mode: mode === 2 || mode === 1 ? "ct" : "hs", t: Date.now(),
+    mode: l.amber || mode === 2 || mode === 1 ? "ct" : "hs", t: Date.now(),
   };
 }
 
@@ -120,15 +120,17 @@ async function run(l) {
       if (c.on === false) { jobs.push(l.onOff.off()); did.push("off"); }
       else {
         // Colour and brightness go out together rather than one after the other.
+        if (c.hue != null || c.k != null) l.amber = false;
         if (c.hue != null && c.sat != null) {
           jobs.push(l.color.moveToHueAndSaturation({ hue: Math.round((c.hue % 360) * 254 / 360), saturation: Math.round(c.sat * 2.54), transitionTime: tt, ...NOOPTS }));
           did.push(`hs ${c.hue}/${c.sat}`);
         } else if (c.k != null && c.k < 2700) {
-          // warmer than the white LEDs go: the exact colour of that blackbody temperature, as an xy point from the colour LEDs
-          const [x, y] = planckXY(c.k);
-          jobs.push(l.color.moveToColor({ colorX: Math.round(x * 65536), colorY: Math.round(y * 65536), transitionTime: tt, ...NOOPTS }));
-          l.lastK = c.k;
-          did.push(`k ${c.k} (xy ${x.toFixed(4)}, ${y.toFixed(4)})`);
+          // Warmer than the white LEDs go. The exact xy point (planckXY) came out yellow-green on the Govee bulbs and differently
+          // on each brand, so amber is a full-saturation hue, tuned per lamp by eye in AMBER_HUE.
+          const hue = AMBER_HUE[l.name] ?? AMBER_HUE.default;
+          jobs.push(l.color.moveToHueAndSaturation({ hue: Math.round(hue * 254 / 360), saturation: 254, transitionTime: tt, ...NOOPTS }));
+          l.lastK = c.k; l.amber = true;
+          did.push(`amber (k ${c.k}, hue ${hue})`);
         } else if (c.k != null) {
           jobs.push(l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: tt, ...NOOPTS }));
           did.push(`k ${c.k}`);
@@ -175,6 +177,9 @@ function join_() {
       }
     });
 }
+// Amber (the app's 2000K button), as a hue in degrees per lamp: lower is redder. Tune by eye; 0 is pure red.
+const AMBER_HUE = { default: 22, pixar: 22, little: 22, basket: 22 };
+
 // CIE 1931 xy of a blackbody (Kim et al. cubic fit, valid 1667-4000K). 2000K -> (0.5269, 0.4133).
 function planckXY(T) {
   const x = -0.2661239e9 / T ** 3 - 0.2343589e6 / T ** 2 + 0.8776956e3 / T + 0.17991;
