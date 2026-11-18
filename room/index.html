@@ -140,7 +140,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--ink); outli
       <button type="button" class="lc-pre" data-pre="white" aria-pressed="false"><i style="background:#ffd9a3"></i>Warm white</button>
       <button type="button" class="lc-pre" data-pre="amber" aria-pressed="false"><i style="background:#ff8b16"></i>Amber</button>
       <button type="button" class="lc-pre" data-pre="red" aria-pressed="false"><i style="background:#ff2a1a"></i>Red</button>
-      <button type="button" class="lc-pre" data-pre="cool" aria-pressed="false"><i style="background:#eef3ff"></i>Daylight</button>
+      <button type="button" class="lc-pre" data-pre="fan" aria-pressed="false"><i style="background:#ffe4bd"></i>Fan white</button>
     </div>
     <div class="lc-ms" id="lamp-ms"></div>
   </section>
@@ -1158,10 +1158,10 @@ function lampSend(id, f) {
   if (wait <= 0) lampFlush(id); else if (!pendTimer[id]) pendTimer[id] = setTimeout(() => lampFlush(id), wait);
 }
 const card = $("lampcard");
-// Only four lights are ever wanted (Piotr, 2026-11-17), always at full brightness (daylight is 6500K, the bulbs' coolest): warm white is the bulbs' warmest white,
+// Only four lights are ever wanted (Piotr, 2026-11-17), always at full brightness (fan white is 3000K, the 'soft white' of the Hampton Bay Mena fan light, for matching it when staying up): warm white is the bulbs' warmest white,
 // amber is 2000K (the relay sends that blackbody's exact xy point), red is pure hue 0.
-const PRESETS = { white: { k: 2700, brightness: 100 }, amber: { k: 2000, brightness: 100 }, red: { hue: 0, sat: 100, brightness: 100 }, cool: { k: 6500, brightness: 100 } };
-const presetOf = s => (s.mode === "hs" ? (s.sat > 60 && (s.hue < 20 || s.hue > 340) ? "red" : null) : s.k != null && s.k < 2400 ? "amber" : s.k != null && s.k >= 5000 ? "cool" : s.k != null ? "white" : null);
+const PRESETS = { white: { k: 2700, brightness: 100 }, amber: { k: 2000, brightness: 100 }, red: { hue: 0, sat: 100, brightness: 100 }, fan: { k: 3000, brightness: 100 } };
+const presetOf = s => (s.mode === "hs" ? (s.sat > 60 && (s.hue < 20 || s.hue > 340) ? "red" : null) : s.k != null && s.k < 2400 ? "amber" : s.k != null && s.k >= 2850 ? "fan" : s.k != null ? "white" : null);
 function paintSheet() {
   const id = sheetLamp, s = lampState[id], on = !!lamps[id];
   viz.light(id, { ...s, on });
