@@ -1,0 +1,19 @@
+{
+  "name": "room-lights-relay",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@matter/main": "^0.18.0",
+    "@project-chip/matter.js": "^0.18.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "multicast-dns": "^7.2.5"
+  }
+}

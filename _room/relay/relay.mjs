@@ -1,0 +1,156 @@
+// Room Coach lamp relay. Holds the bulbs as a Matter controller on the LAN and takes commands from the Room Coach app over
+// the Supabase Realtime channel "room-lights". No cloud lighting API in the path:
+//   phone --websocket--> Supabase Realtime --websocket--> this relay --Matter, local Wi-Fi--> bulb
+//
+// Command (broadcast event "cmd"):
+//   { lamp: "pixar"|"little", on?: bool, brightness?: 1..100, k?: 2700..6500, hue?: 0..360, sat?: 0..100, t: epoch ms, sig: hex }
+//   sig = HMAC-SHA256(key = the room app key, msg = "lamp|on|brightness|k|hue|sat|t"), a missing field as "".
+//   Rejected when the signature is wrong or t is more than 10 s off this PC's clock.
+// State (broadcast event "state", on every change and in reply to "hello"):
+//   { lamp, on, brightness, k, hue, sat, mode: "ct"|"hs", online, t }
+// Presence { relay: true } while connected, so the app knows the fast path is up.
+//
+// Keys: relay.env next to this file, ROOM_KEYS=<key>[,<key>...] (never committed or logged).
+import { OnOff, LevelControl, ColorControl } from "@matter/main/clusters";
+import { NodeId } from "@matter/main";
+import { createClient } from "@supabase/supabase-js";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { readFileSync, appendFileSync, statSync, renameSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { HERE, startController, lamps } from "./matter.mjs";
+
+const URL = "https://hxaftcofwrffwjxtjeoj.supabase.co";
+const PUBLISHABLE = "sb_publishable_4TJE66VMSen-hl22kWL-Rw_8RXH_UOH"; // public by design
+const LOG = join(HERE, "relay.log");
+
+function log(...a) {
+  const line = `${new Date().toISOString()} ${a.join(" ")}\n`;
+  process.stdout.write(line);
+  try {
+    if (existsSync(LOG) && statSync(LOG).size > 5e6) renameSync(LOG, LOG + ".1");
+    appendFileSync(LOG, line);
+  } catch {}
+}
+
+const env = Object.fromEntries(readFileSync(join(HERE, "relay.env"), "utf8").split(/\r?\n/).filter((l) => /^\w+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim()]));
+const KEYS = (env.ROOM_KEYS || env.ROOM_KEY || "").split(",").map((k) => k.trim()).filter(Boolean);
+if (!KEYS.length) { log("no ROOM_KEYS in relay.env"); process.exit(1); }
+
+const field = (v) => (v === undefined || v === null ? "" : String(v));
+function verify(c) {
+  if (typeof c?.sig !== "string" || !/^[0-9a-f]{64}$/.test(c.sig)) return "bad sig";
+  if (typeof c.t !== "number" || Math.abs(Date.now() - c.t) > 10000) return "stale";
+  const msg = [c.lamp, c.on, c.brightness, c.k, c.hue, c.sat, c.t].map(field).join("|");
+  const got = Buffer.from(c.sig, "hex");
+  return KEYS.some((k) => timingSafeEqual(createHmac("sha256", k).update(msg).digest(), got)) ? null : "bad sig";
+}
+
+// ---- Matter side ----
+const NOOPTS = { optionsMask: { executeIfOff: false, coupleColorTempToLevel: false }, optionsOverride: { executeIfOff: false, coupleColorTempToLevel: false } };
+const L = {}; // name -> { node, onOff, level, color, busy, pending }
+
+async function attach(name, id, controller) {
+  const node = await controller.getNode(NodeId(BigInt(id)));
+  const lamp = (L[name] = { name, node, busy: false, pending: null });
+  const bind = () => {
+    const dev = node.getDevices().find((d) => d.getClusterClient(OnOff.Complete));
+    if (!dev) return false;
+    lamp.onOff = dev.getClusterClient(OnOff.Complete);
+    lamp.level = dev.getClusterClient(LevelControl.Complete);
+    lamp.color = dev.getClusterClient(ColorControl.Complete);
+    return true;
+  };
+  node.events.attributeChanged.on((d) => { if ([6, 8, 0x300].includes(Number(d.path.clusterId))) stateSoon(name); });
+  node.events.stateChanged.on((s) => { log(name, "node state", s); stateSoon(name); });
+  node.events.initializedFromRemote.on(() => { bind(); stateSoon(name); });
+  node.connect();
+  if (node.initialized) bind();
+  log(name, "attached as node", id);
+}
+
+async function readState(name) {
+  const l = L[name];
+  if (!l?.onOff) return { lamp: name, online: false, t: Date.now() };
+  const g = async (c, a) => { try { return await c?.attributes[a]?.get?.(); } catch { return null; } };
+  const [on, level, mode, mireds, hue, sat] = await Promise.all([g(l.onOff, "onOff"), g(l.level, "currentLevel"), g(l.color, "colorMode"),
+    g(l.color, "colorTemperatureMireds"), g(l.color, "currentHue"), g(l.color, "currentSaturation")]);
+  return {
+    lamp: name, online: !!l.node.isConnected, on: !!on,
+    brightness: level == null ? null : Math.max(1, Math.round(level / 2.54)),
+    k: mireds ? Math.round(1e6 / mireds) : null,
+    hue: hue == null ? null : Math.round(hue * 360 / 254), sat: sat == null ? null : Math.round(sat * 100 / 254),
+    mode: mode === 2 ? "ct" : "hs", t: Date.now(),
+  };
+}
+
+// One command per lamp in flight; while it runs, newer ones replace each other so a dragged slider never queues up.
+function enqueue(c) {
+  const l = L[c.lamp];
+  if (!l) return log("unknown lamp", c.lamp);
+  l.pending = { ...(l.pending || {}), ...c };
+  if (!l.busy) run(l);
+}
+async function run(l) {
+  l.busy = true;
+  while (l.pending) {
+    const c = l.pending; l.pending = null;
+    const t0 = performance.now(), did = [];
+    try {
+      if (!l.onOff) throw new Error("not connected yet");
+      if (c.on === false) { await l.onOff.off(); did.push("off"); }
+      else {
+        if (c.hue != null && c.sat != null) {
+          await l.color.moveToHueAndSaturation({ hue: Math.round((c.hue % 360) * 254 / 360), saturation: Math.round(c.sat * 2.54), transitionTime: 0, ...NOOPTS });
+          did.push(`hs ${c.hue}/${c.sat}`);
+        } else if (c.k != null) {
+          await l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: 0, ...NOOPTS });
+          did.push(`k ${c.k}`);
+        }
+        if (c.brightness != null) { await l.level.moveToLevelWithOnOff({ level: Math.round(c.brightness * 2.54), transitionTime: 0, ...NOOPTS }); did.push(`b ${c.brightness}`); }
+        else if (c.on === true) { await l.onOff.on(); did.push("on"); }
+      }
+      log(l.name, did.join(", "), `${(performance.now() - t0).toFixed(0)} ms`, `(sent ${Date.now() - c.t} ms ago)`);
+    } catch (e) {
+      log(l.name, "command failed:", e?.message ?? e);
+    }
+    stateSoon(l.name);
+  }
+  l.busy = false;
+}
+
+// ---- Realtime side ----
+const supa = createClient(URL, PUBLISHABLE, { realtime: { params: { eventsPerSecond: 30 } }, auth: { persistSession: false } });
+let channel = null;
+const timers = {};
+function stateSoon(name) {
+  clearTimeout(timers[name]);
+  timers[name] = setTimeout(async () => { if (channel) channel.send({ type: "broadcast", event: "state", payload: await readState(name) }); }, 80);
+}
+function join_() {
+  channel = supa.channel("room-lights", { config: { broadcast: { self: false, ack: false }, presence: { key: "relay" } } });
+  channel
+    .on("broadcast", { event: "cmd" }, ({ payload: c }) => {
+      const bad = verify(c);
+      if (bad) return log("rejected cmd:", bad, c?.lamp ?? "");
+      enqueue({ lamp: c.lamp, on: c.on, brightness: num(c.brightness, 1, 100), k: num(c.k, 2700, 6500), hue: num(c.hue, 0, 360), sat: num(c.sat, 0, 100), t: c.t });
+    })
+    .on("broadcast", { event: "hello" }, () => { for (const n of Object.keys(L)) stateSoon(n); })
+    .subscribe(async (status) => {
+      log("channel", status);
+      if (status === "SUBSCRIBED") { await channel.track({ relay: true, since: Date.now() }); for (const n of Object.keys(L)) stateSoon(n); }
+      if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        const old = channel; channel = null;
+        setTimeout(() => { supa.removeChannel(old).catch(() => {}); join_(); }, 3000);
+      }
+    });
+}
+const num = (v, lo, hi) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : undefined);
+
+const controller = await startController();
+for (const [name, id] of Object.entries(lamps())) await attach(name, id, controller).catch((e) => log(name, "attach failed:", e?.message ?? e));
+join_();
+log("relay up, lamps:", Object.keys(L).join(", ") || "none");
+
+const stop = async () => { log("stopping"); try { await channel?.untrack(); await controller.close(); } catch {} process.exit(0); };
+process.on("SIGINT", stop);
+process.on("SIGTERM", stop);
