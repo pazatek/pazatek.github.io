@@ -143,7 +143,23 @@ async function run(l) {
           jobs.push(l.color.moveToColorTemperature({ colorTemperatureMireds: Math.round(1e6 / c.k), transitionTime: tt, ...NOOPTS }));
           did.push(`k ${c.k}`);
         }
-        if (c.brightness != null) { jobs.push(l.level.moveToLevelWithOnOff({ level: Math.round(c.brightness * 2.54), transitionTime: tt, ...NOOPTS })); did.push(`b ${c.brightness}`); }
+        if (c.brightness != null) {
+          // The basket's H6004 wakes up dim when it is turned on by moveToLevelWithOnOff at the level it already holds: it
+          // skips the fade and stays at its floor while reporting 254 (2026-11-18, twice). So a lamp that is off is switched
+          // on first, then stepped to just under the target and up to it, which makes the bulb really move.
+          const lv = Math.max(1, Math.round(c.brightness * 2.54));
+          let wasOff = false;
+          try { wasOff = l.onOff.attributes.onOff.getLocal?.() === false; } catch {}
+          if (wasOff) {
+            jobs.push((async () => {
+              await l.onOff.on();
+              await l.level.moveToLevel({ level: Math.max(1, lv - 40), transitionTime: 0, ...NOOPTS });
+              await new Promise((r) => setTimeout(r, 150));
+              await l.level.moveToLevel({ level: lv, transitionTime: 2, ...NOOPTS });
+            })());
+            did.push(`on, b ${c.brightness} (stepped)`);
+          } else { jobs.push(l.level.moveToLevelWithOnOff({ level: lv, transitionTime: tt, ...NOOPTS })); did.push(`b ${c.brightness}`); }
+        }
         else if (c.on === true) { jobs.push(l.onOff.on()); did.push("on"); }
       }
       // A bulb that drops off (power cut, Wi-Fi) leaves its command hanging, which used to block that lamp until a restart.
