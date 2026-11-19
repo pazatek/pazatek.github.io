@@ -173,11 +173,13 @@ const viz = (() => {
   // The only light in the room: the silver arm lamp aimed at the window, what bounces back off that wall, and the small tripod lamp.
   const WX0 = 0.14, WX1 = 1.46, WY0 = 0.92, WY1 = 2.0, AIM = [0.8, 1.46, D], JOINT = [0.27, 0.92, 2.88], AIMDIR = norm(sub(AIM, JOINT)), BULB = along(JOINT, AIMDIR, 0.15);
   const MINI = [1.56, 0.95, 0.27], BASKET = [3.08, 0.26, 2.30];
+  // Which bulb is in which lamp: ARM = the silver arm lamp on the PC, SIDE = the small tripod lamp. Piotr swapped them on 2026-11-18.
+  const ARM = "little", SIDE = "pixar";
   const LIGHTS = [
-    { lamp: "pixar", p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
-    { lamp: "pixar", p: BULB, power: 0.34, r: 0.8 },
-    { lamp: "pixar", p: [0.8, 1.45, D - 0.3], power: 0.62, r: 1.5, dir: [0, 0, -1], c0: -0.1, c1: 0.4 },
-    { lamp: "little", p: [MINI[0], MINI[1] + 0.24, MINI[2]], power: 1.2, r: 0.95 },
+    { lamp: ARM, p: BULB, power: 2.3, r: 1.0, dir: AIMDIR, c0: 0.64, c1: 0.9 },
+    { lamp: ARM, p: BULB, power: 0.34, r: 0.8 },
+    { lamp: ARM, p: [0.8, 1.45, D - 0.3], power: 0.62, r: 1.5, dir: [0, 0, -1], c0: -0.1, c1: 0.4 },
+    { lamp: SIDE, p: [MINI[0], MINI[1] + 0.24, MINI[2]], power: 1.2, r: 0.95 },
   ];
   const lampOn = { pixar: true, little: true, basket: true };
   const AMBIENT = [0.39, 0.41, 0.51], WARM = [1.0, 0.85, 0.63];
@@ -322,7 +324,7 @@ const viz = (() => {
   }
 
   function armLamp() {
-    if (lampOn.pixar) {
+    if (lampOn[ARM]) {
       const beam = cone(along(JOINT, AIMDIR, 0.02), 0.035, along(JOINT, AIMDIR, 0.18), 0.1, () => {})[1].map(p => P(p[0], p[1], p[2]));
       for (let i = 0; i < 14; i++) { const a = i / 14 * 2 * Math.PI; beam.push(P(AIM[0] + 0.6 * Math.cos(a), AIM[1] + 0.6 * Math.sin(a), D - 0.003)); }
       const from = P(BULB[0], BULB[1], BULB[2]), to = P(AIM[0], AIM[1], AIM[2]), g = ctx.createLinearGradient(from[0], from[1], to[0], to[1]);
@@ -331,7 +333,7 @@ const viz = (() => {
       halo(P(BULB[0] + AIMDIR[0] * 0.05, BULB[1] + AIMDIR[1] * 0.05, BULB[2] + AIMDIR[2] * 0.05), 0.38 * sc, 0.5);
     }
 
-    const base = [0.26, 0.44, 2.71], elbow = [0.25, 0.68, 2.79], glow = lampOn.pixar ? 0.36 : 0.04;
+    const base = [0.26, 0.44, 2.71], elbow = [0.25, 0.68, 2.79], glow = lampOn[ARM] ? 0.36 : 0.04;
     const foot = cone([0.26, 0.42, 2.71], 0.075, base, 0.068, q => lit(q, "#c3c9d2", glow))[1];
     poly(foot, shade(SILVER, base, UP, glow), null);
     for (const [a, b] of [[base, elbow], [elbow, JOINT]]) {
@@ -344,7 +346,7 @@ const viz = (() => {
     lit(rings[0], "#aab0ba", glow);
   }
   function miniLamp() {
-    const [cx, y0, cz] = MINI, on = lampOn.little, hub = [cx, y0 + 0.15, cz];
+    const [cx, y0, cz] = MINI, on = lampOn[SIDE], hub = [cx, y0 + 0.15, cz];
     for (const a of [0.5, 2.6, 4.7]) litLine([cx + 0.09 * Math.cos(a), y0, cz + 0.09 * Math.sin(a)], [cx + 0.02 * Math.cos(a), y0 + 0.14, cz + 0.02 * Math.sin(a)], "#c9a67a", VIEW, 2.4, on ? 0.45 : 0.05);
     if (on) halo(P(cx, y0 + 0.22, cz), 0.62 * sc, 0.42);
     const drum = on ? ["#fff3d9", "#ffe9bd", "#fffaf0"] : [shade("#ebe8e1", hub, VIEW), shade("#dedad1", hub, VIEW), shade("#f1eee8", hub, UP)];
@@ -680,8 +682,9 @@ const viz = (() => {
     return (fitCache = [a, pts[0].px[0] - a * r0[0], pts[0].px[1] - a * r0[1]]);
   }
   function lightPhoto() {
-    photo.set("pixar", lampRGB({ ...lampLook.pixar, on: lampOn.pixar }));
-    photo.set("little", lampRGB({ ...lampLook.little, on: lampOn.little }));
+    // the photo layers are named after the lamp models: "pixar" is the arm lamp's light, "little" the tripod lamp's
+    photo.set("pixar", lampRGB({ ...lampLook[ARM], on: lampOn[ARM] }));
+    photo.set("little", lampRGB({ ...lampLook[SIDE], on: lampOn[SIDE] }));
     photo.set("basket", lampRGB({ ...lampLook.basket, on: lampOn.basket }));
     const d = Math.max(0, Math.min(1, sunWm2 / 250));
     photo.set("day", [d, d, d]);
@@ -700,14 +703,14 @@ const viz = (() => {
     daylight(wm2) { if (Number.isFinite(wm2) && wm2 !== sunWm2) { sunWm2 = wm2; if (photo) photo.dirty = true; if (still) kick(); } },
     // Where a lamp is on screen (client px), for the lamp card.
     spot(id) {
-      const r = cv.getBoundingClientRect(), at = id === "pixar" ? mix(JOINT, BULB, 0.5) : id === "basket" ? BASKET : [MINI[0], MINI[1] + 0.18, MINI[2]], p = P(at[0], at[1], at[2]);
+      const r = cv.getBoundingClientRect(), at = id === ARM ? mix(JOINT, BULB, 0.5) : id === "basket" ? BASKET : [MINI[0], MINI[1] + 0.18, MINI[2]], p = P(at[0], at[1], at[2]);
       return [r.left + p[0], r.top + p[1]];
     },
     // Which lamp a tap landed on, if any. The target is generous because the lamps are small on a phone.
     hit(clientX, clientY) {
       const r = cv.getBoundingClientRect(), x = clientX - r.left, y = clientY - r.top, reach = Math.max(26, 0.3 * sc);
       let best = null, bestD = reach;
-      for (const [id, at] of [["pixar", mix(JOINT, BULB, 0.5)], ["little", [MINI[0], MINI[1] + 0.18, MINI[2]]]].concat(photo ? [["basket", BASKET]] : [])) {
+      for (const [id, at] of [[ARM, mix(JOINT, BULB, 0.5)], [SIDE, [MINI[0], MINI[1] + 0.18, MINI[2]]]].concat(photo ? [["basket", BASKET]] : [])) {
         const p = P(at[0], at[1], at[2]), d = Math.hypot(p[0] - x, p[1] - y);
         if (d < bestD) { best = id; bestD = d; }
       }
