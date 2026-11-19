@@ -76,9 +76,16 @@ async function attach(name, id, controller) {
   };
   node.events.attributeChanged.on((d) => { if ([6, 8, 0x300].includes(Number(d.path.clusterId))) stateSoon(name); });
   node.events.stateChanged.on((s) => { log(name, "node state", s); stateSoon(name); });
-  node.events.initializedFromRemote.on(() => { bind(); stateSoon(name); });
+  const describe = () => {
+    try {
+      const b = node.basicInformation ?? {};
+      const eps = node.getDevices().map((d) => `${d.number}:${[6, 8, 0x300].filter((c) => d.getClusterClientById?.(c) ?? null).join("/")}`);
+      log(name, "is", JSON.stringify({ vendor: b.vendorName, product: b.productName, hw: b.hardwareVersionString, sw: b.softwareVersionString }), "endpoints", eps.join(" "));
+    } catch (e) { log(name, "describe failed", e?.message ?? e); }
+  };
+  node.events.initializedFromRemote.on(() => { bind(); describe(); stateSoon(name); });
   node.connect();
-  if (node.initialized) bind();
+  if (node.initialized) { bind(); describe(); }
   log(name, "attached as node", id);
 }
 
@@ -139,7 +146,8 @@ async function run(l) {
         if (c.brightness != null) { jobs.push(l.level.moveToLevelWithOnOff({ level: Math.round(c.brightness * 2.54), transitionTime: tt, ...NOOPTS })); did.push(`b ${c.brightness}`); }
         else if (c.on === true) { jobs.push(l.onOff.on()); did.push("on"); }
       }
-      await Promise.all(jobs);
+      // A bulb that drops off (power cut, Wi-Fi) leaves its command hanging, which used to block that lamp until a restart.
+      await Promise.race([Promise.all(jobs), new Promise((_, no) => setTimeout(() => no(new Error("bulb didn't answer in 4 s")), 4000))]);
       // Lets the app time the whole trip on its own clock: its round trip minus `total` is the network both ways.
       const now = performance.now();
       channel?.send({ type: "broadcast", event: "done", payload: { lamp: l.name, t: c.t, total: Math.round(now - c.rx), bulb: Math.round(now - t0) } });
@@ -148,8 +156,20 @@ async function run(l) {
       log(l.name, "command failed:", e?.message ?? e);
     }
     stateSoon(l.name);
+    liveCheck(l);
   }
   l.busy = false;
+}
+
+// Reads the bulb itself (not the subscription cache) 2 s after a command and logs it, so a bulb
+// that says one thing and does another shows up in relay.log.
+function liveCheck(l) {
+  setTimeout(async () => {
+    const get = async (c, a) => { try { return await c?.attributes[a]?.get?.(true); } catch (e) { return "err:" + (e?.message ?? e); } };
+    const [on, level, min, max, mode, mireds] = await Promise.all([get(l.onOff, "onOff"), get(l.level, "currentLevel"), get(l.level, "minLevel"),
+      get(l.level, "maxLevel"), get(l.color, "colorMode"), get(l.color, "colorTemperatureMireds")]);
+    log(l.name, "live:", JSON.stringify({ on, level, min, max, mode, mireds }));
+  }, 2000);
 }
 
 // ---- Realtime side ----
